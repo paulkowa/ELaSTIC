@@ -23,6 +23,7 @@
 #include "iomanip.hpp"
 
 #include <arpa/inet.h>
+#include <sys/time.h>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
@@ -57,6 +58,13 @@ std::istream* open_stream(const fs::path& name,
 
     return is;
 } // open_stream
+
+
+inline double get_time() {
+    timeval t;
+    gettimeofday(&t, 0);
+    return t.tv_sec + (0.000001 * t.tv_usec);
+} // get_time
 
 
 struct AppConfig {
@@ -131,25 +139,38 @@ struct AppConfig {
     unsigned short int kmer1;
     unsigned short int kmer2;
 
+    friend std::ostream& operator<<(std::ostream& os, const AppConfig& opt) {
+	os << "input = " << opt.input << "\n";
+	os << "output = " << opt.output << "\n";
+	os << "length = " << opt.length << "\n";
+	os << "clean = " << opt.clean << "\n";
+	os << "group = " << opt.group << "\n";
+	os << "kmer1 = " << opt.kmer1 << "\n";
+	os << "kmer2 = " << opt.kmer2;
+	return os;
+    } // operator<<
 }; // struct AppConfig
 
 
 struct AppLog {
-    AppLog() : argv(), input(0), extracted(0), groups(0) {
+    AppLog() : argv(), wtime(0), input(0), extracted(0), groups(0) {
 	time_t t;
 	time(&t);
-	stamp = ctime(&t);
+	date = ctime(&t);
     } // AppLog
 
-    std::string stamp;
+    std::string date;
     std::string argv;
+    double wtime;
     unsigned int input;
     unsigned int extracted;
     unsigned int groups;
 
     friend std::ostream& operator<<(std::ostream& os, const AppLog& log) {
-	os << "execution date: " << log.stamp;
+	os << "execution date: " << log.date;
+	os << "program version: " << ELASTIC_PREPARE_SHORT << " " << ELASTIC_PREPARE_VERSION << "\n";
 	os << "program options: " << log.argv << "\n";
+	os << "walltime used: " << log.wtime << "\n";
 	os << "input sequences: " << log.input << "\n";
 	os << "extracted sequences: " << log.extracted << "\n";
 	os << "output groups: " << log.groups << "\n";
@@ -287,6 +308,8 @@ void usage() {
 
 
 void run(const AppConfig& opt, AppLog& log) {
+    double t0 = get_time();
+
     // pre-open output files
     std::ofstream fmap((opt.output + ".emap").c_str());
 
@@ -467,6 +490,7 @@ void run(const AppConfig& opt, AppLog& log) {
     } // for i
 
     log.groups = cluster.size();
+    std::cout << info << "created " << cluster.size() << " output groups" << std::endl;
 
     // find longest sequence for each cluster
     // and move it to head
@@ -562,10 +586,13 @@ void run(const AppConfig& opt, AppLog& log) {
     fidx.write(reinterpret_cast<char*>(&index[0]), index.size() * sizeof(index[0]));
     fidx.close();
 
+    log.wtime = get_time() - t0;
+
     // write final log
     flog << log;
     flog.close();
 
+    std::cout << "time: " << log.wtime << std::endl;
     std::cout << "done!" << std::endl;
     std::cout << std::endl;
 } // run

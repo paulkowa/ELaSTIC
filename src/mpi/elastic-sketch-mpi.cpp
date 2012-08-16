@@ -28,6 +28,7 @@
 #include "sketch/read_input.hpp"
 #include "sketch/validate_edges.hpp"
 
+#include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/tuple/tuple.hpp>
 
@@ -48,6 +49,7 @@ void usage() {
     std::cout << "  --input name          read input from files with this prefix\n";
     std::cout << "  --output name         write output to this file\n";
     std::cout << "  --config name         read configuration from this file\n";
+    std::cout << "  --method type         use this method to validate edge: 0 - alignment, 1 - kmers count (default 0)\n";
     std::cout << "  --kmer size           use kmers of this size for sketching (default 15)\n";
     std::cout << "  --mod size            use this value to perform mod operation in sketching (default 25)\n";
     std::cout << "  --iter size           limit the number of sketching iterations to this size (default -1)\n";
@@ -66,10 +68,13 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     MPI_Comm_size(comm, &size);
     MPI_Comm_rank(comm, &rank);
 
+    double t0 = MPI_Wtime();
+
+    report << info << "using " << size << " processors..." << std::endl;
+
     // ALL ERRORS IN THIS FUNCTION ARE CRITICAL AND TERMINATE MPI
     bool res = true;
     std::string err = "";
-
 
     // read input sequence
     std::vector<Sequence> seqs;
@@ -111,12 +116,22 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 	MPI_Abort(comm, MPI_ABRT_SIG);
     }
 
-
     // done :-)
 
-    std::ofstream of((opt.output + "." + boost::lexical_cast<std::string>(rank)).c_str());
+
+    // write output
+    report << info << "writing output..." << std::endl;
+
+    boost::format fmt("%05d");
+    fmt % rank;
+
+    std::ofstream of((opt.output + "." + fmt.str()).c_str());
     std::copy(edges.begin(), edges.end(), std::ostream_iterator<read_pair>(of, "\n"));
     of.close();
+
+    // update log
+    MPI_Barrier(comm);
+    log.wtime = MPI_Wtime() - t0;
 
     // write log
     if (rank == 0) {
@@ -131,8 +146,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 	flog.close();
     }
 
-    MPI_Barrier(comm);
-
+    report << "time: " << log.wtime << std::endl;
     report << "done!" << std::endl;
 } // run
 

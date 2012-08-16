@@ -129,7 +129,10 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     read_pair* first = 0;
     read_pair* last = 0;
 
-    boost::tie(first, last) = mpix::data_bucketing(counts.begin(), counts.end(), read_pair_hash,
+    // boost::tie(first, last) = mpix::data_bucketing(counts.begin(), counts.end(), read_pair_hash,
+    // 						   MPI_READ_PAIR, 0, comm);
+
+    boost::tie(first, last) = mpix::data_bucketing(counts.begin(), counts.end(), read_pair_local_hash2(log.input, size),
 						   MPI_READ_PAIR, 0, comm);
 
     std::vector<read_pair>().swap(counts);
@@ -273,7 +276,7 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
     MPI_Reduce(&loc, &max, 1, MPI_UNSIGNED, MPI_MAX, 0, comm);
 
     report << info << "found " << tot << " candidate edges" << std::endl;
-    report << info << "edges distribution [" << min << "," << max << "]" << std::endl;
+    report << info << "edges distribution: [" << min << "," << max << "]" << std::endl;
 
     return std::make_pair(true, "");
 } // generate_edges

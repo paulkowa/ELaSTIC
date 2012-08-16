@@ -146,21 +146,24 @@ struct AppConfig {
 
 
 struct AppLog {
-    AppLog() : argv() {
+    AppLog() : argv(), cpus(0), wtime(0), input(0) {
 	time_t t;
 	time(&t);
-	stamp = ctime(&t);
+	date = ctime(&t);
     } // AppLog
 
-    std::string stamp;
+    std::string date;
     std::string argv;
     unsigned int cpus;
+    double wtime;
     unsigned int input;
 
     friend std::ostream& operator<<(std::ostream& os, const AppLog& log) {
-	os << "execution date: " << log.stamp;
+	os << "execution date: " << log.date;
+	os << "program version: " << ELASTIC_SKETCH_SHORT << " " << ELASTIC_SKETCH_VERSION << "\n";
 	os << "program options: " << log.argv << "\n";
 	os << "processors used: " << log.cpus << "\n";
+	os << "walltime used: " << log.wtime << "\n";
 	os << "input sequences: " << log.input << "\n";
 	return os;
     } // operator<<

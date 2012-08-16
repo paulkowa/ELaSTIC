@@ -1,3 +1,4 @@
+
 /***
  *  $Id$
  **
@@ -183,8 +184,22 @@ private:
     unsigned int lo_;
     unsigned int hi_;
 
-}; // class is_local
+}; // class not_local
 
+
+class partially_local {
+public:
+    partially_local(unsigned int lo, unsigned int hi) : lo_(lo), hi_(hi) { }
+
+    bool operator()(const read_pair& rp) const {
+	return (((rp.id0 >= lo_) && (rp.id0 <= hi_)) || ((rp.id1 >= lo_) && (rp.id1 <= hi_)));
+    } // operator()
+
+private:
+    unsigned int lo_;
+    unsigned int hi_;
+
+}; // class partially_local
 
 class not_collocated {
 public:
@@ -229,6 +244,21 @@ private:
     unsigned int nloc_;
     unsigned int last_;
 
-}; // class not_collocated
+}; // read_pair_local_hash
+
+class read_pair_local_hash2 {
+public:
+    read_pair_local_hash2(unsigned int n, int size) : nloc_(n / size), last_(size - 1) { }
+
+    unsigned int operator()(const read_pair& rp) const {
+	unsigned int p = (rp.id0 % 2 == 1) ? std::min((rp.id0 / nloc_), last_) : std::min((rp.id1 / nloc_), last_);
+	return p;
+    } // operator
+
+private:
+    unsigned int nloc_;
+    unsigned int last_;
+
+}; // read_pair_local_hash2
 
 #endif // SEQUENCE_HPP
