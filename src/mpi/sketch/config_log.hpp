@@ -87,7 +87,7 @@ struct AppConfig {
 
 	if (jaz::check_option(ext_conf, "level", val) == true) {
 	    level = boost::lexical_cast<short int>(val);
-	    if ((jmin < 10) || (jmin > 100)) {
+	    if ((level < 10) || (level > 100)) {
 		return std::make_pair(false, "incorrect level");
 	    }
 	}
@@ -146,7 +146,7 @@ struct AppConfig {
 
 
 struct AppLog {
-    AppLog() : argv(), cpus(0), wtime(0), input(0) {
+    AppLog() : argv(), cpus(0), wtime(0), input(0), cedges(0), vedges(0), through(0) {
 	time_t t;
 	time(&t);
 	date = ctime(&t);
@@ -157,6 +157,9 @@ struct AppLog {
     unsigned int cpus;
     double wtime;
     unsigned int input;
+    unsigned int cedges;
+    unsigned int vedges;
+    double through;
 
     friend std::ostream& operator<<(std::ostream& os, const AppLog& log) {
 	os << "execution date: " << log.date;
@@ -165,6 +168,9 @@ struct AppLog {
 	os << "processors used: " << log.cpus << "\n";
 	os << "walltime used: " << log.wtime << "\n";
 	os << "input sequences: " << log.input << "\n";
+	os << "candidate edges: " << log.cedges << "\n";
+	os << "validated edges: " << log.vedges << "\n";
+	os << "edge throughput: " << log.through << "\n";
 	return os;
     } // operator<<
 }; // struct AppLog

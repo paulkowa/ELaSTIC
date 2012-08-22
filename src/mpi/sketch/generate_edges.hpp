@@ -22,7 +22,7 @@
 
 #include <mpix/data_bucketing.hpp>
 
-#include "Sequence.hpp"
+#include "SequenceDB.hpp"
 #include "config_log.hpp"
 
 
@@ -129,10 +129,10 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     read_pair* first = 0;
     read_pair* last = 0;
 
-    // boost::tie(first, last) = mpix::data_bucketing(counts.begin(), counts.end(), read_pair_hash,
+    // boost::tie(first, last) = mpix::data_bucketing(counts.begin(), counts.end(), hash_read_pair0,
     // 						   MPI_READ_PAIR, 0, comm);
 
-    boost::tie(first, last) = mpix::data_bucketing(counts.begin(), counts.end(), read_pair_local_hash2(log.input, size),
+    boost::tie(first, last) = mpix::data_bucketing(counts.begin(), counts.end(), hash_read_pair2(log.input, size),
 						   MPI_READ_PAIR, 0, comm);
 
     std::vector<read_pair>().swap(counts);
@@ -183,7 +183,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 
     // approximate Jaccard index and filter edges
     // count is now approximated JI
-    std::transform(first, last, first, approx_jaccard(opt.kmer, opt.mod));
+    std::transform(first, last, first, approximate_jaccard(opt.kmer, opt.mod));
     last = std::remove_if(first, last, not_similar(opt.jmin));
 
     // store filtered edges (replace with inplace_merge?)
@@ -277,6 +277,8 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 
     report << info << "found " << tot << " candidate edges" << std::endl;
     report << info << "edges distribution: [" << min << "," << max << "]" << std::endl;
+
+    log.cedges = tot;
 
     return std::make_pair(true, "");
 } // generate_edges

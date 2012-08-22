@@ -21,9 +21,9 @@
 #include "SequenceCodec.hpp"
 #include "config.hpp"
 #include "iomanip.hpp"
+#include "tools.hpp"
 
 #include <arpa/inet.h>
-#include <sys/time.h>
 
 #include <boost/lexical_cast.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
@@ -58,13 +58,6 @@ std::istream* open_stream(const fs::path& name,
 
     return is;
 } // open_stream
-
-
-inline double get_time() {
-    timeval t;
-    gettimeofday(&t, 0);
-    return t.tv_sec + (0.000001 * t.tv_usec);
-} // get_time
 
 
 struct AppConfig {

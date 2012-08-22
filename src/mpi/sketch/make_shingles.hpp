@@ -20,7 +20,7 @@
 
 #include "SequenceCodec.hpp"
 
-#include "Sequence.hpp"
+#include "SequenceDB.hpp"
 #include "config_log.hpp"
 
 

@@ -21,7 +21,7 @@
 #include "config.hpp"
 #include "iomanip.hpp"
 
-#include "sketch/Sequence.hpp"
+#include "sketch/SequenceDB.hpp"
 #include "sketch/config_log.hpp"
 #include "sketch/generate_edges.hpp"
 #include "sketch/make_shingles.hpp"
@@ -50,6 +50,7 @@ void usage() {
     std::cout << "  --output name         write output to this file\n";
     std::cout << "  --config name         read configuration from this file\n";
     std::cout << "  --method type         use this method to validate edge: 0 - alignment, 1 - kmers count (default 0)\n";
+    std::cout << "  --level size          use this threshold to edges validation (default 75)\n";
     std::cout << "  --kmer size           use kmers of this size for sketching (default 15)\n";
     std::cout << "  --mod size            use this value to perform mod operation in sketching (default 25)\n";
     std::cout << "  --iter size           limit the number of sketching iterations to this size (default -1)\n";
@@ -68,6 +69,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     MPI_Comm_size(comm, &size);
     MPI_Comm_rank(comm, &rank);
 
+    MPI_Barrier(comm);
     double t0 = MPI_Wtime();
 
     report << info << "using " << size << " processors..." << std::endl;
@@ -76,9 +78,20 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     bool res = true;
     std::string err = "";
 
+
     // read input sequence
     std::vector<Sequence> seqs;
     boost::tie(res, err) = read_input(opt, log, report, comm, seqs);
+
+    if (res == false) {
+	report.critical << error << err << std::endl;
+	MPI_Abort(comm, MPI_ABRT_SIG);
+    }
+
+
+    // initialize RMA
+    SequenceRMA rma_seq(comm, log.input);
+    boost::tie(res, err) = rma_seq.init(seqs);
 
     if (res == false) {
 	report.critical << error << err << std::endl;
@@ -109,14 +122,14 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
 
     // validate candidate edges
-    boost::tie(res, err) = validate_edges(opt, log, report, seqs, edges, comm);
+    double tv0 = MPI_Wtime() - t0;
+    boost::tie(res, err) = validate_edges(opt, log, report, seqs, rma_seq, edges, comm);
+    double tv1 = MPI_Wtime() - t0;
 
     if (res == false) {
 	report.critical << error << err << std::endl;
 	MPI_Abort(comm, MPI_ABRT_SIG);
     }
-
-    // done :-)
 
 
     // write output
@@ -129,9 +142,25 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     std::copy(edges.begin(), edges.end(), std::ostream_iterator<read_pair>(of, "\n"));
     of.close();
 
+
     // update log
+    double gtv0 = 0.0;
+    double gtv1 = 0.0;
+
+    MPI_Reduce(&tv0, &gtv0, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
+    MPI_Reduce(&tv1, &gtv1, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
+
+    log.through = log.cedges / (gtv1 - gtv0);
+
+    unsigned int l = edges.size();
+    MPI_Reduce(&l, &log.vedges, 1, MPI_UNSIGNED, MPI_SUM, 0, comm);
+
     MPI_Barrier(comm);
     log.wtime = MPI_Wtime() - t0;
+
+    report << info << "generated " << log.vedges << " edges" << std::endl;
+    report << info << "edge throughput: " << log.through << std::endl;
+
 
     // write log
     if (rank == 0) {

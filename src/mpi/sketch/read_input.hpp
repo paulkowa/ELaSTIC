@@ -20,18 +20,12 @@
 #include <numeric>
 
 #include <arpa/inet.h>
-#include <sys/stat.h>
 
 #include "SequenceCodec.hpp"
-#include "Sequence.hpp"
+
+#include "SequenceDB.hpp"
 #include "config_log.hpp"
-
-
-inline unsigned long int file_size(const char* name) {
-    struct stat buf;
-    int res = stat(name, &buf);
-    return (res == 0 ? static_cast<unsigned long int>(buf.st_size) : 0);
-} // file_size
+#include "tools.hpp"
 
 
 inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log, Reporter& report,
@@ -51,18 +45,19 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
     std::vector<index_type> index;
 
     unsigned int n = fsz / sizeof(index_type);
-    unsigned int nloc = n / size;
 
-    if (nloc < 2) return std::make_pair(false, "too many processors for this problem");
+    unsigned int nloc = 0;
+    unsigned int offset = 0;
+
+    boost::tie(nloc, offset) = block<index_type>(size, rank, n);
+
+    if (nloc < 1) return std::make_pair(false, "too many processors for this problem");
 
     // read chunk of the index
     MPI_File fh;
     MPI_Status stat;
 
     char type[] = "native";
-    unsigned int offset = rank * nloc * sizeof(index_type);
-
-    if (rank == size - 1) nloc += n - (nloc * size);
     index.resize(nloc);
 
     MPI_File_open(comm, const_cast<char*>((opt.input + ".eidx").c_str()), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
@@ -75,7 +70,6 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
     // get offset of the actual data to read
     unsigned int goffset = 0;
     offset = std::accumulate(index.begin(), index.end(), 0);
-
     MPI_Exscan(&offset, &goffset, 1, MPI_UNSIGNED, MPI_SUM, comm);
 
     // read actual data

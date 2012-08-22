@@ -2,7 +2,7 @@ include ../../config.mk
 
 CXXFLAGS=-O3 -I. -I.. -I../../include
 LDFLAGS=-L../
-LDLIBS=-liomanip
+LDLIBS=-liomanip $(MPEFLAGS)
 
 ifdef BOOST_INCLUDE
     CXXFLAGS+=$(BOOST_INCLUDE)
