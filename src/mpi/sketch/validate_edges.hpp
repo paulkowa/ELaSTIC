@@ -52,26 +52,62 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
     // here we go with real work
     report << info << "processing remaining edges: " << std::flush;
 
-    std::string s = "";
-    id2cpu i2c(n, size);
+    id2rank i2r(n, size);
+    unsigned int step = (static_cast<double>(last) / 10) + 0.5;
 
-    unsigned int step = std::max<unsigned int>((static_cast<double>(last) / 10) + 0.5, 1);
+    // sort according to location
+    read2rank r2r(rank, i2r);
+    std::vector<rank_read_t> rank_id(last);
 
-    for (unsigned int i = 0; i < last; ++i) {
-	if (i2c(edges[i].id0) == rank) {
-	    // id0 is local
-	    s = rma_seq.get(edges[i].id1);
-	    edges[i] = ident(edges[i], s);
-	} else {
-	    s = rma_seq.get(edges[i].id0);
-	    edges[i] = ident(s, edges[i]);
-	}
-	if (i % step == 0) report << "." << std::flush;
-    } // for i
+    if (opt.rma < 2) {
+	// order is important!!!
+	std::sort(edges.begin(), edges.begin() + last, compare_rank(r2r));
+    }
+
+    if (opt.rma == 0) {
+	std::transform(edges.begin(), edges.begin() + last, rank_id.begin(), r2r);
+
+	// get blocks and process
+	std::vector<std::string> sv;
+	unsigned int pos = 0;
+
+	report << "." << std::flush;
+	for (unsigned int i = 1; i < last + 1; ++i) {
+	    if (i % step == 0) report << "." << std::flush;
+	    int crank = -1;
+	    unsigned int d = 0;
+	    if (i < last) {
+		crank = rank_id[i].first;
+		d = rank_id[i].second - rank_id[i - 1].second;
+	    }
+	    if ((rank_id[pos].first != crank) || (d > 1)) {
+		rma_seq.get(rank_id.begin() + pos, rank_id.begin() + i, sv);
+		for (unsigned int j = pos; j < i; ++j) {
+		    if (i2r(edges[j].id0) == rank) edges[j] = ident(edges[j], sv[j - pos]);
+		    else edges[j] = ident(sv[j - pos], edges[j]);
+		} // for j
+		pos = i;
+	    } // if
+	} // for i
+    } else {
+	std::string s = "";
+
+	for (unsigned int i = 0; i < last; ++i) {
+	    if (i % step == 0) report << "." << std::flush;
+	    if (i2r(edges[i].id0) == rank) {
+		// id0 is local
+		s = rma_seq.get(edges[i].id1);
+		edges[i] = ident(edges[i], s);
+	    } else {
+		s = rma_seq.get(edges[i].id0);
+		edges[i] = ident(s, edges[i]);
+	    }
+	} // for i
+    } // if opt.rma
 
     report << "" << std::endl;
-    report << "cleaning edges..." << std::endl;
 
+    report << "cleaning edges..." << std::endl;
     edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar(opt.level)), edges.end());
 
     return std::make_pair(true, "");

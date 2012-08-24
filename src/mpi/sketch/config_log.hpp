@@ -35,6 +35,7 @@ struct AppConfig {
 	iter = -1;
 	cmax = 5000;
 	jmin = 50;
+	rma = 0;
     } // AppConfig
 
     template <typename Container>
@@ -129,6 +130,11 @@ struct AppConfig {
 	    }
 	}
 
+	// temporal options
+	if (jaz::check_option(ext_conf, "rma", val) == true) {
+	    rma = boost::lexical_cast<short int>(val);
+	}
+
 	return std::make_pair(true, "");
     } // set
 
@@ -141,6 +147,7 @@ struct AppConfig {
     short int iter;
     unsigned int cmax;
     unsigned short int jmin;
+    short int rma;
 
 }; // struct AppConfig
 

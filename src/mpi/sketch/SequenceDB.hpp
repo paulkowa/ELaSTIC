@@ -37,11 +37,11 @@ inline std::pair<unsigned int, unsigned int> block(int size, int rank, unsigned 
     return std::make_pair(nloc, offset);
 } // block
 
-class id2cpu {
+class id2rank {
 public:
-    explicit id2cpu(unsigned int n = 1, int size = 1) {
+    explicit id2rank(unsigned int n = 1, int size = 1) {
 	nloc_ = ((static_cast<double>(n) / size) + 0.5);
-    } // id2cpu
+    } // id2rank
 
     unsigned int operator()(unsigned int id) const { return id / nloc_; }
 
@@ -53,7 +53,7 @@ public:
 private:
     unsigned int nloc_;
 
-}; // class id2cpu
+}; // class id2rank
 
 
 
@@ -74,7 +74,7 @@ public:
 	: comm_(comm), is_active_(false), index_(0), seqs_(0) {
 	int size;
 	MPI_Comm_size(comm, &size);
-	i2c_ = id2cpu(n, size);
+	i2r_ = id2rank(n, size);
     } // SequenceRMA
 
     ~SequenceRMA() {
@@ -128,7 +128,7 @@ public:
 
 	unsigned int rank = 0;
 	unsigned int offset = 0;
-	boost::tie(rank, offset) = i2c_[id];
+	boost::tie(rank, offset) = i2r_[id];
 
 	unsigned int len[2];
 
@@ -147,11 +147,57 @@ public:
     } // get
 
 
+    template <typename Iter>
+    void get(Iter first, Iter last, std::vector<std::string>& sv) {
+	if (is_active_ == false) {
+	    sv.clear();
+	    return;
+	}
+
+	if (first == last) return;
+
+	unsigned int rank = first->first;
+
+	// that many sequences we need
+	unsigned int m = last - first;
+	last--;
+
+	// this is how many positions they span
+	unsigned int l = (last->second - first->second) + 1;
+
+	// get index
+	soffset_.resize(l + 1);
+
+	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, index_win_);
+	MPI_Get(&soffset_[0], l + 1, MPI_UNSIGNED, rank, first->second, l + 1, MPI_UNSIGNED, index_win_);
+	MPI_Win_unlock(rank, index_win_);
+
+	// get data
+	l = soffset_.back() - soffset_.front();
+	buf_.resize(l);
+
+	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, seqs_win_);
+	MPI_Get(&buf_[0], l, MPI_CHAR, rank, soffset_[0], l, MPI_CHAR, seqs_win_);
+	MPI_Win_unlock(rank, seqs_win_);
+
+	// extract sequences
+	unsigned int off = soffset_[0];
+	for (unsigned int i = 0; i < soffset_.size(); ++i) soffset_[i] -= off;
+
+	sv.resize(m);
+
+	for (unsigned int i = 0; i < m; ++i) {
+	    unsigned int pos = first[i].second - first[0].second;
+	    sv[i] = std::string(buf_.begin() + soffset_[pos], buf_.begin() + soffset_[pos + 1]);
+	}
+    } // get
+
+
 private:
     SequenceRMA(const SequenceRMA&);
     void operator=(const SequenceRMA&);
 
-    id2cpu i2c_;
+    id2rank i2r_;
 
     MPI_Comm comm_;
     bool is_active_;
@@ -162,6 +208,7 @@ private:
     MPI_Win index_win_;
     MPI_Win seqs_win_;
 
+    std::vector<unsigned int> soffset_;
     std::vector<char> buf_;
 
 }; // SequenceRMA
@@ -250,29 +297,66 @@ inline read_pair make_read_pair(const sketch_id& r0, const sketch_id& r1) {
     return tmp;
 } // make_read_pair
 
+typedef std::pair<unsigned int, unsigned int> rank_read_t;
+
+class read2rank {
+public:
+    explicit read2rank(int rank, const id2rank& i2r) : rank_(rank), i2r_(i2r) { }
+
+    rank_read_t operator()(const read_pair& rp) const {
+	unsigned int rank0, id0;
+	unsigned int rank1, id1;
+	boost::tie(rank0, id0) = i2r_[rp.id0];
+	boost::tie(rank1, id1) = i2r_[rp.id1];
+	return (rank_ == rank0) ? std::make_pair(rank1, id1) : std::make_pair(rank0, id0);
+    } // operator
+
+private:
+    int rank_;
+    const id2rank& i2r_;
+
+}; // read2rank
+
+class compare_rank {
+public:
+    explicit compare_rank(const read2rank& r2r) : r2r_(r2r) { }
+
+    bool operator()(const read_pair& rd0, const read_pair& rd1) const {
+	unsigned int rank0, id0;
+	unsigned int rank1, id1;
+	boost::tie(rank0, id0) = r2r_(rd0);
+	boost::tie(rank1, id1) = r2r_(rd1);
+	return ((rank0 < rank1) || (!(rank1 < rank0) && (id0 < id1)));
+    } // operator()
+
+private:
+    read2rank r2r_;
+
+}; // class compare_rank
+
 inline unsigned int hash_read_pair0(const read_pair& rp) { return rp.id0; }
 
 class hash_read_pair1 {
 public:
-    hash_read_pair1(unsigned int n, int size) : i2c_(n, size) { }
+    hash_read_pair1(unsigned int n, int size) : i2r_(n, size) { }
 
-    unsigned int operator()(const read_pair& rp) const { return i2c_(rp.id0); }
+    unsigned int operator()(const read_pair& rp) const { return i2r_(rp.id0); }
 
 private:
-    id2cpu i2c_;
+    id2rank i2r_;
 
 }; // hash_read_pair1
 
 class hash_read_pair2 {
 public:
-    hash_read_pair2(unsigned int n, int size) : i2c_(n, size) { }
+    hash_read_pair2(unsigned int n, int size) : i2r_(n, size) { }
 
     unsigned int operator()(const read_pair& rp) const {
-	return ((rp.id0 % 2 == 1) ? i2c_(rp.id0) : i2c_(rp.id1));
+	return ((rp.id0 % 2 == 1) ? i2r_(rp.id0) : i2r_(rp.id1));
     } // operator()
 
 private:
-    id2cpu i2c_;
+    id2rank i2r_;
 
 }; // hash_read_pair2
 
@@ -323,16 +407,16 @@ private:
 
 class not_collocated {
 public:
-    not_collocated(unsigned int n, int size) :  i2c_(n, size) { }
+    not_collocated(unsigned int n, int size) :  i2r_(n, size) { }
 
     bool operator()(const read_pair& rp) const {
-	int p0 = i2c_(rp.id0);
-	int p1 = i2c_(rp.id1);
+	int p0 = i2r_(rp.id0);
+	int p1 = i2r_(rp.id1);
 	return (p0 != p1);
     } // operator
 
 private:
-    id2cpu i2c_;
+    id2rank i2r_;
 
 }; // class not_collocated
 
