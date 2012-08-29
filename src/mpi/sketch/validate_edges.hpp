@@ -78,7 +78,7 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
 	    unsigned int d = 0;
 	    if (i < last) {
 		crank = rank_id[i].first;
-		d = rank_id[i].second - rank_id[i - 1].second;
+		// d = rank_id[i].second - rank_id[i - 1].second;
 	    }
 	    if ((rank_id[pos].first != crank) || (d > 1)) {
 		rma_seq.get(rank_id.begin() + pos, rank_id.begin() + i, sv);
