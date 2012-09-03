@@ -67,27 +67,31 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
     if (opt.rma == 0) {
 	std::transform(edges.begin(), edges.begin() + last, rank_id.begin(), r2r);
 
-	// get blocks and process
-	std::vector<std::string> sv;
+	// identify blocks
+	std::vector<std::pair<unsigned int, unsigned int> > range;
 	unsigned int pos = 0;
 
-	report << "." << std::flush;
 	for (unsigned int i = 1; i < last + 1; ++i) {
-	    if (i % step == 0) report << "." << std::flush;
 	    int crank = -1;
-	    unsigned int d = 0;
-	    if (i < last) {
-		crank = rank_id[i].first;
-		// d = rank_id[i].second - rank_id[i - 1].second;
-	    }
-	    if ((rank_id[pos].first != crank) || (d > 1)) {
-		rma_seq.get(rank_id.begin() + pos, rank_id.begin() + i, sv);
-		for (unsigned int j = pos; j < i; ++j) {
-		    if (i2r(edges[j].id0) == rank) edges[j] = ident(edges[j], sv[j - pos]);
-		    else edges[j] = ident(sv[j - pos], edges[j]);
-		} // for j
+	    if (rank_id[pos].first != crank) {
+		range.push_back(std::make_pair(pos, i));
 		pos = i;
-	    } // if
+	    }
+	} // for i
+
+	// process blocks
+	step = (static_cast<double>(range.size()) / 10) + 0.5;
+	std::vector<std::string> sv;
+
+	for (unsigned int i = 0; i < range.size(); ++i) {
+	    if (i % step == 0) report << "." << std::flush;
+	    rma_seq.get(rank_id.begin() + range[i].first, rank_id.begin() + range[i].second, sv);
+
+	    for (unsigned int j = range[i].first; j < range[i].second; ++j) {
+		if (i2r(edges[j].id0) == rank) edges[j] = ident(edges[j], sv[j - pos]);
+		else edges[j] = ident(sv[j - pos], edges[j]);
+	    } // for j
+
 	} // for i
     } else {
 	std::string s = "";
