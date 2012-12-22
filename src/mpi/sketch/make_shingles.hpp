@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the [LICENSE].
+ *  Distributed under the License.
  *  See accompanying LICENSE.
  *
  *  This file is part of ELaSTIC.
@@ -26,19 +26,19 @@
 
 template <typename Hash>
 std::pair<bool, std::string> make_shingles(const AppConfig& opt, AppLog& log, Reporter& report,
-					   const std::vector<Sequence>& seqs, const Hash& hash,
+					   const SequenceList& SL, const Hash& hash,
 					   std::vector<shingle_list_type>& shingles) {
     report << step << "creating shingles..." << std::endl;
 
     unsigned short int k = opt.kmer;
-    unsigned int n = seqs.size();
+    unsigned int n = SL.seqs.size();
 
-    SequenceCodec sc;
+    SequenceCodec sc(opt.is_dna);
     shingles.resize(n);
 
     for (unsigned int i = 0; i < n; ++i) {
-	unsigned int l = seqs[i].s.size();
-        const char* s = seqs[i].s.c_str();
+	unsigned int l = SL.seqs[i].s.size();
+        const char* s = SL.seqs[i].s.c_str();
 
 	shingles[i].resize(l - k + 1);
 

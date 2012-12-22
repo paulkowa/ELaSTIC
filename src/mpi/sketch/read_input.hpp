@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the [LICENSE].
+ *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
  *  This file is part of ELaSTIC.
@@ -28,8 +28,8 @@
 #include "tools.hpp"
 
 
-inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log, Reporter& report,
-					       MPI_Comm comm, std::vector<Sequence>& seqs) {
+inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
+					       SequenceList& SL) {
     report << step << "reading input sequnces..." << std::endl;
 
     int size, rank;
@@ -45,12 +45,12 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
     std::vector<index_type> index;
 
     unsigned int n = fsz / sizeof(index_type);
+    SL.N = n;
 
     unsigned int nloc = 0;
     unsigned int offset = 0;
 
     boost::tie(nloc, offset) = block<index_type>(size, rank, n);
-
     if (nloc < 1) return std::make_pair(false, "too many processors for this problem");
 
     // read chunk of the index
@@ -84,7 +84,9 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
     MPI_File_close(&fh);
 
     // extract sequences
-    SequenceCodec sc;
+    std::vector<Sequence>& seqs = SL.seqs;
+
+    SequenceCodec sc(opt.is_dna);
     seqs.resize(nloc);
 
     unsigned int pos = index[0];
@@ -99,9 +101,11 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
     for (unsigned int i = 1; i < nloc; ++i) {
 	seqs[i].id = ntohl(*reinterpret_cast<uint32_t*>(&data[pos]));
 	seqs[i].s = sc.decode(std::string(data.begin() + pos + 4, data.begin() + pos + index[i]));
+
 	if ((seqs[i].s.size() < opt.kmer) || (seqs[i].s.find('?') != std::string::npos)) {
 	    return std::make_pair(false, "invalid input sequence, change kmer?");
 	}
+
 	pos += index[i];
     }
 

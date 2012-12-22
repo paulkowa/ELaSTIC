@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the [LICENSE].
+ *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
  *  This file is part of ELaSTIC.

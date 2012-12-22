@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the [LICENSE].
+ *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
  *  This file is part of ELaSTIC.
@@ -24,10 +24,40 @@
 #include "config_log.hpp"
 
 
-inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog& log, Reporter& report,
-						   const std::vector<Sequence>& seqs, SequenceRMA& rma_seq,
-						   std::vector<read_pair>& edges,
-						   MPI_Comm comm) {
+class general_compare {
+public:
+    explicit general_compare(const AppConfig& opt) : method_(opt.method) {
+	switch (opt.method) {
+	  case 0:
+	      A_ = alignment_identity(opt.gaps[0], opt.gaps[1], opt.gaps[2], opt.gaps[3]);
+	      break;
+	  case 1:
+	      K_ = kmer_identity(opt.kmer, opt.is_dna);
+	      break;
+	}
+    } // general_compare
+
+    unsigned short int operator()(const std::string& s0, const std::string& s1) {
+	switch (method_) {
+	  case 0: return A_(s0, s1);
+	  case 1: return K_(s0, s1);
+	}
+	return 0;
+    } // operator()
+
+private:
+    alignment_identity A_;
+    kmer_identity K_;
+
+    unsigned int method_;
+
+}; // struct general_compare
+
+
+// generate_edges guarantees that at least one node is local for each edge!
+inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
+						   const SequenceList& SL, SequenceRMA& rma_seq,
+						   std::vector<read_pair>& edges) {
     report << step << "validating edges:" << std::endl;
 
     int size, rank;
@@ -35,36 +65,39 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
     MPI_Comm_size(comm, &size);
     MPI_Comm_rank(comm, &rank);
 
-    unsigned int n = log.input;
-
-    // generate_edges guarantees that at least one node is local for each edge!
-
     // divide into remote and local
     unsigned int last =
-	std::partition(edges.begin(), edges.end(), not_local(seqs.front().id, seqs.back().id)) - edges.begin();
+	std::partition(edges.begin(), edges.end(), not_local(SL.seqs.front().id, SL.seqs.back().id)) - edges.begin();
 
     // local edges are easy :-)
     report << info << "processing local edges..." << std::endl;
 
-    sequence_identity ident(seqs, opt.method, opt.kmer, size, rank, n);
+    sequence_identity<general_compare> ident(SL, SL.seqs.front().id, general_compare(opt));
     std::transform(edges.begin() + last, edges.end(), edges.begin() + last, ident);
 
     // here we go with real work
     report << info << "processing remaining edges: " << std::flush;
 
-    id2rank i2r(n, size);
-    unsigned int step = (static_cast<double>(last) / 10) + 0.495;
+    id2rank i2r(SL.N, size);
+
+    unsigned int step = (static_cast<double>(last) / 10) + 0.5;
+    if (step == 0) step = 1;
 
     // sort according to location
     read2rank r2r(rank, i2r);
     std::vector<rank_read_t> rank_id(last);
 
+    // rma0 - sequences prefetched in blocks, blocks in random order
+    // rma1 - sequences accessed one-by-one, in ordered fashion
+    // rma2 - sequences accessed one-by-one, in random order
+
+    // sort by rank and local id
     if (opt.rma < 2) {
-	// order is important!!!
 	std::sort(edges.begin(), edges.begin() + last, compare_rank(r2r));
     }
 
     if (opt.rma == 0) {
+	// we transform sorted edges to reads location
 	std::transform(edges.begin(), edges.begin() + last, rank_id.begin(), r2r);
 
 	// identify blocks
@@ -84,7 +117,9 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
 	std::random_shuffle(range.begin(), range.end());
 
 	// process blocks
-	step = (static_cast<double>(range.size()) / 10) + 0.495;
+	step = (static_cast<double>(range.size()) / 10) + 0.5;
+	if (step == 0) step = 1;
+
 	std::vector<std::string> sv;
 
 	for (unsigned int i = 0; i < range.size(); ++i) {

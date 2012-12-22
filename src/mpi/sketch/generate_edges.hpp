@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the [LICENSE].
+ *  Distributed under the License.
  *  See accompanying LICENSE.
  *
  *  This file is part of ELaSTIC.
@@ -74,9 +74,9 @@ inline void update_counts(Iter first, Iter last,
 } // update_counts
 
 
-inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppLog& log, Reporter& report,
-						      const sketch_id* sr, const sketch_id* sr_end,
-						      MPI_Comm comm,
+template <typename Hash>
+inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
+						      const sketch_id* sr, const sketch_id* sr_end, Hash hash,
 						      std::vector<read_pair>& edges) {
     int size, rank;
 
@@ -129,12 +129,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     read_pair* first = 0;
     read_pair* last = 0;
 
-    // boost::tie(first, last) = mpix::data_bucketing(counts.begin(), counts.end(), hash_read_pair0,
-    // 						   MPI_READ_PAIR, 0, comm);
-
-    boost::tie(first, last) = mpix::data_bucketing(counts.begin(), counts.end(), hash_read_pair2(log.input, size),
-						   MPI_READ_PAIR, 0, comm);
-
+    boost::tie(first, last) = mpix::data_bucketing(counts.begin(), counts.end(), hash, MPI_READ_PAIR, 0, comm);
     std::vector<read_pair>().swap(counts);
 
     std::sort(first, last);
@@ -181,9 +176,9 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 	rem_index.swap(rem_index_recv);
     } // for i
 
-    // approximate Jaccard index and filter edges
-    // count is now approximated JI
-    std::transform(first, last, first, approximate_jaccard(opt.kmer, opt.mod));
+    // approximate kmer fraction and filter edges
+    // count is now approximated kmer fraction
+    std::transform(first, last, first, appx_kmer_fraction(opt.kmer, opt.mod));
     last = std::remove_if(first, last, not_similar(opt.jmin));
 
     // store filtered edges (replace with inplace_merge?)
@@ -198,10 +193,8 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 } // extract_seq_pairs
 
 
-inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog& log, Reporter& report,
-						   const std::vector<Sequence>& seqs,
-						   const std::vector<shingle_list_type>& shingles,
-						   MPI_Comm comm,
+inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
+						   const SequenceList& SL, const std::vector<shingle_list_type>& shingles,
 						   std::vector<read_pair>& edges) {
     report << step << "extracting candidate edges..." << std::endl;
 
@@ -212,7 +205,7 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 
     std::vector<sketch_id> sketch_list;
 
-    unsigned int n = seqs.size();
+    unsigned int n = SL.seqs.size();
     unsigned int end = std::min(opt.iter, opt.mod);
 
     // register MPI type for sketch_id pair
@@ -228,8 +221,8 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 
 	// get sketch-read pairs for given mod value
 	for (unsigned int j = 0; j < n; ++j) {
-	    unsigned int id = seqs[j].id;
-	    unsigned short int len = seqs[j].s.size();
+	    unsigned int id = SL.seqs[j].id;
+	    unsigned short int len = SL.seqs[j].s.size();
 
 	    unsigned int l = shingles[j].size();
 
@@ -244,7 +237,7 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 	sketch_id* first = 0;
 	sketch_id* last = 0;
 
-	boost::tie(first, last) = mpix::data_bucketing(sketch_list.begin(), sketch_list.end(), sketch_id_hash,
+	boost::tie(first, last) = mpix::data_bucketing(sketch_list.begin(), sketch_list.end(), hash_sketch_id,
 						       MPI_SKETCH_ID, 0, comm);
 
 	sketch_list.clear();
@@ -254,8 +247,8 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 	    report.critical << warning << "{" << rank << "}" << " empty list of sketches!" << std::endl;
 	}
 
-	// extract read pairs with common sketches
-	extract_seq_pairs(opt, log, report, first, last, comm, edges);
+	// add to edges read pairs with common sketches
+	extract_seq_pairs(opt, log, report, comm, first, last, hash_read_pair2(SL.N, size), edges);
 
 	delete[] first;
     } // for i
@@ -278,6 +271,7 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
     report << info << "found " << tot << " candidate edges" << std::endl;
     report << info << "edges distribution: [" << min << "," << max << "]" << std::endl;
 
+    // update log
     log.cedges = tot;
 
     return std::make_pair(true, "");

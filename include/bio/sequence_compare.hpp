@@ -8,8 +8,6 @@
  *  Copyright (c) 2012 Jaroslaw Zola
  *  Distributed under the Boost Software License.
  *
- *  This code has been derived from the bio package by Jaroslaw Zola.
- *
  *  Boost Software License - Version 1.0 - August 17th, 2003
  *
  *  Permission is hereby granted, free of charge, to any person or organization
@@ -40,18 +38,196 @@
 
 #include <algorithm>
 #include <cstring>
+#include <functional>
+#include <map>
 #include <string>
 #include <vector>
+
+#include <boost/tuple/tuple.hpp>
 
 
 namespace bio {
 
-  class global_alignment {
-  public:
-      explicit global_alignment(int m = 0, int mm = 0, int g = 0, int h = 0)
-	  : m_(m), mm_(mm), g_(g), h_(h) { }
+  namespace detail {
 
-      unsigned int operator()(const std::string& s0, const std::string& s1) {
+    // this code comes from jaz
+    template <typename Iter1, typename Iter2, typename Pred>
+    std::size_t intersection_size(Iter1 first1, Iter1 last1, Iter2 first2, Iter2 last2, Pred pred) {
+	std::size_t S = 0;
+
+	while ((first1 != last1) && (first2 != last2)) {
+	    if (pred(*first1, *first2)) ++first1;
+	    else if (pred(*first2, *first1)) ++first2;
+	    else {
+		first1++;
+		first2++;
+		S++;
+	    }
+	} // while
+
+	return S;
+    } // intersection_size
+
+
+    template <typename Iter1, typename Iter2>
+    int count_distance(Iter1 first1, Iter1 last1, Iter2 first2, Iter2 last2) {
+	int S = 0;
+
+	while ((first1 != last1) && (first2 != last2)) {
+	    if (first1->first < first2->first) {
+		S += (first1->second * first1->second);
+		++first1;
+	    }
+	    else if (first2->first < first1->first) {
+		S += (first2->second * first2->second);
+		++first2;
+	    }
+	    else {
+		int d = (first1->second - first2->second);
+		S += d * d;
+		first1++;
+		first2++;
+	    }
+	} // while
+
+	return S;
+    } // count_distance
+
+
+    template <typename Sequence> void general_kmer_index(const std::string& s, unsigned int k, Sequence& S) {
+	unsigned int l = s.size();
+	unsigned int end = l - k + 1;
+	S.resize(end);
+	for (unsigned int i = 0; i < end; ++i) {
+	    S[i] = std::string(s.begin() + i, s.begin() + i + k);
+	}
+    } // general_kmer_count
+
+
+    template <typename Map> void general_kmer_count(const std::string& s, unsigned int k, Map& S) {
+	S.clear();
+	unsigned int l = s.size();
+	unsigned int end = l - k + 1;
+	for (unsigned int i = 0; i < end; ++i) {
+	    S[std::string(s.begin() + i, s.begin() + i + k)]++;
+	}
+    } // general_kmer_count
+
+
+    class dna_digit {
+    public:
+	dna_digit() {
+	    std::memset(digit_, 0, 256);
+	    digit_['c'] = digit_['C'] = 1;
+	    digit_['g'] = digit_['G'] = 2;
+	    digit_['t'] = digit_['T'] = 3;
+	    digit_['u'] = digit_['U'] = 3;
+	} // dna_digit
+
+    protected:
+	char digit_[256];
+
+    }; // dna_digit
+
+
+    class dna_kmer_index : public dna_digit {
+    public:
+	dna_kmer_index() : dna_digit() { }
+
+	template <typename Sequence>
+	void operator()(const std::string& s, unsigned int k, Sequence& S) {
+	    unsigned int l = s.size();
+	    unsigned int end = l - k + 1;
+
+	    S.resize(end);
+
+	    // first kmer
+	    unsigned long long int v = digit_[s[k - 1]];
+	    for (unsigned int i = 0; i < k - 1; ++i) {
+		v += digit_[s[i]] * (1ULL << ((k - i - 1) << 1));
+	    }
+
+	    S[0] = v;
+
+	    // and then all other
+	    unsigned long long int b = 1ULL << ((k - 1) << 1);
+
+	    for (unsigned int i = 1; i < end; ++i) {
+		v = (v - b * digit_[s[i - 1]]) * 4 + digit_[s[i + k - 1]];
+		S[i] = v;
+	    }
+
+	    std::sort(S.begin(), S.end());
+	} // operator()
+
+    }; // class dna_kmer_index
+
+
+    class dna_kmer_count : public dna_digit {
+    public:
+	dna_kmer_count() : dna_digit() { }
+
+	template <typename Map>
+	void operator()(const std::string& s, unsigned int k, Map& S) {
+	    unsigned int l = s.size();
+	    unsigned int end = l - k + 1;
+
+	    // first kmer
+	    unsigned long long int v = digit_[s[k - 1]];
+
+	    for (unsigned int i = 0; i < k - 1; ++i) {
+		v += digit_[s[i]] * (1ULL << ((k - i - 1) << 1));
+	    }
+
+	    S[v] = 1;
+
+	    // and then all other
+	    unsigned long long int b = 1ULL << ((k - 1) << 1);
+
+	    for (unsigned int i = 1; i < end; ++i) {
+		v = (v - b * digit_[s[i - 1]]) * 4 + digit_[s[i + k - 1]];
+		S[v]++;
+	    }
+	} // operator()
+
+    }; // class dna_kmer_count
+
+  } // namespace detail
+
+
+
+  template <typename Derived> struct sequence_compare {
+      boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
+	  return static_cast<Derived*>(this)->operator()(s0, s1);
+      }
+  }; // struct sequence_compare
+
+
+  /** Class: global_alignment
+   *  Functor implementing memory-efficient global pairwise sequence alignment
+   *  with affine gap penalty. The implementation is alphabet oblivious.
+   *  No thread safety guarantees.
+   */
+  class global_alignment : public sequence_compare<global_alignment> {
+  public:
+      /** Constructor: global_alignment
+       *
+       *  Parameter:
+       *  m - Match score (some positive number).
+       *  s - Substitution penalty (usually negative number).
+       *  g - Gap opening penalty (negative number).
+       *  h - Gap extension penalty (negative number).
+       */
+      explicit global_alignment(int m = 0, int s = 0, int g = 0, int h = 0)
+	  : m_(m), s_(s), g_(g), h_(h) { }
+
+      /** Function: operator()
+       *  Compute alignment score between s0 and s1.
+       *
+       *  Returns:
+       *  3-tuple (alignment score, alignment length, number of matches).
+       */
+      boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
 	  unsigned int n = s0.size() + 1;
 	  unsigned int m = s1.size() + 1;
 
@@ -85,7 +261,7 @@ namespace bio {
 		  Di = std::max(Di, Si + g_) + h_;
 		  I_[j] = std::max(I_[j], S_[j] + g_) + h_;
 
-		  int d = (s0[i - 1] == s1[j - 1]) ? m_ : mm_;
+		  int d = (s0[i - 1] == s1[j - 1]) ? m_ : s_;
 
 		  Si = Sij + d;
 
@@ -143,9 +319,8 @@ namespace bio {
 	      length++;
 	  } // while
 
-	  return (100 * match) / length;
+	  return boost::make_tuple(S_.back(), length, match);
       } // operator()
-
 
   private:
       enum { TOP, LEFT, DIAG };
@@ -156,7 +331,7 @@ namespace bio {
       std::vector<int> I_;
 
       int m_;
-      int mm_;
+      int s_;
 
       int g_;
       int h_;
@@ -164,119 +339,169 @@ namespace bio {
   }; // class global_alignment
 
 
-  class dna_jaccard_index {
+  /** Class: d2
+   *  Functor to compute the d2 distance.
+   *  No thread safety guarantees.
+   */
+  class d2 : public sequence_compare<d2> {
   public:
-      explicit dna_jaccard_index(unsigned int k = 0, unsigned int e = 0) : k_(k), e_(e) {
-	  std::memset(digit_, 0, 256);
-	  digit_['c'] = digit_['C'] = 1;
-	  digit_['g'] = digit_['G'] = 2;
-	  digit_['t'] = digit_['T'] = 3;
-	  digit_['u'] = digit_['U'] = 3;
-      } // dna_jaccard_index
+      /** Constructor: d2
+       *
+       *  Parameter:
+       *  k - kmer length.
+       *  isdna - assume that input sequences are DNA/RNA.
+       */
+      explicit d2(unsigned int k = 0, bool isdna = true) : k_(k), isdna_(isdna) { }
 
-      unsigned int operator()(const std::string& s0, const std::string& s1) {
-	  if (e_ == 0) {
-	      prv_create_index__(s0, p0_);
-	      prv_create_index__(s1, p1_);
+      /** Function: operator()
+       *  Compute d2 score between s0 and s1.
+       *
+       *  Returns:
+       *  3-tuple (d2 score, number of unique kmers in s0, number of unique kmers in s1).
+       */
+      boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
+	  if ((s0.size() < k_) || (s1.size() < k_)) return boost::make_tuple(-1, -1, -1);
+
+	  if (isdna_ == true) {
+	      dC_(s0, k_, dcount0_);
+	      dC_(s1, k_, dcount1_);
+	      int S = detail::count_distance(dcount0_.begin(), dcount0_.end(),
+					     dcount1_.begin(), dcount1_.end());
+	      return boost::make_tuple(S, dcount0_.size(), dcount1_.size());
 	  } else {
-	      prv_create_spaced_index__(s0, p0_);
-	      prv_create_spaced_index__(s1, p1_);
+	      detail::general_kmer_count(s0, k_, count0_);
+	      detail::general_kmer_count(s1, k_, count1_);
+	      int S = detail::count_distance(count0_.begin(), count0_.end(),
+					     count1_.begin(), count1_.end());
+	      return boost::make_tuple(S, count0_.size(), count1_.size());
 	  }
 
-	  std::sort(p0_.begin(), p0_.end());
-	  std::sort(p1_.begin(), p1_.end());
-
-	  return prv_count_common__();
+	  return boost::make_tuple(-1, -1, -1);
       } // operator()
 
-      unsigned int operator()(const std::string& s1) {
-	  if (e_ == 0) prv_create_index__(s1, p1_);
-	  else prv_create_spaced_index__(s1, p1_);
-	  std::sort(p1_.begin(), p1_.end());
-	  return prv_count_common__();
-      } // operator()
+      /** Function: operator()
+       *  Compute d2 score between s0 and s1, where s0 is the sequence
+       *  passed to the previous call of the binary version of this operator.
+       *
+       *  Returns:
+       *  3-tuple (d2 score, number of unique kmers in s0, number of unique kmers in s1).
+       */
+      boost::tuple<int, int, int> operator()(const std::string& s1) {
+	  if (s1.size() < k_) return boost::make_tuple(-1, -1, -1);
 
+	  if (isdna_ == true) {
+	      dC_(s1, k_, dcount1_);
+	      int S = detail::count_distance(dcount0_.begin(), dcount0_.end(),
+					     dcount1_.begin(), dcount1_.end());
+	      return boost::make_tuple(S, dcount0_.size(), dcount1_.size());
+	  } else {
+	      detail::general_kmer_count(s1, k_, count1_);
+	      int S = detail::count_distance(count0_.begin(), count0_.end(),
+					     count1_.begin(), count1_.end());
+	      return boost::make_tuple(S, count0_.size(), count1_.size());
+	  }
+
+	  return boost::make_tuple(-1, -1, -1);
+      } // operator()
 
   private:
-      char digit_[256];
-
-      void prv_create_index__(const std::string& s, std::vector<unsigned long long int>& p) {
-	  unsigned int l = s.size();
-	  unsigned int end = l - k_ + 1;
-
-	  p.resize(end);
-
-	  // first kmer
-	  unsigned long long int v = digit_[s[k_ - 1]];
-	  for (unsigned int i = 0; i < k_ - 1; ++i) {
-	      v += digit_[s[i]] * (1UL << ((k_ - i - 1) << 1));
-	  }
-
-	  p[0] = v;
-
-	  // and then all other
-	  unsigned long long int b = 1UL << ((k_ - 1) << 1);
-
-	  for (unsigned int i = 1; i < end; ++i) {
-	      v = (v - b * digit_[s[i - 1]]) * 4 + digit_[s[i + k_ - 1]];
-	      p[i] = v;
-	  }
-      } // prv_create_index__
-
-      void prv_create_spaced_index__(const std::string& s, std::vector<unsigned long long int>& p) {
-	  unsigned int l = s.size();
-	  unsigned int end = l - 2 * k_ - e_ + 1;
-
-	  p.resize(end);
-
-	  unsigned long long int v0 = digit_[s[k_ - 1]];
-	  unsigned long long int v1 = digit_[s[2 * k_ + e_ - 1]];
-
-	  for (unsigned int i = 0; i < k_ - 1; ++i) {
-	      v0 += digit_[s[i]] * (1UL << ((k_ - i - 1) << 1));
-	      v1 += digit_[s[k_ + e_ + i]] * (1UL << ((k_ - i - 1) << 1));
-	  }
-
-	  p[0] = (v0 << (k_ << 1)) + v1;
-
-	  unsigned long long int b = 1UL << ((k_ - 1) << 1);
-
-	  for (unsigned int i = 1; i < end; ++i) {
-	      v0 = (v0 - b * digit_[s[i - 1]]) * 4 + digit_[s[i + k_ - 1]];
-	      v1 = (v1 - b * digit_[s[k_ + e_ + i - 1]]) * 4 + digit_[s[2 * k_ + e_ + i - 1]];
-	      p[i] = (v0 << (k_ << 1)) + v1;
-	  }
-      } // prv_create_spaced_index__
-
-      unsigned int prv_count_common__() {
-	  unsigned int i0 = 0;
-	  unsigned int l0 = p0_.size();
-
-	  unsigned int i1 = 0;
-	  unsigned int l1 = p1_.size();
-
-	  unsigned int S = 0;
-
-	  while ((i0 < l0) && (i1 < l1)) {
-	      if (p0_[i0] < p1_[i1]) ++i0;
-	      else if (p1_[i1] < p0_[i0]) ++i1;
-	      else {
-		  ++S;
-		  ++i0;
-		  ++i1;
-	      }
-	  } // while
-
-	  return (100 * S) / std::min(l0, l1);
-      } // prv_count_common__
-
       unsigned int k_;
-      unsigned int e_;
+      bool isdna_;
 
-      std::vector<unsigned long long int> p0_;
-      std::vector<unsigned long long int> p1_;
+      std::map<unsigned long long int, unsigned int> dcount0_;
+      std::map<unsigned long long int, unsigned int> dcount1_;
 
-  }; // class dna_jaccard_index
+      std::map<std::string, unsigned int> count0_;
+      std::map<std::string, unsigned int> count1_;
+
+      detail::dna_kmer_count dC_;
+
+  }; // class d2
+
+
+  /** Class: kmer_fraction
+   *  Functor to compute the kmer fraction similarity, defined
+   *  as Jaccard index between kmer spectra of sequences.
+   *  No thread safety guarantees.
+   */
+  class kmer_fraction : public sequence_compare<kmer_fraction> {
+  public:
+      /** Constructor: kmer_fraction
+       *
+       *  Parameter:
+       *  k - kmer length.
+       *  isdna - assume that input sequences are DNA/RNA.
+       */
+      explicit kmer_fraction(unsigned int k = 0, bool isdna = true) : k_(k), isdna_(isdna) { }
+
+      /** Function: operator()
+       *  Compute kmer fraction score between s0 and s1.
+       *
+       *  Returns:
+       *  3-tuple (score, number of kmers in s0, number of kmers in s1).
+       */
+      boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
+	  if ((s0.size() < k_) || (s1.size() < k_)) return boost::make_tuple(-1, -1, -1);
+
+	  if (isdna_ == true) {
+	      dI_(s0, k_, dindex0_);
+	      dI_(s1, k_, dindex1_);
+	      int S = detail::intersection_size(dindex0_.begin(), dindex0_.end(),
+						dindex1_.begin(), dindex1_.end(),
+						std::less<unsigned long long int>());
+	      return boost::make_tuple(S, dindex0_.size(), dindex1_.size());
+	  } else {
+	      detail::general_kmer_index(s0, k_, index0_);
+	      detail::general_kmer_index(s1, k_, index1_);
+	      int S = detail::intersection_size(index0_.begin(), index0_.end(),
+						index1_.begin(), index1_.end(),
+						std::less<std::string>());
+	      return boost::make_tuple(S, index0_.size(), index1_.size());
+	  }
+
+	  return boost::make_tuple(-1, -1, -1);
+      } // operator()
+
+      /** Function: operator()
+       *  Compute kmer fraction score between s0 and s1, where s0 is the sequence
+       *  passed to the previous call of the binary version of this operator.
+       *
+       *  Returns:
+       *  3-tuple (score, number of kmers in s0, number of kmers in s1).
+       */
+      boost::tuple<int, int, int> operator()(const std::string& s1) {
+	  if (s1.size() < k_) return boost::make_tuple(-1, -1, -1);
+
+	  if (isdna_ == true) {
+	      dI_(s1, k_, dindex1_);
+	      int S = detail::intersection_size(dindex0_.begin(), dindex0_.end(),
+						dindex1_.begin(), dindex1_.end(),
+						std::less<unsigned long long int>());
+	      return boost::make_tuple(S, dindex0_.size(), dindex1_.size());
+	  } else {
+	      detail::general_kmer_index(s1, k_, index1_);
+	      int S = detail::intersection_size(index0_.begin(), index0_.end(),
+						index1_.begin(), index1_.end(),
+						std::less<std::string>());
+	      return boost::make_tuple(S, index0_.size(), index1_.size());
+	  }
+
+	  return boost::make_tuple(-1, -1, -1);
+      } // operator()
+
+  private:
+      unsigned int k_;
+      bool isdna_;
+
+      std::vector<unsigned long long int> dindex0_;
+      std::vector<unsigned long long int> dindex1_;
+
+      std::vector<std::string> index0_;
+      std::vector<std::string> index1_;
+
+      detail::dna_kmer_index dI_;
+
+  }; // class kmer_fraction
 
 } // namespace bio
 

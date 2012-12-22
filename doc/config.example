@@ -1,0 +1,26 @@
+# set input sequence type (default nt)
+; type = nt
+
+# use this method to validate edges: 0 - alignment, 1 - kmers count (default 0)
+; method = 0
+
+# use these parameters for affine gap alignment (default [5,-4,-10,-1])
+; gaps = [5,-4,-10,-1]
+
+# use kmers of this size for sketching (default 15)
+; kmer = 15
+
+# use this threshold for edge validation (default 75)
+; level = 75
+
+# use this value to perform mod operation in sketching (default 25)
+; mod = 25
+
+# limit the number of sketching iterations to this size (default 7)
+; iter = 7
+
+# use this limit to mark frequent kmers (default 5000)
+; cmax = 5000
+
+# use this limit to extract candidate edges (default 50)
+; jmin = 50

@@ -14,8 +14,13 @@ mpi: basic
 omp-install: omp
 	$(MAKE) -C src/omp install
 
+mpi-doc: mpi-install
+	mkdir -p doc/
+	bin/elastic-sketch-mpi > doc/elastic-sketch-mpi.txt
+
 mpi-install: mpi
 	$(MAKE) -C src/mpi install
+
 
 clean:
 	$(MAKE) -C src/ clean

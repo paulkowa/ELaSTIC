@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the [LICENSE].
+ *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
  *  This file is part of ELaSTIC.
@@ -28,11 +28,16 @@ struct AppConfig {
     AppConfig() {
 	input = "";
 	output = "";
+	is_dna = true;
 	method = 0;
+	gaps[0] = 5;
+	gaps[1] = -4;
+	gaps[2] = -10;
+	gaps[3] = -1;
 	level = 75;
 	kmer = 15;
 	mod = 25;
-	iter = -1;
+	iter = 7;
 	cmax = 5000;
 	jmin = 50;
 	rma = 0;
@@ -81,8 +86,35 @@ struct AppConfig {
 
 	if (jaz::check_option(ext_conf, "method", val) == true) {
 	    method = boost::lexical_cast<unsigned short int>(val);
-	    if (method > 1) {
+	    if ((method != 0) && (method != 1)) {
 		return std::make_pair(false, "incorrect method");
+	    }
+	}
+
+	if (jaz::check_option(ext_conf, "type", val) == true) {
+	    if ((val != "nt") && (val != "aa")) {
+		return std::make_pair(false, "incorrect type");
+	    }
+	    is_dna = (val == "nt");
+	}
+
+	if (jaz::check_option(ext_conf, "gaps", val) == true) {
+	    val.erase(val.begin());
+	    val.erase(val.end() - 1);
+	    std::vector<std::string> agap;
+	    jaz::split(',', val, std::back_inserter(agap));
+	    if (agap.size() != 4) {
+		return std::make_pair(false, "incorrect gaps");
+	    }
+	    for (unsigned int i = 0; i < 4; ++i) {
+		gaps[i] = boost::lexical_cast<int>(agap[i]);
+	    }
+	}
+
+	if (jaz::check_option(ext_conf, "kmer", val) == true) {
+	    kmer = boost::lexical_cast<unsigned int>(val);
+	    if ((kmer < 3) || (kmer > 31)) {
+		return std::make_pair(false, "incorrect kmer");
 	    }
 	}
 
@@ -90,13 +122,6 @@ struct AppConfig {
 	    level = boost::lexical_cast<short int>(val);
 	    if ((level < 10) || (level > 100)) {
 		return std::make_pair(false, "incorrect level");
-	    }
-	}
-
-	if (jaz::check_option(ext_conf, "kmer", val) == true) {
-	    kmer = boost::lexical_cast<unsigned int>(val);
-	    if ((kmer < 5) || (kmer > 31)) {
-		return std::make_pair(false, "incorrect kmer");
 	    }
 	}
 
@@ -140,9 +165,11 @@ struct AppConfig {
 
     std::string input;
     std::string output;
+    bool is_dna;
     unsigned short int method;
-    unsigned short int level;
+    int gaps[4];
     unsigned short int kmer;
+    unsigned short int level;
     short int mod;
     short int iter;
     unsigned int cmax;

@@ -9,8 +9,8 @@ MPICXX=mpicxx
 OMPFLAGS=-fopenmp
 
 # Boost library (if not in the standard location)
-#BOOST_INCLUDE=-I
-#BOOST_LIB=-L
+#BOOST_INCLUDE=-I/opt/boost/include
+#BOOST_LIB=-L/opt/boost/lib
 
 # Use MPE (for profiling only!)
 #MPEFLAGS=-llmpe -lmpe

@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the [LICENSE].
+ *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
  *  This file is part of ELaSTIC.
@@ -33,6 +33,10 @@ struct Reporter {
     std::ostream& normal;
     std::ostream& critical;
 }; // struct Reporter
+
+inline std::ostream& operator<<(Reporter& report, std::ostream& (*f)(std::ostream&)) {
+    return report.normal << f;
+} // operator<<
 
 template <typename T> inline std::ostream& operator<<(Reporter& report, const T& t) {
     return report.normal << t;

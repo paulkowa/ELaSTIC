@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the [LICENSE].
+ *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
  *  This file is part of ELaSTIC.
@@ -39,18 +39,21 @@ inline std::pair<unsigned int, unsigned int> block(int size, int rank, unsigned 
 
 class id2rank {
 public:
-    explicit id2rank(unsigned int n = 1, int size = 1) {
+    explicit id2rank(unsigned int n = 1, int size = 1) : last_(size - 1) {
 	nloc_ = ((static_cast<double>(n) / size) + 0.5);
     } // id2rank
 
-    unsigned int operator()(unsigned int id) const { return id / nloc_; }
+    // return host processor for given sequence
+    unsigned int operator()(unsigned int id) const { return std::min<unsigned int>(id / nloc_, last_); }
 
+    // return host and local id for given sequence
     std::pair<unsigned int, unsigned int> operator[](unsigned int id) const {
 	unsigned int rank = this->operator()(id);
 	return std::make_pair(rank, id - rank * nloc_);
     } // operator()
 
 private:
+    int last_;
     unsigned int nloc_;
 
 }; // class id2rank
@@ -67,15 +70,16 @@ inline bool operator<(const Sequence& s0, const Sequence& s1) {
 } // operator<
 
 
+struct SequenceList {
+    unsigned int N; // global size
+    std::vector<Sequence> seqs;
+}; // struct SequenceList
+
+
 
 class SequenceRMA {
 public:
-    SequenceRMA(MPI_Comm comm, unsigned int n)
-	: comm_(comm), is_active_(false), index_(0), seqs_(0) {
-	int size;
-	MPI_Comm_size(comm, &size);
-	i2r_ = id2rank(n, size);
-    } // SequenceRMA
+    SequenceRMA(MPI_Comm comm) : comm_(comm), is_active_(false), index_(0), seqs_(0) { }
 
     ~SequenceRMA() {
 	if (is_active_ == true) {
@@ -87,10 +91,14 @@ public:
     } // ~SequenceRMA
 
 
-    std::pair<bool, std::string> init(const std::vector<Sequence>& seqs) {
+    std::pair<bool, std::string> init(const SequenceList& SL) {
 	if (is_active_ == true) return std::make_pair(false, "RMA already activated");
 
-	unsigned int nloc = seqs.size();
+	int size;
+	MPI_Comm_size(comm_, &size);
+
+	i2r_ = id2rank(SL.N, size);
+	unsigned int nloc = SL.seqs.size();
 
 	// index
 	if (MPI_Alloc_mem((nloc + 1) * sizeof(unsigned int), MPI_INFO_NULL, &index_) != MPI_SUCCESS) {
@@ -98,7 +106,7 @@ public:
 	}
 
 	index_[0] = 0;
-	for (unsigned int i = 0; i < nloc; ++i) index_[i + 1] = index_[i] + seqs[i].s.size();
+	for (unsigned int i = 0; i < nloc; ++i) index_[i + 1] = index_[i] + SL.seqs[i].s.size();
 
 	MPI_Win_create(index_, (nloc + 1) * sizeof(unsigned int), sizeof(unsigned int),
 		       MPI_INFO_NULL, comm_, &index_win_);
@@ -111,8 +119,8 @@ public:
 	char* pos = seqs_;
 
 	for (unsigned int i = 0; i < nloc; ++i) {
-	    unsigned int l = seqs[i].s.size();
-	    std::memcpy(pos, seqs[i].s.c_str(), l);
+	    unsigned int l = SL.seqs[i].s.size();
+	    std::memcpy(pos, SL.seqs[i].s.c_str(), l);
 	    pos += l;
 	}
 
@@ -128,6 +136,7 @@ public:
 
 	unsigned int rank = 0;
 	unsigned int offset = 0;
+
 	boost::tie(rank, offset) = i2r_[id];
 
 	unsigned int len[2];
@@ -250,10 +259,10 @@ inline sketch_id make_sketch_id(uint64_t sketch, unsigned int id, unsigned short
     return tmp;
 } // make_sketch_id
 
-inline unsigned int sketch_id_hash(const sketch_id& si) {
+inline unsigned int hash_sketch_id(const sketch_id& si) {
     const char* ptr = reinterpret_cast<const char*>(&si);
     return *reinterpret_cast<const unsigned int*>(ptr + 2);
-} // sketch_id_hash
+} // hash_sketch_id
 
 
 
@@ -297,7 +306,10 @@ inline read_pair make_read_pair(const sketch_id& r0, const sketch_id& r1) {
     return tmp;
 } // make_read_pair
 
+
+
 typedef std::pair<unsigned int, unsigned int> rank_read_t;
+
 
 class read2rank {
 public:
@@ -317,6 +329,7 @@ private:
 
 }; // read2rank
 
+
 class compare_rank {
 public:
     explicit compare_rank(const read2rank& r2r) : r2r_(r2r) { }
@@ -334,7 +347,9 @@ private:
 
 }; // class compare_rank
 
+
 inline unsigned int hash_read_pair0(const read_pair& rp) { return rp.id0; }
+
 
 class hash_read_pair1 {
 public:
@@ -346,6 +361,7 @@ private:
     id2rank i2r_;
 
 }; // hash_read_pair1
+
 
 class hash_read_pair2 {
 public:
@@ -359,6 +375,7 @@ private:
     id2rank i2r_;
 
 }; // hash_read_pair2
+
 
 
 class not_similar {
@@ -422,9 +439,9 @@ private:
 
 
 
-class approximate_jaccard {
+class appx_kmer_fraction {
 public:
-    explicit approximate_jaccard(unsigned short int kmer, short int mod)
+    explicit appx_kmer_fraction(unsigned short int kmer, short int mod)
 	: kmer_(kmer), mod_(mod) { }
 
     read_pair operator()(read_pair rp) const {
@@ -436,56 +453,80 @@ private:
     unsigned short int kmer_;
     short int mod_;
 
-}; // class approximate_jaccard
+}; // class appx_kmer_fraction
 
 
-class sequence_identity {
+
+class alignment_identity {
 public:
-    sequence_identity(const std::vector<Sequence>& seqs,
-		      unsigned short int method, unsigned short int kmer,
-		      int size, int rank, unsigned int n)
-	: seqs_(seqs), method_(method), A_(5, -4, -10, -1), J_(kmer) {
-	offset_ = rank * static_cast<unsigned int>((static_cast<double>(n) / size) + 0.5);
+    explicit alignment_identity(int m = 0, int s = 0, int g = 0, int h = 0)
+	: align_(m, s, g, h) { }
+
+    unsigned short int operator()(const std::string& s1, const std::string& s2) {
+	unsigned int score;
+	unsigned int length;
+	unsigned int matches;
+	boost::tie(score, length, matches) = align_(s1, s2);
+	return (100 * matches) / score;
+    } // operator
+
+private:
+    bio::global_alignment align_;
+
+}; // class alignment_identity
+
+
+class kmer_identity {
+public:
+    explicit kmer_identity(unsigned int k = 0, bool is_dna = true) : kf_(k, is_dna) { }
+
+    unsigned short int operator()(const std::string& s1, const std::string& s2) {
+	unsigned int S;
+	unsigned int l0;
+	unsigned int l1;
+	boost::tie(S, l0, l1) = kf_(s1, s2);
+	return (100 * S) / std::min(l0, l1);
+    } // operator
+
+private:
+    bio::kmer_fraction kf_;
+
+}; // class kmer_identity
+
+
+template <typename Compare> class sequence_identity {
+public:
+    sequence_identity(const SequenceList& SL, unsigned int offset, Compare compare)
+	: SL_(SL), offset_(offset), compare_(compare) {
+
     } // sequence_identity
 
     read_pair operator()(read_pair rp) {
 	unsigned int id0 = rp.id0 - offset_;
 	unsigned int id1 = rp.id1 - offset_;
-
-	if (method_ == 0) rp.count = A_(seqs_[id0].s, seqs_[id1].s);
-	else rp.count = J_(seqs_[id0].s, seqs_[id1].s);
-
+	rp.count = compare_(SL_.seqs[id0].s, SL_.seqs[id1].s);
 	return rp;
     } // operator()
 
     // case where id0 is local
     read_pair operator()(read_pair rp, const std::string& s) {
 	unsigned int id0 = rp.id0 - offset_;
-
-	if (method_ == 0) rp.count = A_(seqs_[id0].s, s);
-	else rp.count = J_(seqs_[id0].s, s);
-
+	rp.count = compare_(SL_.seqs[id0].s, s);
 	return rp;
     } // operator()
 
     // case where id1 is local
     read_pair operator()(const std::string& s, read_pair rp) {
 	unsigned int id1 = rp.id1 - offset_;
-
-	if (method_ == 0) rp.count = A_(s, seqs_[id1].s);
-	else rp.count = J_(s, seqs_[id1].s);
-
+	rp.count = compare_(s, SL_.seqs[id1].s);
 	return rp;
     } // operator()
 
 private:
-    const std::vector<Sequence>& seqs_;
-    unsigned short int method_;
-
+    const SequenceList& SL_;
     unsigned int offset_;
 
-    bio::global_alignment A_;
-    bio::dna_jaccard_index J_;
+    Compare compare_;
 
 }; // class sequence_identity
 

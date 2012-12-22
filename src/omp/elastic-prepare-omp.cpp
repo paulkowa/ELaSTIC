@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the [LICENSE].
+ *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
  *  This file is part of ELaSTIC.
@@ -64,6 +64,7 @@ struct AppConfig {
     AppConfig() {
 	input = "";
 	output = "";
+	dna = true;
 	length = 100;
 	clean = true;
 	group = true;
@@ -87,6 +88,17 @@ struct AppConfig {
 	}
 
 	output = val;
+
+	if (jaz::check_option(conf, "type", val) == true) {
+	    if ((val != "nt") && (val != "aa")) {
+		return std::make_pair(false, "incorrect sequence type");
+	    }
+	    if (val == "aa") {
+		dna = false;
+		kmer1 = 5;
+		kmer2 = 3;
+	    }
+	}
 
 	// check hidden options
 	if (jaz::check_option(conf, "kmer1", val) == true) {
@@ -127,6 +139,7 @@ struct AppConfig {
     std::string input;
     std::string output;
     unsigned short int length;
+    bool dna;
     bool clean;
     bool group;
     unsigned short int kmer1;
@@ -135,6 +148,7 @@ struct AppConfig {
     friend std::ostream& operator<<(std::ostream& os, const AppConfig& opt) {
 	os << "input = " << opt.input << "\n";
 	os << "output = " << opt.output << "\n";
+	os << "dna = " << opt.dna << "\n";
 	os << "length = " << opt.length << "\n";
 	os << "clean = " << opt.clean << "\n";
 	os << "group = " << opt.group << "\n";
@@ -197,12 +211,36 @@ typedef bio::fasta_input_iterator<>::value_type sequence_type;
 
 class is_clean {
 public:
-    is_clean(bool check, unsigned int size) : check_(check), size_(size) {
+    is_clean(bool check, unsigned int size, bool dna = true) : check_(check), size_(size) {
 	std::memset(sig_, 0, 256);
-	sig_['A'] = sig_['a'] = 1;
-	sig_['C'] = sig_['c'] = 1;
-	sig_['G'] = sig_['g'] = 1;
-	sig_['T'] = sig_['t'] = 1;
+	if (dna == true) {
+	    sig_['A'] = sig_['a'] = 1;
+	    sig_['C'] = sig_['c'] = 1;
+	    sig_['G'] = sig_['g'] = 1;
+	    sig_['T'] = sig_['t'] = 1;
+	} else {
+	    sig_['A'] = sig_['a'] = 1;
+	    sig_['C'] = sig_['c'] = 1;
+	    sig_['D'] = sig_['d'] = 1;
+	    sig_['E'] = sig_['e'] = 1;
+	    sig_['F'] = sig_['f'] = 1;
+	    sig_['G'] = sig_['g'] = 1;
+	    sig_['H'] = sig_['h'] = 1;
+	    sig_['I'] = sig_['i'] = 1;
+	    sig_['K'] = sig_['k'] = 1;
+	    sig_['L'] = sig_['l'] = 1;
+	    sig_['M'] = sig_['m'] = 1;
+	    sig_['N'] = sig_['n'] = 1;
+	    sig_['P'] = sig_['p'] = 1;
+	    sig_['Q'] = sig_['q'] = 1;
+	    sig_['R'] = sig_['r'] = 1;
+	    sig_['S'] = sig_['s'] = 1;
+	    sig_['T'] = sig_['t'] = 1;
+	    sig_['V'] = sig_['v'] = 1;
+	    sig_['W'] = sig_['w'] = 1;
+	    sig_['X'] = sig_['x'] = 1;
+	    sig_['Y'] = sig_['y'] = 1;
+	}
     } // is_clean
 
     bool operator()(const sequence_type& s) const {
@@ -242,12 +280,17 @@ inline bool seq_compare(const Cluster& lhs, const Cluster& rhs) {
 } // seq_compare
 
 
-void clean_sequence(std::string& s) {
+void clean_sequence(std::string& s, bool dna = true) {
+    const char NT[] = "ACGT";
+    const char AA[] = "ACDEFGHIKLMNPQRSTVWXY";
+
     unsigned int l = s.size();
     for (unsigned int i = 0; i < l; ++i) {
 	s[i] = std::toupper(s[i]);
-	if ((s[i] != 'A') && (s[i] != 'C') && (s[i] != 'G') && (s[i] != 'T')) {
-	    s[i] = 'T';
+	if (dna == true) {
+	    if (std::find(NT, NT + sizeof(NT), s[i]) == false) s[i] = 'T';
+	} else {
+	    if (std::find(AA, AA + sizeof(AA), s[i]) == false) s[i] = 'A';
 	}
     }
 } // clean_sequence
@@ -293,6 +336,7 @@ void usage() {
     std::cout << "Options:\n";
     std::cout << "  --input name          read input from this file/directory\n";
     std::cout << "  --output name         write output to files with this prefix\n";
+    std::cout << "  --type {nt|aa}        set input sequence type (default nt)\n";
     std::cout << "  --length size         remove sequences shorter than this length (default 100)\n";
     std::cout << "  --clean {0|1}         remove sequences with missing bases (default 1)\n";
     std::cout << "  --group {0|1}         cluster very high similarity sequences (default 1)\n";
@@ -398,7 +442,7 @@ void run(const AppConfig& opt, AppLog& log) {
 		unsigned int m = seqs.size();
 
 		std::vector<sequence_type>::iterator iter;
-		iter = std::stable_partition(seqs.begin(), seqs.end(), is_clean(opt.clean, opt.length));
+		iter = std::stable_partition(seqs.begin(), seqs.end(), is_clean(opt.clean, opt.length, opt.dna));
 
 		for (std::vector<sequence_type>::iterator j = iter; j != seqs.end(); ++j) {
 		    delseq.push_back(j->first);
@@ -534,7 +578,7 @@ void run(const AppConfig& opt, AppLog& log) {
     fdel.close();
 
     // create index and store sequences
-    SequenceCodec sc;
+    SequenceCodec sc(opt.dna);
 
     unsigned int pos = 0;
     std::vector<uint16_t> index(name2id.size(), 0);
@@ -560,7 +604,7 @@ void run(const AppConfig& opt, AppLog& log) {
 
 		std::string s = fi->second;
 
-		clean_sequence(s);
+		clean_sequence(s, opt.dna);
 		s = sc.code(s);
 
 		fseq.write(reinterpret_cast<char*>(&id), sizeof(id));

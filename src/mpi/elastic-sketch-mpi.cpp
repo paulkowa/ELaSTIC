@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the [LICENSE].
+ *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
  *  This file is part of ELaSTIC.
@@ -49,13 +49,15 @@ void usage() {
     std::cout << "  --input name          read input from files with this prefix\n";
     std::cout << "  --output name         write output to this file\n";
     std::cout << "  --config name         read configuration from this file\n";
-    std::cout << "  --method type         use this method to validate edge: 0 - alignment, 1 - kmers count (default 0)\n";
-    std::cout << "  --level size          use this threshold to edges validation (default 75)\n";
+    std::cout << "  --type {nt|aa}        set input sequence type (default nt)\n";
+    std::cout << "  --method {0|1}        use this method to validate edges: 0 - alignment, 1 - kmer fraction (default 0)\n";
+    std::cout << "  --gaps list           use these parameters for affine gap alignment (default [5,-4,-10,-1])\n";
     std::cout << "  --kmer size           use kmers of this size for sketching (default 15)\n";
+    std::cout << "  --level size          use this threshold for edge validation (default 75)\n";
     std::cout << "  --mod size            use this value to perform mod operation in sketching (default 25)\n";
-    std::cout << "  --iter size           limit the number of sketching iterations to this size (default -1)\n";
+    std::cout << "  --iter size           limit the number of sketching iterations to this size (default 7)\n";
     std::cout << "  --cmax size           use this limit to mark frequent kmers (default 5000)\n";
-    std::cout << "  --jmin size           use this limit to filter similar sequences (default 50)\n";
+    std::cout << "  --jmin size           use this limit to extract candidate edges (default 50)\n";
     std::cout << "\n";
 } // usage
 
@@ -80,8 +82,9 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
 
     // read input sequence
-    std::vector<Sequence> seqs;
-    boost::tie(res, err) = read_input(opt, log, report, comm, seqs);
+    SequenceList SL;
+
+    boost::tie(res, err) = read_input(opt, log, report, comm, SL);
 
     if (res == false) {
 	report.critical << error << err << std::endl;
@@ -90,8 +93,8 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
 
     // initialize RMA
-    SequenceRMA rma_seq(comm, log.input);
-    boost::tie(res, err) = rma_seq.init(seqs);
+    SequenceRMA rma_seq(comm);
+    boost::tie(res, err) = rma_seq.init(SL);
 
     if (res == false) {
 	report.critical << error << err << std::endl;
@@ -103,7 +106,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     jaz::murmur264 hash;
     std::vector<shingle_list_type> shingles;
 
-    boost::tie(res, err) = make_shingles(opt, log, report, seqs, hash, shingles);
+    boost::tie(res, err) = make_shingles(opt, log, report, SL, hash, shingles);
 
     if (res == false) {
 	report.critical << error << err << std::endl;
@@ -113,7 +116,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
     // generate candidate edges
     std::vector<read_pair> edges;
-    boost::tie(res, err) = generate_edges(opt, log, report, seqs, shingles, comm, edges);
+    boost::tie(res, err) = generate_edges(opt, log, report, comm, SL, shingles, edges);
 
     if (res == false) {
 	report.critical << error << err << std::endl;
@@ -123,7 +126,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
     // validate candidate edges
     double tv0 = MPI_Wtime() - t0;
-    boost::tie(res, err) = validate_edges(opt, log, report, seqs, rma_seq, edges, comm);
+    boost::tie(res, err) = validate_edges(opt, log, report, comm, SL, rma_seq, edges);
     double tv1 = MPI_Wtime() - t0;
 
     if (res == false) {

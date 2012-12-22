@@ -83,7 +83,7 @@ namespace jaz {
 	  const unsigned char* S = (const unsigned char*)s;
 	  uint64_t len = l;
 
-	  const uint64_t m = 0xc6a4a7935bd1e995;
+	  const uint64_t m = 0xc6a4a7935bd1e995LL;
 	  const uint8_t r = 47;
 
 	  uint64_t h = len + seed_;
@@ -137,7 +137,7 @@ namespace jaz {
 
       /** Constructor: rabin64
        */
-      rabin64() : p_(0x000000000000001BL), p_deg_(64) { prv_init__(); }
+      rabin64() : p_(0x000000000000001BLL), p_deg_(64) { prv_init__(); }
 
       /** Function: operator()
        *  Performs hashing.
