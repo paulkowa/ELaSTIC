@@ -13,4 +13,6 @@ OMPFLAGS=-fopenmp
 #BOOST_LIB=-L/opt/boost/lib
 
 # Use MPE (for profiling only!)
-#MPEFLAGS=-llmpe -lmpe
+# MPE library (if needed, and not in standard location)
+#MPE_LIB=-L/opt/mpe2/lib
+#MPE_FLAGS=-llmpe -lmpe

@@ -101,7 +101,8 @@ namespace bio {
 	for (unsigned int i = 0; i < end; ++i) {
 	    S[i] = std::string(s.begin() + i, s.begin() + i + k);
 	}
-    } // general_kmer_count
+	std::sort(S.begin(), S.end());
+    } // general_kmer_index
 
 
     template <typename Map> void general_kmer_count(const std::string& s, unsigned int k, Map& S) {

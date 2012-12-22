@@ -20,7 +20,7 @@ install: $(PROGS)
 	cp $(PROGS) ../../bin/
 
 clean:
-	rm -rf $(PROGS)
+	rm -rf $(PROGS) *.o *.a
 
 .cpp:
 	$(CXX) $(OMPFLAGS) $(CXXFLAGS) $(LDFLAGS) $< -o $@ $(LDLIBS)
