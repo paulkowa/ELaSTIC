@@ -50,6 +50,7 @@ void usage() {
     std::cout << "  --output name         write output to this file\n";
     std::cout << "  --config name         read configuration from this file\n";
     std::cout << "  --type {nt|aa}        set input sequence type (default nt)\n";
+    std::cout << "  --sigma type          use this compressed amino acid alphabet (default A20)\n";
     std::cout << "  --method {0|1}        use this method to validate edges: 0 - alignment, 1 - kmer fraction (default 0)\n";
     std::cout << "  --gaps list           use these parameters for affine gap alignment (default [5,-4,-10,-1])\n";
     std::cout << "  --kmer size           use kmers of this size for sketching (default 15)\n";

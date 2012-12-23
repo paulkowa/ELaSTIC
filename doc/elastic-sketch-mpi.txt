@@ -1,4 +1,4 @@
-ELaSTIC Similarity via Sketching Version 0.4
+ELaSTIC Similarity via Sketching Version 0.5:2012-12-22
 Copyright (c) 2012 Jaroslaw Zola
 
 Usage: elastic-sketch-mpi --input name --output name [options...]
@@ -8,6 +8,7 @@ Options:
   --output name         write output to this file
   --config name         read configuration from this file
   --type {nt|aa}        set input sequence type (default nt)
+  --sigma type          use this compressed amino acid alphabet (default A20)
   --method {0|1}        use this method to validate edges: 0 - alignment, 1 - kmer fraction (default 0)
   --gaps list           use these parameters for affine gap alignment (default [5,-4,-10,-1])
   --kmer size           use kmers of this size for sketching (default 15)
