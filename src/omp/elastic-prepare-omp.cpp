@@ -238,7 +238,6 @@ public:
 	    sig_['T'] = sig_['t'] = 1;
 	    sig_['V'] = sig_['v'] = 1;
 	    sig_['W'] = sig_['w'] = 1;
-	    sig_['X'] = sig_['x'] = 1;
 	    sig_['Y'] = sig_['y'] = 1;
 	}
     } // is_clean
@@ -282,7 +281,7 @@ inline bool seq_compare(const Cluster& lhs, const Cluster& rhs) {
 
 void clean_sequence(std::string& s, bool dna = true) {
     const char NT[] = "ACGT";
-    const char AA[] = "ACDEFGHIKLMNPQRSTVWXY";
+    const char AA[] = "ACDEFGHIKLMNPQRSTVWY";
 
     unsigned int l = s.size();
     for (unsigned int i = 0; i < l; ++i) {

@@ -29,6 +29,7 @@ struct AppConfig {
 	input = "";
 	output = "";
 	is_dna = true;
+	sigma = "A20";
 	method = 0;
 	gaps[0] = 5;
 	gaps[1] = -4;
@@ -96,6 +97,16 @@ struct AppConfig {
 		return std::make_pair(false, "incorrect type");
 	    }
 	    is_dna = (val == "nt");
+	}
+
+	if (jaz::check_option(ext_conf, "sigma", val) == true) {
+	    if (val[0] == '[') {
+		return std::make_pair(false, "custom alphabets not supported");
+	    } else if ((val == "A20") || (val == "Dayhoff6")) {
+		sigma = val;
+	    } else {
+		return std::make_pair(false, "unknown compressed alphabet");
+	    }
 	}
 
 	if (jaz::check_option(ext_conf, "gaps", val) == true) {
@@ -166,6 +177,7 @@ struct AppConfig {
     std::string input;
     std::string output;
     bool is_dna;
+    std::string sigma;
     unsigned short int method;
     int gaps[4];
     unsigned short int kmer;
