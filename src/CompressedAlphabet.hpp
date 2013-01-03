@@ -12,8 +12,8 @@
  *  This file is part of ELaSTIC.
  */
 
-#ifndef COMPRESSEDALPHABET_HPP
-#define COMPRESSEDALPHABET_HPP
+#ifndef COMPRESSED_ALPHABET_HPP
+#define COMPRESSED_ALPHABET_HPP
 
 #include <cstring>
 #include <string>
@@ -85,4 +85,4 @@ private:
 
 }; // CompressedAlphabet
 
-#endif // COMPRESSEDALPHABET_HPP
+#endif // COMPRESSED_ALPHABET_HPP

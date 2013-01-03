@@ -32,6 +32,7 @@
 template <typename T>
 inline std::pair<unsigned int, unsigned int> block(int size, int rank, unsigned int n) {
     unsigned int nloc = ((static_cast<double>(n) / size) + 0.5);
+    if (n <= nloc * (size - 1)) nloc = n / size;
     unsigned int offset = rank * nloc * sizeof(T);
     if (rank == size - 1) nloc = n - (rank * nloc);
     return std::make_pair(nloc, offset);
