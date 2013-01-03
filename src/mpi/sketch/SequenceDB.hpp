@@ -29,10 +29,15 @@
 #include <mpi.h>
 
 
-template <typename T>
-inline std::pair<unsigned int, unsigned int> block(int size, int rank, unsigned int n) {
+inline unsigned int get_nloc(int size, unsigned int n) {
     unsigned int nloc = ((static_cast<double>(n) / size) + 0.5);
     if (n <= nloc * (size - 1)) nloc = n / size;
+    return nloc;
+} // get_nloc
+
+template <typename T>
+inline std::pair<unsigned int, unsigned int> block(int size, int rank, unsigned int n) {
+    unsigned int nloc = get_nloc(size, n);
     unsigned int offset = rank * nloc * sizeof(T);
     if (rank == size - 1) nloc = n - (rank * nloc);
     return std::make_pair(nloc, offset);
@@ -41,7 +46,7 @@ inline std::pair<unsigned int, unsigned int> block(int size, int rank, unsigned 
 class id2rank {
 public:
     explicit id2rank(unsigned int n = 1, int size = 1) : last_(size - 1) {
-	nloc_ = ((static_cast<double>(n) / size) + 0.5);
+	nloc_ = get_nloc(size, n);
     } // id2rank
 
     // return host processor for given sequence
