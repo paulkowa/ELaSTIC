@@ -20,58 +20,101 @@
 #include <string>
 #include <vector>
 
+#include <boost/format.hpp>
+#include <boost/lexical_cast.hpp>
+
+#include <jaz/algorithm.hpp>
 #include <mpix/data_bucketing.hpp>
 
 #include "SequenceDB.hpp"
 #include "config_log.hpp"
 
-
-template <typename Iter, typename Oper>
-Iter compact(Iter first, Iter last, Oper op) {
-    if (first == last) return last;
-
-    Iter res = first;
-    Iter pos = first;
-
-    first++;
-
-    for (; first != last; ++first) {
-	if (*pos < *first) {
-	    *res = *pos;
-	    pos++;
-	    *res = std::accumulate(pos, first, *res, op);
-	    pos = first;
-	    res++;
-	}
-    }
-
-    *res = *pos;
-    pos++;
-    *res = std::accumulate(pos, last, *res, op);
-    res++;
-
-    return res;
-} // compact
+#ifdef WITH_MPE
+#include <mpe.h>
+#endif // WITH_MPE
 
 
 template <typename Iter>
-inline void update_counts(Iter first, Iter last,
-			  const std::vector<unsigned int>& rem_list,
-			  const std::vector<unsigned int>& rem_index) {
-    for (; first != last; ++first) {
-	// 0 marks end of index list
-	unsigned int pos = (std::find(rem_index.begin() + 1, rem_index.end(), 0) - rem_index.begin());
+inline void update_counts(Iter first, Iter last, const std::vector<int>& rem_list, double jmin) {
+#ifdef WITH_MPE
+    int mpe_start = MPE_Log_get_event_number();
+    int mpe_stop = MPE_Log_get_event_number();
+    MPE_Describe_state(mpe_start, mpe_stop, "update_counts", "white");
+    MPE_Log_event(mpe_start, 0, "start update_counts");
+#endif // WITH_MPE
 
-	for (unsigned int i = 1; i < pos; ++i) {
-	    std::vector<unsigned int>::const_iterator begin = rem_list.begin() + rem_index[i - 1];
-	    std::vector<unsigned int>::const_iterator end = rem_list.begin() + rem_index[i];
+    std::vector<std::vector<int>::const_iterator> rem_index;
+    jaz::find_all(rem_list.begin(), rem_list.end(), std::back_inserter(rem_index), std::bind2nd(std::equal_to<int>(), -1));
+
+    unsigned int l = rem_index.size();
+
+    for (; first != last; ++first) {
+	std::vector<int>::const_iterator begin = rem_list.begin();
+
+	for (unsigned int i = 0; i < l; ++i) {
+	    if ((first->count + l - i) < (0.01 * jmin * first->size)) break;
+
+	    std::vector<int>::const_iterator end = rem_index[i];
+
 	    if (std::binary_search(begin, end, first->id0) && std::binary_search(begin, end, first->id1)) {
 		first->count++;
 	    }
+
+	    begin = end + 1;
 	} // for i
 
     } // for first
+
+#ifdef WITH_MPE
+    MPE_Log_event(mpe_stop, 0, "stop update_counts");
+#endif // WITH_MPE
 } // update_counts
+
+
+void aggregate_rem_list(MPI_Comm comm, std::vector<int>& rem_list) {
+#ifdef WITH_MPE
+    int mpe_start = MPE_Log_get_event_number();
+    int mpe_stop = MPE_Log_get_event_number();
+    MPE_Describe_state(mpe_start, mpe_stop, "aggregate_rem_list", "white");
+    MPE_Log_event(mpe_start, 0, "start aggregate_rem_list");
+#endif // WITH_MPE
+
+    int size, rank;
+
+    MPI_Comm_size(comm, &size);
+    MPI_Comm_rank(comm, &rank);
+
+    // sort rem_list for fast search
+    std::vector<std::vector<int>::iterator> rem_index;
+    jaz::find_all(rem_list.begin(), rem_list.end(), std::back_inserter(rem_index), std::bind2nd(std::equal_to<int>(), -1));
+
+    std::vector<int>::iterator it = rem_list.begin();
+
+    for (unsigned int i = 0; i < rem_index.size(); ++i) {
+	std::sort(it, rem_index[i]);
+	it = rem_index[i] + 1;
+    }
+
+    // aggregate rem_list
+    int rl_sz = rem_list.size();
+
+    std::vector<int> rem_list_sz(size, 0);
+    std::vector<int> rem_list_off(size, 0);
+
+    MPI_Allgather(&rl_sz, 1, MPI_INT, &rem_list_sz[0], 1, MPI_INT, comm);
+
+    unsigned int g_rl_sz = std::accumulate(rem_list_sz.begin(), rem_list_sz.end(), 0);
+    std::vector<int> rem_list_global(g_rl_sz);
+
+    for (unsigned int i = 1; i < size; ++i) rem_list_off[i] = rem_list_off[i - 1] + rem_list_sz[i - 1];
+
+    MPI_Allgatherv(&rem_list[0], rl_sz, MPI_INT, &rem_list_global[0], &rem_list_sz[0], &rem_list_off[0], MPI_INT, comm);
+    rem_list = rem_list_global;
+
+#ifdef WITH_MPE
+    MPE_Log_event(mpe_stop, 0, "stop aggregate_rem_list");
+#endif // WITH_MPE
+}; // aggregate_rem_list
 
 
 template <typename Hash>
@@ -86,16 +129,31 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     unsigned int n = (sr_end - sr);
 
     std::vector<read_pair> counts;
-
-    std::vector<unsigned int> rem_list;
-    std::vector<unsigned int> rem_index(1, 0);
+    std::vector<int> rem_list;
 
     unsigned int pos = 0;
+
+#ifdef WITH_MPE
+    int mpe_gc_start = MPE_Log_get_event_number();
+    int mpe_gc_stop = MPE_Log_get_event_number();
+    MPE_Describe_state(mpe_gc_start, mpe_gc_stop, "get_counts", "white");
+    MPE_Log_event(mpe_gc_start, 0, "start get counts");
+#endif // WITH_MPE
+
+    // temporal debug
+    // static int run = 0;
+    // boost::format fmt("%05d");
+    // fmt % rank;
+    // std::ofstream of((opt.output + "." + fmt.str() + "." + boost::lexical_cast<std::string>(run)).c_str());
+    // run++;
 
     // get local counts
     for (unsigned int i = 1; i < n; ++i) {
 	if ((sr[pos] != sr[i]) || (i == n - 1)) {
 	    unsigned int end = (sr[pos] == sr[i]) ? n : i;
+
+	    // of << (end - pos) << "\n";
+
 	    if ((end - pos) < opt.cmax) {
 		// enumerate all pairs with the same sketch
 		for (unsigned int j = pos; j < end - 1; ++j) {
@@ -104,22 +162,23 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 		    } // for k
 		} // for j
 	    } else {
-		// we store in the temporal list
-		for (unsigned int j = pos; j < end; ++j) rem_list.push_back(sr[j].id);
-		rem_index.push_back(rem_list.size());
+		// we store in the temporal list (-1 separates lists)
+		for (unsigned int j = pos; j < end; ++j) {
+		    if ((rem_list.empty() == true) || (rem_list.back() != sr[j].id)) {
+			rem_list.push_back(sr[j].id);
+		    }
+		}
+		rem_list.push_back(-1);
 	    }
 	    pos = i;
 	} // if
     } // for i
 
-    // sort rem_list for fast search
-    for (unsigned int i = 1; i < rem_index.size(); ++i) {
-	std::sort(rem_list.begin() + rem_index[i - 1], rem_list.begin() + rem_index[i]);
-    }
+    // of.close();
 
     // perform counts compaction
     std::sort(counts.begin(), counts.end());
-    counts.erase(compact(counts.begin(), counts.end(), std::plus<read_pair>()), counts.end());
+    counts.erase(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()), counts.end());
 
     // perform global reduction
     MPI_Datatype MPI_READ_PAIR;
@@ -133,52 +192,30 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     std::vector<read_pair>().swap(counts);
 
     std::sort(first, last);
-    last = compact(first, last, std::plus<read_pair>());
+    last = jaz::compact(first, last, std::plus<read_pair>());
 
     MPI_Type_free(&MPI_READ_PAIR);
 
-    // find size of the largest rem_list
-    unsigned int rl_size[2];
-    unsigned int rl_size_in[2] = { 0, 0 };
+#ifdef WITH_MPE
+    MPE_Log_event(mpe_gc_stop, 0, "stop get counts");
+#endif // WITH_MPE
 
-    rl_size[0] = rem_list.size();
-    rl_size[1] = rem_index.size();
+    // aggregate rem_list
+    aggregate_rem_list(comm, rem_list);
 
-    MPI_Allreduce(rl_size, rl_size_in, 2, MPI_UNSIGNED, MPI_MAX, comm);
+    // update counts
+    update_counts(first, last, rem_list, opt.jmin);
 
-    rem_list.resize(rl_size_in[0], 0);
-    rem_index.resize(rl_size_in[1], 0);
-
-    // update candidate pair counts (we need to shift list of updates)
-    const int MPI_SHIFT_TAG = 111;
-
-    MPI_Status stat;
-
-    int to = (rank + 1) % size;
-    int from = (size + rank - 1) % size;
-
-    std::vector<unsigned int> rem_list_recv(rl_size_in[0], 0);
-    std::vector<unsigned int> rem_index_recv(rl_size_in[1], 0);
-
-    // we shift p times list in a circular fashion
-    for (unsigned int i = 0; i < size; ++i) {
-	update_counts(first, last, rem_list, rem_index);
-
-	MPI_Sendrecv(&rem_list[0], rem_list.size(), MPI_UNSIGNED, to, MPI_SHIFT_TAG,
-		     &rem_list_recv[0], rem_list_recv.size(), MPI_UNSIGNED, from, MPI_SHIFT_TAG,
-		     comm, &stat);
-
-	MPI_Sendrecv(&rem_index[0], rem_index.size(), MPI_UNSIGNED, to, MPI_SHIFT_TAG,
-	 	     &rem_index_recv[0], rem_index_recv.size(), MPI_UNSIGNED, from, MPI_SHIFT_TAG,
-		     comm, &stat);
-
-	rem_list.swap(rem_list_recv);
-	rem_index.swap(rem_index_recv);
-    } // for i
+#ifdef WITH_MPE
+    int mpe_fce_start = MPE_Log_get_event_number();
+    int mpe_fce_stop = MPE_Log_get_event_number();
+    MPE_Describe_state(mpe_fce_start, mpe_fce_stop, "filter candidate edges", "white");
+    MPE_Log_event(mpe_fce_start, 0, "start filter candidate edges");
+#endif // WITH_MPE
 
     // approximate kmer fraction and filter edges
     // count is now approximated kmer fraction
-    std::transform(first, last, first, appx_kmer_fraction(opt.kmer, opt.mod));
+    std::transform(first, last, first, kmer_fraction);
     last = std::remove_if(first, last, not_similar(opt.jmin));
 
     // store filtered edges (replace with inplace_merge?)
@@ -188,6 +225,10 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     delete[] first;
 
     edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+
+#ifdef WITH_MPE
+    MPE_Log_event(mpe_fce_stop, 0, "stop filter candidate edges");
+#endif // WITH_MPE
 
     return std::make_pair(true, "");
 } // extract_seq_pairs
@@ -219,19 +260,33 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
     for (unsigned int i = 0; i < end; ++i) {
 	report << "." << std::flush;
 
+#ifdef WITH_MPE
+	int mpe_start = MPE_Log_get_event_number();
+	int mpe_stop = MPE_Log_get_event_number();
+	MPE_Describe_state(mpe_start, mpe_stop, "extract sketches", "white");
+	MPE_Log_event(mpe_start, 0, "start extract sketches pairs");
+#endif // WITH_MPE
+
 	// get sketch-read pairs for given mod value
 	for (unsigned int j = 0; j < n; ++j) {
 	    unsigned int id = SL.seqs[j].id;
-	    unsigned short int len = SL.seqs[j].s.size();
 
 	    unsigned int l = shingles[j].size();
+	    unsigned int pos = sketch_list.size();
 
 	    for (unsigned int k = 0; k < l; ++k) {
 		if (shingles[j][k] % opt.mod == i) {
-		    sketch_list.push_back(make_sketch_id(shingles[j][k], id, len));
+		    sketch_list.push_back(make_sketch_id(shingles[j][k], id, 0));
 		}
 	    }
+
+	    l = sketch_list.size();
+	    for (unsigned int k = pos; k < l; ++k) sketch_list[k].size = (l - pos);
 	} // for j
+
+#ifdef WITH_MPE
+	MPE_Log_event(mpe_stop, 0, "stop extract sketches");
+#endif // WITH_MPE
 
 	// sort globally sketch list (SR)
 	sketch_id* first = 0;

@@ -1,6 +1,6 @@
 include ../../config.mk
 
-CXXFLAGS=-O3 -I. -I.. -I../../include
+CXXFLAGS+= -I. -I.. -I../../include
 LDLIBS=-lboost_filesystem -lboost_iostreams -lboost_system
 
 ifdef BOOST_INCLUDE

@@ -154,7 +154,7 @@ struct AppConfig {
 
 	if (jaz::check_option(ext_conf, "cmax", val) == true) {
 	    cmax = boost::lexical_cast<short int>(val);
-	    if (cmax < 100) {
+	    if (cmax < 1) {
 		return std::make_pair(false, "incorrect cmax");
 	    }
 	}

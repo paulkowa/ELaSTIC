@@ -307,7 +307,7 @@ inline read_pair make_read_pair(const sketch_id& r0, const sketch_id& r1) {
     tmp.id0 = r0.id;
     tmp.id1 = r1.id;
     if (tmp.id1 < tmp.id0) std::swap(tmp.id0, tmp.id1);
-    tmp.size = std::min(r0.size, r1.size);
+    tmp.size = std::max<unsigned short int>(std::min(r0.size, r1.size), 1);
     tmp.count = 1;
     return tmp;
 } // make_read_pair
@@ -445,11 +445,18 @@ private:
 
 
 
+inline read_pair kmer_fraction(read_pair rp) {
+    rp.count = (100 * rp.count) / rp.size;
+    return rp;
+} // kmer_fraction
+
+
 class appx_kmer_fraction {
 public:
     explicit appx_kmer_fraction(unsigned short int kmer, short int mod)
 	: kmer_(kmer), mod_(mod) { }
 
+    // this works when size_ is actual sequence length
     read_pair operator()(read_pair rp) const {
 	rp.count = (100 * mod_ * rp.count) / (rp.size - kmer_ + 1);
 	return rp;

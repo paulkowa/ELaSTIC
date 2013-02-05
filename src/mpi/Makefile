@@ -1,6 +1,6 @@
 include ../../config.mk
 
-CXXFLAGS=-O3 -I. -I.. -I../../include
+CXXFLAGS+=-I. -I.. -I../../include
 LDFLAGS=-L../
 LDLIBS=-liomanip $(MPE_FLAGS)
 
@@ -10,6 +10,10 @@ endif
 
 ifdef MPE_LIB
     LDFLAGS+=$(MPE_LIB)
+endif
+
+ifdef WITH_MPE
+    CXXFLAGS+=$(MPE_INCLUDE) $(WITH_MPE)
 endif
 
 PROGS=elastic-sketch-mpi

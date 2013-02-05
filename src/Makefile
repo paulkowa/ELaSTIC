@@ -1,7 +1,5 @@
 include ../config.mk
 
-CXXFLAGS=-O3
-
 libs: iomanip.o
 	$(AR) rcs libiomanip.a iomanip.o
 
