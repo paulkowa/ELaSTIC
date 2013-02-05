@@ -1,15 +1,15 @@
 # Compiler
-CXX=g++
+CXX=cg++
 AR=ar
 
 # MPI Compiler
-MPICXX=mpicxx -g
+MPICXX=mpicxx
 
 # OpenMP switch
 OMPFLAGS=-fopenmp
 
 # Basic compiler flags
-CXXFLAGS=-O5
+CXXFLAGS=-O3
 
 # Boost library (if not in the standard location)
 #BOOST_INCLUDE=-I/opt/boost/include

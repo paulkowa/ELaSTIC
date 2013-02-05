@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include <mpix/data_bucketing.hpp>
+#include <mpix/simple_partition.hpp>
 
 #include "SequenceDB.hpp"
 #include "config_log.hpp"

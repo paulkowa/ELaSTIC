@@ -1,5 +1,5 @@
-ELaSTIC Similarity via Sketching Version 0.5:2012-12-22
-Copyright (c) 2012 Jaroslaw Zola
+ELaSTIC Similarity via Sketching Version 0.80:2013-02-05
+Copyright (c) 2012-2013 Jaroslaw Zola
 
 Usage: elastic-sketch-mpi --input name --output name [options...]
 
@@ -17,3 +17,4 @@ Options:
   --iter size           limit the number of sketching iterations to this size (default 7)
   --cmax size           use this limit to mark frequent kmers (default 5000)
   --jmin size           use this limit to extract candidate edges (default 50)
+

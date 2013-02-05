@@ -1,19 +1,19 @@
 /***
  *  $Id$
  **
- *  File: data_bucketing.hpp
+ *  File: simple_partition.hpp
  *  Created: Mar 03, 2010
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
- *  Copyright (c) 2010 Jaroslaw Zola
+ *  Copyright (c) 2010-2013 Jaroslaw Zola
  *  Distributed under the Boost Software License.
  *  See accompanying LICENSE.
  *
  *  This file is part of mpix.
  */
 
-#ifndef DATA_BUCKETING_HPP
-#define DATA_BUCKETING_HPP
+#ifndef SIMPLE_PARTITION_HPP
+#define SIMPLE_PARTITION_HPP
 
 #include <iterator>
 #include <utility>
@@ -26,7 +26,7 @@ namespace mpix {
   template <typename Iter, typename Hash>
   std::pair<typename std::iterator_traits<Iter>::pointer,
 	    typename std::iterator_traits<Iter>::pointer>
-  data_bucketing(Iter first, Iter last, Hash hash, MPI_Datatype Type, int root, MPI_Comm Comm) {
+  simple_partition(Iter first, Iter last, Hash hash, MPI_Datatype Type, int root, MPI_Comm Comm) {
       typedef typename std::iterator_traits<Iter>::value_type value_type;
 
       unsigned int n = std::distance(first, last);
@@ -38,12 +38,7 @@ namespace mpix {
       MPI_Comm_rank(Comm, &rank);
 
       unsigned int p = size;
-
-      if (p == 1) {
-	  value_type* data = new value_type[n];
-	  std::copy(first, last, data);
-	  return std::make_pair(data, data + n);
-      }
+      if (p == 1) return std::make_pair<value_type*, value_type*>(0, 0);
 
       std::vector<int> bin_sz(p, 0);
       for (Iter iter = first; iter != last; ++iter) bin_sz[hash(*iter) % p]++;
@@ -52,7 +47,7 @@ namespace mpix {
       for (unsigned int i = 1; i < p; ++i) displ[i] = displ[i - 1] + bin_sz[i - 1];
 
       std::vector<int> all_bin_sz(p, 0);
-      value_type* data = new value_type[n];
+      std::vector<value_type> data(n);
 
       for (Iter iter = first; iter != last; ++iter) {
 	  unsigned int pos = hash(*iter) % p;
@@ -72,14 +67,12 @@ namespace mpix {
 
       value_type* new_data = new value_type[S];
 
-      MPI_Alltoallv(data, &bin_sz[0], &displ[0], Type,
+      MPI_Alltoallv(&data[0], &bin_sz[0], &displ[0], Type,
 		    new_data, &all_bin_sz[0], &all_displ[0], Type, Comm);
 
-      delete[] data;
-
       return std::make_pair(new_data, new_data + S);
-  } // data_bucketing
+  } // simple_partition
 
 } // namespace mpix
 
-#endif // DATA_BUCKETING_HPP
+#endif // SIMPLE_PARTITION_HPP

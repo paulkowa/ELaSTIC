@@ -24,7 +24,8 @@
 #include <boost/lexical_cast.hpp>
 
 #include <jaz/algorithm.hpp>
-#include <mpix/data_bucketing.hpp>
+#include <mpix/partition_balance.hpp>
+#include <mpix/simple_partition.hpp>
 
 #include "SequenceDB.hpp"
 #include "config_log.hpp"
@@ -119,19 +120,27 @@ void aggregate_rem_list(MPI_Comm comm, std::vector<int>& rem_list) {
 
 template <typename Hash>
 inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
-						      const sketch_id* sr, const sketch_id* sr_end, Hash hash,
+						      sketch_id*& sr, sketch_id*& sr_end, Hash hash,
 						      std::vector<read_pair>& edges) {
     int size, rank;
 
     MPI_Comm_size(comm, &size);
     MPI_Comm_rank(comm, &rank);
 
-    unsigned int n = (sr_end - sr);
+    // balance sketches
+    MPI_Datatype MPI_SKETCH_ID;
+    MPI_Type_contiguous(sizeof(sketch_id), MPI_BYTE, &MPI_SKETCH_ID);
+    MPI_Type_commit(&MPI_SKETCH_ID);
 
-    std::vector<read_pair> counts;
-    std::vector<int> rem_list;
+    sketch_id* sr_temp = 0;
+    boost::tie(sr_temp, sr_end) = mpix::partition_balance(sr, sr_end, MPI_SKETCH_ID, MPI_COMM_WORLD);
 
-    unsigned int pos = 0;
+    delete[] sr;
+    sr = sr_temp;
+
+    std::sort(sr, sr_end);
+
+    MPI_Type_free(&MPI_SKETCH_ID);
 
 #ifdef WITH_MPE
     int mpe_gc_start = MPE_Log_get_event_number();
@@ -140,12 +149,11 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     MPE_Log_event(mpe_gc_start, 0, "start get counts");
 #endif // WITH_MPE
 
-    // temporal debug
-    // static int run = 0;
-    // boost::format fmt("%05d");
-    // fmt % rank;
-    // std::ofstream of((opt.output + "." + fmt.str() + "." + boost::lexical_cast<std::string>(run)).c_str());
-    // run++;
+    std::vector<read_pair> counts;
+    std::vector<int> rem_list;
+
+    unsigned int pos = 0;
+    unsigned int n = (sr_end - sr);
 
     // get local counts
     for (unsigned int i = 1; i < n; ++i) {
@@ -174,8 +182,6 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 	} // if
     } // for i
 
-    // of.close();
-
     // perform counts compaction
     std::sort(counts.begin(), counts.end());
     counts.erase(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()), counts.end());
@@ -188,7 +194,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     read_pair* first = 0;
     read_pair* last = 0;
 
-    boost::tie(first, last) = mpix::data_bucketing(counts.begin(), counts.end(), hash, MPI_READ_PAIR, 0, comm);
+    boost::tie(first, last) = mpix::simple_partition(counts.begin(), counts.end(), hash, MPI_READ_PAIR, 0, comm);
     std::vector<read_pair>().swap(counts);
 
     std::sort(first, last);
@@ -292,11 +298,10 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 	sketch_id* first = 0;
 	sketch_id* last = 0;
 
-	boost::tie(first, last) = mpix::data_bucketing(sketch_list.begin(), sketch_list.end(), hash_sketch_id,
-						       MPI_SKETCH_ID, 0, comm);
+	boost::tie(first, last) = mpix::simple_partition(sketch_list.begin(), sketch_list.end(), hash_sketch_id,
+							 MPI_SKETCH_ID, 0, comm);
 
 	sketch_list.clear();
-	std::sort(first, last);
 
 	if (first == last) {
 	    report.critical << warning << "{" << rank << "}" << " empty list of sketches!" << std::endl;
