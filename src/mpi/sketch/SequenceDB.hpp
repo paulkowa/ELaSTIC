@@ -257,6 +257,10 @@ inline bool operator<(const sketch_id& lhs, const sketch_id& rhs) {
     return ((lhs.sketch < rhs.sketch) || (!(rhs.sketch < lhs.sketch) && (lhs.id < rhs.id)));
 } // operator<
 
+inline bool sketch_compare(const sketch_id& lhs, const sketch_id& rhs) {
+    return (lhs.sketch < rhs.sketch);
+} // sketch_compare
+
 inline sketch_id make_sketch_id(uint64_t sketch, unsigned int id, unsigned short int size) {
     sketch_id tmp;
     tmp.sketch = sketch;
@@ -301,6 +305,10 @@ inline read_pair operator+(const read_pair& lhs, const read_pair& rhs) {
     tmp.count += rhs.count;
     return tmp;
 } // operator+
+
+inline bool source_compare(const read_pair& lhs, const read_pair& rhs) {
+    return (lhs.id0 < rhs.id0);
+} // operator<
 
 inline read_pair make_read_pair(const sketch_id& r0, const sketch_id& r1) {
     read_pair tmp;

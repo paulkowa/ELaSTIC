@@ -127,20 +127,52 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     MPI_Comm_size(comm, &size);
     MPI_Comm_rank(comm, &rank);
 
+    // create rem_list
+    std::sort(sr, sr_end);
+    std::vector<int> rem_list;
+
+    unsigned int pos = 0;
+    unsigned int n = (sr_end - sr);
+
+    for (unsigned int i = 1; i < n; ++i) {
+	if ((sr[pos] != sr[i]) || (i == n - 1)) {
+	    unsigned int end = (sr[pos] == sr[i]) ? n : i;
+
+	    if ((end - pos) >= opt.cmax) {
+		// we store in the temporal list (-1 separates lists)
+		for (unsigned int j = pos; j < end; ++j) {
+		    if ((rem_list.empty() == true) || (rem_list.back() != sr[j].id)) {
+			rem_list.push_back(sr[j].id);
+		    }
+		}
+		rem_list.push_back(-1);
+
+		// and we remove from sr
+		std::copy(sr + i, sr + n, sr + pos);
+		n = pos + n - i;
+		i = pos + 1;
+	    } // if
+
+	    pos = i;
+	} // if
+    } // for i
+
+    sr_end = sr + n;
+
     // balance sketches
     MPI_Datatype MPI_SKETCH_ID;
     MPI_Type_contiguous(sizeof(sketch_id), MPI_BYTE, &MPI_SKETCH_ID);
     MPI_Type_commit(&MPI_SKETCH_ID);
 
     sketch_id* sr_temp = 0;
-    boost::tie(sr_temp, sr_end) = mpix::partition_balance(sr, sr_end, MPI_SKETCH_ID, MPI_COMM_WORLD);
+    boost::tie(sr_temp, sr_end) = mpix::partition_balance(sr, sr_end, sketch_compare, MPI_SKETCH_ID, 0, comm);
+
+    MPI_Type_free(&MPI_SKETCH_ID);
 
     delete[] sr;
     sr = sr_temp;
 
     std::sort(sr, sr_end);
-
-    MPI_Type_free(&MPI_SKETCH_ID);
 
 #ifdef WITH_MPE
     int mpe_gc_start = MPE_Log_get_event_number();
@@ -150,34 +182,22 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 #endif // WITH_MPE
 
     std::vector<read_pair> counts;
-    std::vector<int> rem_list;
 
-    unsigned int pos = 0;
-    unsigned int n = (sr_end - sr);
+    n = (sr_end - sr);
+    pos = 0;
 
     // get local counts
     for (unsigned int i = 1; i < n; ++i) {
 	if ((sr[pos] != sr[i]) || (i == n - 1)) {
 	    unsigned int end = (sr[pos] == sr[i]) ? n : i;
 
-	    // of << (end - pos) << "\n";
+	    // enumerate all pairs with the same sketch
+	    for (unsigned int j = pos; j < end - 1; ++j) {
+		for (unsigned int k = j + 1; k < end; ++k) {
+		    if (sr[j].id != sr[k].id) counts.push_back(make_read_pair(sr[j], sr[k]));
+		} // for k
+	    } // for j
 
-	    if ((end - pos) < opt.cmax) {
-		// enumerate all pairs with the same sketch
-		for (unsigned int j = pos; j < end - 1; ++j) {
-		    for (unsigned int k = j + 1; k < end; ++k) {
-			counts.push_back(make_read_pair(sr[j], sr[k]));
-		    } // for k
-		} // for j
-	    } else {
-		// we store in the temporal list (-1 separates lists)
-		for (unsigned int j = pos; j < end; ++j) {
-		    if ((rem_list.empty() == true) || (rem_list.back() != sr[j].id)) {
-			rem_list.push_back(sr[j].id);
-		    }
-		}
-		rem_list.push_back(-1);
-	    }
 	    pos = i;
 	} // if
     } // for i
