@@ -28,9 +28,13 @@
 
 #include <mpi.h>
 
+#ifdef WITH_MPE
+#include <mpe.h>
+#endif // WITH_MPE
+
 
 inline unsigned int get_nloc(int size, unsigned int n) {
-    unsigned int nloc = ((static_cast<double>(n) / size) + 0.5);
+    unsigned int nloc = static_cast<unsigned int>((static_cast<double>(n) / size) + 0.5);
     if (n <= nloc * (size - 1)) nloc = n / size;
     return nloc;
 } // get_nloc
@@ -132,6 +136,12 @@ public:
 
 	MPI_Win_create(seqs_, index_[nloc], 1, MPI_INFO_NULL, comm_, &seqs_win_);
 
+#ifdef WITH_MPE
+	mpe_start_ = MPE_Log_get_event_number();
+	mpe_stop_ = MPE_Log_get_event_number();
+	MPE_Describe_state(mpe_start_, mpe_stop_, "sequencedb_get", "white");
+#endif // WITH_MPE
+
 	is_active_ = true;
 	return std::make_pair(true, "");
     } // init
@@ -147,6 +157,10 @@ public:
 
 	unsigned int len[2];
 
+#ifdef WITH_MPE
+	MPE_Log_event(mpe_start_, 0, "start sequencedb_get");
+#endif // WITH_MPE
+
 	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, index_win_);
 	MPI_Get(len, 2, MPI_UNSIGNED, rank, offset, 2, MPI_UNSIGNED, index_win_);
 	MPI_Win_unlock(rank, index_win_);
@@ -157,6 +171,10 @@ public:
 	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, seqs_win_);
 	MPI_Get(&buf_[0], l, MPI_CHAR, rank, len[0], l, MPI_CHAR, seqs_win_);
 	MPI_Win_unlock(rank, seqs_win_);
+
+#ifdef WITH_MPE
+	MPE_Log_event(mpe_stop_, 0, "stop sequencedb_get");
+#endif // WITH_MPE
 
 	return std::string(buf_.begin(), buf_.end());
     } // get
@@ -183,6 +201,10 @@ public:
 	// get index
 	soffset_.resize(l + 1);
 
+#ifdef WITH_MPE
+	MPE_Log_event(mpe_start_, 0, "start sequencedb_get_batch");
+#endif // WITH_MPE
+
 	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, index_win_);
 	MPI_Get(&soffset_[0], l + 1, MPI_UNSIGNED, rank, first->second, l + 1, MPI_UNSIGNED, index_win_);
 	MPI_Win_unlock(rank, index_win_);
@@ -194,6 +216,10 @@ public:
 	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, seqs_win_);
 	MPI_Get(&buf_[0], l, MPI_CHAR, rank, soffset_[0], l, MPI_CHAR, seqs_win_);
 	MPI_Win_unlock(rank, seqs_win_);
+
+#ifdef WITH_MPE
+	MPE_Log_event(mpe_stop_, 0, "stop sequencedb_get_batch");
+#endif // WITH_MPE
 
 	// extract sequences
 	unsigned int off = soffset_[0];
@@ -225,6 +251,11 @@ private:
 
     std::vector<unsigned int> soffset_;
     std::vector<char> buf_;
+
+#ifdef WITH_MPE
+    int mpe_start_;
+    int mpe_stop_;
+#endif // WITH_MPE
 
 }; // SequenceRMA
 
@@ -406,6 +437,21 @@ private:
 }; // class not_similar
 
 
+class local {
+public:
+    local(unsigned int lo, unsigned int hi) : lo_(lo), hi_(hi) { }
+
+    bool operator()(const read_pair& rp) const {
+	return !((rp.id0 < lo_) || (rp.id0 > hi_) || (rp.id1 < lo_) || (rp.id1 > hi_));
+    } // operator()
+
+private:
+    unsigned int lo_;
+    unsigned int hi_;
+
+}; // class local
+
+
 class not_local {
 public:
     not_local(unsigned int lo, unsigned int hi) : lo_(lo), hi_(hi) { }
@@ -540,6 +586,12 @@ public:
     read_pair operator()(const std::string& s, read_pair rp) {
 	unsigned int id1 = rp.id1 - offset_;
 	rp.count = compare_(s, SL_.seqs[id1].s);
+	return rp;
+    } // operator()
+
+    // case where none is local
+    read_pair operator()(read_pair rp, const std::string& s0, const std::string& s1) {
+	rp.count = compare_(s0, s1);
 	return rp;
     } // operator()
 

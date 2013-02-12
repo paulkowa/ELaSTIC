@@ -12,8 +12,8 @@
  *  This file is part of mpix.
  */
 
-#ifndef SIMPLE_PARTITION_HPP
-#define SIMPLE_PARTITION_HPP
+#ifndef MPIX_SIMPLE_PARTITION_HPP
+#define MPIX_SIMPLE_PARTITION_HPP
 
 #include <iterator>
 #include <utility>
@@ -75,4 +75,4 @@ namespace mpix {
 
 } // namespace mpix
 
-#endif // SIMPLE_PARTITION_HPP
+#endif // MPIX_SIMPLE_PARTITION_HPP

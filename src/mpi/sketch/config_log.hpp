@@ -15,6 +15,7 @@
 #ifndef CONFIG_LOG_HPP
 #define CONFIG_LOG_HPP
 
+#include <iomanip>
 #include <iostream>
 #include <string>
 
@@ -205,7 +206,7 @@ struct AppLog {
     unsigned int input;
     unsigned int cedges;
     unsigned int vedges;
-    double through;
+    unsigned int through;
 
     friend std::ostream& operator<<(std::ostream& os, const AppLog& log) {
 	os << "execution date: " << log.date;

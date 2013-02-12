@@ -35,6 +35,8 @@
 #endif // WITH_MPE
 
 
+template <typename T> T sqr(T x) { return x * x; }
+
 template <typename Iter>
 inline void update_counts(Iter first, Iter last, const std::vector<int>& rem_list, double jmin) {
 #ifdef WITH_MPE
@@ -165,7 +167,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     MPI_Type_commit(&MPI_SKETCH_ID);
 
     sketch_id* sr_temp = 0;
-    boost::tie(sr_temp, sr_end) = mpix::partition_balance(sr, sr_end, sketch_compare, MPI_SKETCH_ID, 0, comm);
+    boost::tie(sr_temp, sr_end) = mpix::partition_balance(sr, sr_end, sketch_compare, sqr<unsigned int>, MPI_SKETCH_ID, 0, comm);
 
     MPI_Type_free(&MPI_SKETCH_ID);
 
@@ -280,7 +282,7 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
     MPI_Type_contiguous(sizeof(sketch_id), MPI_BYTE, &MPI_SKETCH_ID);
     MPI_Type_commit(&MPI_SKETCH_ID);
 
-    report << info << "running " << end << " iterations: ";
+    report << info << "running " << end << " iteration(s): ";
 
     // main loop (we look for several evidences to get edge)
     for (unsigned int i = 0; i < end; ++i) {
@@ -334,25 +336,7 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
     } // for i
 
     MPI_Type_free(&MPI_SKETCH_ID);
-
     report << "" << std::endl;
-
-    // get total number of candidate edges
-    unsigned int loc = edges.size();
-
-    unsigned int min = 0;
-    unsigned int max = 0;
-    unsigned int tot = 0;
-
-    MPI_Reduce(&loc, &tot, 1, MPI_UNSIGNED, MPI_SUM, 0, comm);
-    MPI_Reduce(&loc, &min, 1, MPI_UNSIGNED, MPI_MIN, 0, comm);
-    MPI_Reduce(&loc, &max, 1, MPI_UNSIGNED, MPI_MAX, 0, comm);
-
-    report << info << "found " << tot << " candidate edges" << std::endl;
-    report << info << "edges distribution: [" << min << "," << max << "]" << std::endl;
-
-    // update log
-    log.cedges = tot;
 
     return std::make_pair(true, "");
 } // generate_edges

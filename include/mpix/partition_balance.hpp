@@ -12,8 +12,8 @@
  *  This file is part of mpix.
  */
 
-#ifndef PARTITION_BALANCE_HPP
-#define PARTITION_BALANCE_HPP
+#ifndef MPIX_PARTITION_BALANCE_HPP
+#define MPIX_PARTITION_BALANCE_HPP
 
 #include <algorithm>
 #include <iterator>
@@ -61,54 +61,40 @@ namespace mpix {
 	}
     } // print
 
-    inline void balance(std::vector<std::vector<part> >& sched) {
+
+    template <typename Fun>
+    void balance(std::vector<std::vector<part> >& sched, Fun fun) {
 	unsigned int size = sched.size();
 	std::vector<unsigned int> S(size, 0);
 
-	// organize into heap and get totals
+	std::vector<part> parts;
+
 	for (unsigned int i = 0; i < size; ++i) {
-	    std::make_heap(sched[i].begin(), sched[i].end());
-	    for (unsigned int j = 0; j < sched[i].size(); ++j) S[i] += sched[i][j].S;
+	    std::copy(sched[i].begin(), sched[i].end(), std::back_inserter(parts));
+	    sched[i].clear();
 	}
 
-	// run
-	unsigned int min_p = 0;
-	unsigned int max_p = 0;
+	std::sort(parts.begin(), parts.end());
+	unsigned int n = parts.size();
 
-	do {
-	    unsigned int min_s = std::min_element(S.begin(), S.end()) - S.begin();
-	    unsigned int Smin = S[min_s];
+	for (unsigned int i = 0; i < n; ++i) {
+	    unsigned int pos = std::min_element(S.begin(), S.end()) - S.begin();
+	    sched[pos].push_back(parts.back());
+	    S[pos] += fun(parts.back().S);
+	    parts.pop_back();
+	}
 
-	    unsigned int max_s = std::max_element(S.begin(), S.end()) - S.begin();
-	    unsigned int Smax = S[max_s];
-
-	    part e = sched[max_s].front();
-	    unsigned int d = Smax - Smin;
-
-	    if (d < e.S) break;
-	    if (d == e.S) {
-		if ((min_s == max_p) && (max_s == min_p)) break;
-		min_p = min_s;
-		max_p = max_s;
-	    }
-
-	    std::pop_heap(sched[max_s].begin(), sched[max_s].end());
-	    sched[max_s].pop_back();
-	    S[max_s] -= e.S;
-
-	    sched[min_s].push_back(e);
-	    S[min_s] += e.S;
-	    std::push_heap(sched[min_s].begin(), sched[min_s].end());
-	} while (true); // we can add time-limit here
     } // balance
+
+    template <typename T> T linear(T x) { return x; }
 
   } // detail
 
 
-  template <class Iter, class Pred>
+  template <typename Iter, typename Pred, typename Fun>
   std::pair<typename std::iterator_traits<Iter>::pointer,
 	    typename std::iterator_traits<Iter>::pointer>
-  partition_balance(Iter first, Iter last, Pred pred, MPI_Datatype Type, int root, MPI_Comm Comm) {
+  partition_balance(Iter first, Iter last, Pred pred, Fun fun, MPI_Datatype Type, int root, MPI_Comm Comm) {
       typedef typename std::iterator_traits<Iter>::value_type value_type;
       typedef typename std::iterator_traits<Iter>::pointer pointer_type;
 
@@ -180,7 +166,7 @@ namespace mpix {
 
 	  std::vector<unsigned int>().swap(parts_all);
 
-	  detail::balance(sched);
+	  detail::balance(sched, fun);
 	  moves.resize(size);
 
 	  for (unsigned int i = 0; i < size; ++i) {
@@ -311,9 +297,9 @@ namespace mpix {
 	    typename std::iterator_traits<Iter>::pointer>
   partition_balance(Iter first, Iter last, MPI_Datatype Type, MPI_Comm Comm) {
       typedef typename std::iterator_traits<Iter>::value_type value_type;
-      return partition_balance(first, last, std::less<value_type>(), Type, 0, Comm);
+      return partition_balance(first, last, std::less<value_type>(), detail::linear<unsigned int>, Type, 0, Comm);
   } // partition_balance
 
 } // namespace mpix
 
-#endif // PARTITION_BALANCE_HPP
+#endif // MPIX_PARTITION_BALANCE_HPP

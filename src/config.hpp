@@ -5,5 +5,5 @@
 
 #define ELASTIC_SKETCH_SHORT "elastic-sketch-mpi"
 #define ELASTIC_SKETCH_FULL "ELaSTIC Similarity via Sketching"
-#define ELASTIC_SKETCH_VERSION "0.83:2013-02-06"
+#define ELASTIC_SKETCH_VERSION "0.94:2013-02-12"
 #define ELASTIC_SKETCH_COPYRIGHT "Copyright (c) 2012-2013 Jaroslaw Zola"

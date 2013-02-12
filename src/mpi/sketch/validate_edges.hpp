@@ -80,7 +80,7 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
 
     id2rank i2r(SL.N, size);
 
-    unsigned int step = (static_cast<double>(last) / 10) + 0.5;
+    unsigned int step = static_cast<unsigned int>((static_cast<double>(last) / 10) + 0.5);
     if (step == 0) step = 1;
 
     // sort according to location
@@ -117,7 +117,7 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
 	std::random_shuffle(range.begin(), range.end());
 
 	// process blocks
-	step = (static_cast<double>(range.size()) / 10) + 0.5;
+	step = static_cast<unsigned int>((static_cast<double>(range.size()) / 10) + 0.5);
 	if (step == 0) step = 1;
 
 	std::vector<std::string> sv;
@@ -155,5 +155,96 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
 
     return std::make_pair(true, "");
 } // validate_edges
+
+
+/*
+inline std::pair<bool, std::string> validate_edges_dist(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
+							   const SequenceList& SL, SequenceRMA& rma_seq,
+							   std::vector<read_pair>& edges) {
+    report << step << "validating edges:" << std::endl;
+
+    int size, rank;
+
+    MPI_Comm_size(comm, &size);
+    MPI_Comm_rank(comm, &rank);
+
+    // sequence comparator
+    sequence_identity<general_compare> ident(SL, SL.seqs.front().id, general_compare(opt));
+
+    // divide into local and remote
+    unsigned int mid =
+	std::partition(edges.begin(), edges.end(), local(SL.seqs.front().id, SL.seqs.back().id)) - edges.begin();
+
+    // local edges are easy :-)
+    report << info << "processing local edges..." << std::endl;
+    std::transform(edges.begin(), edges.begin() + mid, edges.begin(), ident);
+
+    // now we balance work from remaining edges
+    report << info << "balancing remaining edges..." << std::endl;
+
+    read_pair* first;
+    read_pair* end;
+
+    MPI_Datatype MPI_READ_PAIR;
+    MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
+    MPI_Type_commit(&MPI_READ_PAIR);
+
+    boost::tie(first, end) = mpix::partition_balance(edges.begin() + mid, edges.end(), source_compare, MPI_READ_PAIR, 0, comm);
+
+    MPI_Type_free(&MPI_READ_PAIR);
+
+    edges.resize(mid + end - first);
+    std::copy(first, end, edges.begin() + mid);
+    delete[] first;
+
+    // here we go with real work
+    report << info << "processing remaining edges: " << std::flush;
+
+    unsigned int last =
+	std::partition(edges.begin() + mid, edges.end(), local(SL.seqs.front().id, SL.seqs.back().id)) - edges.begin();
+
+    std::transform(edges.begin() + mid, edges.begin() + last, edges.begin() + mid, ident);
+
+    id2rank i2r(SL.N, size);
+
+    unsigned int n = edges.size();
+    unsigned int step = static_cast<unsigned int>((static_cast<double>(n - last) / 10) + 0.5);
+
+    if (step == 0) step = 1;
+
+    read2rank r2r(rank, i2r);
+    std::vector<rank_read_t> rank_id(last);
+
+    unsigned int id0 = -1;
+    std::string s0 = "";
+    std::string s1 = "";
+
+    for (unsigned int i = last; i < n; ++i) {
+	if (i % step == 0) report << "." << std::flush;
+
+	if (i2r(edges[i].id0) != rank) {
+	    if (id0 != edges[i].id0) {
+		id0 = edges[i].id0;
+		s0 = rma_seq.get(edges[i].id0);
+	    }
+	}
+
+	if (i2r(edges[i].id1) != rank) s1 = rma_seq.get(edges[i].id1);
+
+	if (i2r(edges[i].id0) != rank) {
+	    if (i2r(edges[i].id1) != rank) edges[i] = ident(edges[i], s0, s1);
+	    else edges[i] = ident(s0, edges[i]);
+	} else edges[i] = ident(edges[i], s1);
+
+    } // for i
+
+    report << "" << std::endl;
+
+    report << "cleaning edges..." << std::endl;
+    edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar(opt.level)), edges.end());
+
+    return std::make_pair(true, "");
+} // validate_edges_dist
+*/
 
 #endif // VALIDATE_EDGES_HPP
