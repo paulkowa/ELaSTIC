@@ -1,5 +1,5 @@
 # Compiler
-CXX=cg++
+CXX=g++
 AR=ar
 
 # MPI Compiler

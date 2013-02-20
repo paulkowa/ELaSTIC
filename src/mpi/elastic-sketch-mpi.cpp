@@ -133,7 +133,6 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     // validate candidate edges
     double tv0 = MPI_Wtime() - t0;
     boost::tie(res, err) = validate_edges(opt, log, report, comm, SL, rma_seq, edges);
-    // boost::tie(res, err) = validate_edges_dist(opt, log, report, comm, SL, rma_seq, edges);
     double tv1 = MPI_Wtime() - t0;
 
     if (res == false) {
@@ -176,6 +175,9 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     MPI_Reduce(&tv0, &gtv0, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
     MPI_Reduce(&tv1, &gtv1, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
 
+    double gst = 0.0;
+    MPI_Reduce(&tv0, &gst, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
+
     log.cedges = num_cedges;
     log.through = static_cast<unsigned int>(num_cedges / (gtv1 - gtv0));
 
@@ -188,7 +190,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     report << info << "extracted " << log.cedges << " candidate edges" << std::endl;
     report << info << "generated " << log.vedges << " valid edges" << std::endl;
     report << info << "edge throughput: " << log.through << std::endl;
-
+    report << info << "sketching phase: " << gst << std::endl;
 
     // write log
     if (rank == 0) {

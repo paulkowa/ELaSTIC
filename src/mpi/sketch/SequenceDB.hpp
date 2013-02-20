@@ -93,10 +93,10 @@ public:
 
     ~SequenceRMA() {
 	if (is_active_ == true) {
-	    MPI_Free_mem(index_);
-	    MPI_Free_mem(seqs_);
 	    MPI_Win_free(&index_win_);
 	    MPI_Win_free(&seqs_win_);
+	    MPI_Free_mem(index_);
+	    MPI_Free_mem(seqs_);
 	}
     } // ~SequenceRMA
 
@@ -180,23 +180,46 @@ public:
     } // get
 
 
+    std::string get(unsigned int rank, unsigned int offset) {
+	if (is_active_ == false) return "";
+
+	unsigned int len[2];
+
+#ifdef WITH_MPE
+	MPE_Log_event(mpe_start_, 0, "start sequencedb_get");
+#endif // WITH_MPE
+
+	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, index_win_);
+	MPI_Get(len, 2, MPI_UNSIGNED, rank, offset, 2, MPI_UNSIGNED, index_win_);
+	MPI_Win_unlock(rank, index_win_);
+
+	unsigned int l = len[1] - len[0];
+	buf_.resize(l);
+
+	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, seqs_win_);
+	MPI_Get(&buf_[0], l, MPI_CHAR, rank, len[0], l, MPI_CHAR, seqs_win_);
+	MPI_Win_unlock(rank, seqs_win_);
+
+#ifdef WITH_MPE
+	MPE_Log_event(mpe_stop_, 0, "stop sequencedb_get");
+#endif // WITH_MPE
+
+	return std::string(buf_.begin(), buf_.end());
+    } // get
+
+
     template <typename Iter>
     void get(Iter first, Iter last, std::vector<std::string>& sv) {
-	if (is_active_ == false) {
-	    sv.clear();
-	    return;
-	}
+	sv.clear();
 
+	if (is_active_ == false) return;
 	if (first == last) return;
 
 	unsigned int rank = first->first;
-
-	// that many sequences we need
-	unsigned int m = last - first;
 	last--;
 
-	// this is how many positions they span
-	unsigned int l = (last->second - first->second) + 1;
+	// this is how many sequences we need
+	unsigned int l = last->second - first->second + 1;
 
 	// get index
 	soffset_.resize(l + 1);
@@ -210,11 +233,11 @@ public:
 	MPI_Win_unlock(rank, index_win_);
 
 	// get data
-	l = soffset_.back() - soffset_.front();
-	buf_.resize(l);
+	unsigned int m = soffset_.back() - soffset_.front();
+	buf_.resize(m);
 
 	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, seqs_win_);
-	MPI_Get(&buf_[0], l, MPI_CHAR, rank, soffset_[0], l, MPI_CHAR, seqs_win_);
+	MPI_Get(&buf_[0], m, MPI_CHAR, rank, soffset_[0], m, MPI_CHAR, seqs_win_);
 	MPI_Win_unlock(rank, seqs_win_);
 
 #ifdef WITH_MPE
@@ -223,13 +246,12 @@ public:
 
 	// extract sequences
 	unsigned int off = soffset_[0];
-	for (unsigned int i = 0; i < soffset_.size(); ++i) soffset_[i] -= off;
+	for (unsigned int i = 0; i < l + 1; ++i) soffset_[i] -= off;
 
-	sv.resize(m);
+	sv.resize(l);
 
-	for (unsigned int i = 0; i < m; ++i) {
-	    unsigned int pos = first[i].second - first[0].second;
-	    sv[i] = std::string(buf_.begin() + soffset_[pos], buf_.begin() + soffset_[pos + 1]);
+	for (unsigned int i = 0; i < l; ++i) {
+	    sv[i] = std::string(buf_.begin() + soffset_[i], buf_.begin() + soffset_[i + 1]);
 	}
     } // get
 
@@ -534,7 +556,7 @@ public:
 	unsigned int length;
 	unsigned int matches;
 	boost::tie(score, length, matches) = align_(s1, s2);
-	return (100 * matches) / score;
+	return (100 * matches) / length;
     } // operator
 
 private:

@@ -5,7 +5,7 @@
  *  Created: May 23, 2012
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
- *  Copyright (c) 2012 Jaroslaw Zola
+ *  Copyright (c) 2012-2013 Jaroslaw Zola
  *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
