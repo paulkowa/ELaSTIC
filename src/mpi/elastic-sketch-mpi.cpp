@@ -45,26 +45,6 @@ void welcome() {
     std::cout << std::endl;
 } // welcome
 
-void usage() {
-    std::cout << "Usage: elastic-sketch-mpi --input name --output name [options...]\n";
-    std::cout << "\n";
-    std::cout << "Options:\n";
-    std::cout << "  --input name          read input from files with this prefix\n";
-    std::cout << "  --output name         write output to this file\n";
-    std::cout << "  --config name         read configuration from this file\n";
-    std::cout << "  --type {nt|aa}        set input sequence type (default nt)\n";
-    std::cout << "  --sigma type          use this compressed amino acid alphabet (default A20)\n";
-    std::cout << "  --method {0|1}        use this method to validate edges: 0 - alignment, 1 - kmer fraction (default 0)\n";
-    std::cout << "  --gaps list           use these parameters for affine gap alignment (default [5,-4,-10,-1])\n";
-    std::cout << "  --kmer size           use kmers of this size for sketching (default 15)\n";
-    std::cout << "  --level size          use this threshold for edge validation (default 75)\n";
-    std::cout << "  --mod size            use this value to perform mod operation in sketching (default 25)\n";
-    std::cout << "  --iter size           limit the number of sketching iterations to this size (default 7)\n";
-    std::cout << "  --cmax size           use this limit to mark frequent kmers (default 5000)\n";
-    std::cout << "  --jmin size           use this limit to extract candidate edges (default 50)\n";
-    std::cout << "\n";
-} // usage
-
 
 void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     const int MPI_ABRT_SIG = 13;
@@ -132,7 +112,8 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
     // validate candidate edges
     double tv0 = MPI_Wtime() - t0;
-    boost::tie(res, err) = validate_edges(opt, log, report, comm, SL, rma_seq, edges);
+    if (opt.wsq == false) boost::tie(res, err) = validate_edges(opt, log, report, comm, SL, rma_seq, edges);
+    else boost::tie(res, err) = validate_edges_ws(opt, log, report, comm, SL, rma_seq, edges);
     double tv1 = MPI_Wtime() - t0;
 
     if (res == false) {
@@ -226,7 +207,7 @@ int main(int argc, char* argv[]) {
     std::map<std::string, std::string> conf;
 
     if (argc == 1) {
-	if (rank == 0) usage();
+	if (rank == 0) AppConfig::usage();
 	return MPI_Finalize();
     }
 
@@ -238,7 +219,7 @@ int main(int argc, char* argv[]) {
     if (res == false) {
 	if (pos == -1) {
 	    if (rank == 0) {
-		usage();
+		AppConfig::usage();
 		std::cout << error << "incorrect command line arguments\n";
 	    }
 	    return MPI_Finalize();

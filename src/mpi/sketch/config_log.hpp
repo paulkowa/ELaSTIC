@@ -42,8 +42,28 @@ struct AppConfig {
 	iter = 7;
 	cmax = 5000;
 	jmin = 50;
-	rma = 0;
+	wsq = false;
     } // AppConfig
+
+    static void usage() {
+	std::cout << "Usage: elastic-sketch-mpi --input name --output name [options...]\n";
+	std::cout << "\n";
+	std::cout << "Options:\n";
+	std::cout << "  --input name          read input from files with this prefix\n";
+	std::cout << "  --output name         write output to this file\n";
+	std::cout << "  --config name         read configuration from this file\n";
+	std::cout << "  --type {nt|aa}        set input sequence type (default nt)\n";
+	std::cout << "  --sigma type          use this compressed amino acid alphabet (default A20)\n";
+	std::cout << "  --method {0|1}        use this method to validate edges: 0 - alignment, 1 - kmer fraction (default 0)\n";
+	std::cout << "  --gaps list           use these parameters for affine gap alignment (default [5,-4,-10,-1])\n";
+	std::cout << "  --kmer size           use kmers of this size for sketching (default 15)\n";
+	std::cout << "  --level size          use this threshold for edge validation (default 75)\n";
+	std::cout << "  --mod size            use this value to perform mod operation in sketching (default 25)\n";
+	std::cout << "  --iter size           limit the number of sketching iterations to this size (default 7)\n";
+	std::cout << "  --cmax size           use this limit to mark frequent kmers (default 5000)\n";
+	std::cout << "  --jmin size           use this limit to extract candidate edges (default 50)\n";
+	std::cout << "\n";
+    } // usage
 
     template <typename Container>
     std::pair<bool, std::string> set(const Container& conf) {
@@ -168,8 +188,8 @@ struct AppConfig {
 	}
 
 	// temporal options
-	if (jaz::check_option(ext_conf, "rma", val) == true) {
-	    rma = boost::lexical_cast<short int>(val);
+	if (jaz::check_option(ext_conf, "wsq", val) == true) {
+	    wsq = boost::lexical_cast<bool>(val);
 	}
 
 	return std::make_pair(true, "");
@@ -187,7 +207,7 @@ struct AppConfig {
     short int iter;
     unsigned int cmax;
     unsigned short int jmin;
-    short int rma;
+    bool wsq;
 
 }; // struct AppConfig
 

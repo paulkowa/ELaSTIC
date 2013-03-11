@@ -72,6 +72,19 @@ struct AppConfig {
 	kmer2 = 15;
     } // AppConfig
 
+    static void usage() {
+	std::cout << "Usage: elastic-prepare-omp --input name --output name [options...]\n";
+	std::cout << "\n";
+	std::cout << "Options:\n";
+	std::cout << "  --input name          read input from this file/directory\n";
+	std::cout << "  --output name         write output to files with this prefix\n";
+	std::cout << "  --type {nt|aa}        set input sequence type (default nt)\n";
+	std::cout << "  --length size         remove sequences shorter than this length (default 100)\n";
+	std::cout << "  --clean {0|1}         remove sequences with missing bases (default 1)\n";
+	std::cout << "  --group {0|1}         cluster very high similarity sequences (default 1)\n";
+	std::cout << "\n";
+    } // usage
+
     template <typename Container>
     std::pair<bool, std::string> set(const Container& conf) {
 	std::string val;
@@ -328,19 +341,6 @@ void welcome() {
     std::cout << ELASTIC_PREPARE_COPYRIGHT << "\n";
     std::cout << "\n";
 } // welcome
-
-void usage() {
-    std::cout << "Usage: elastic-prepare-omp --input name --output name [options...]\n";
-    std::cout << "\n";
-    std::cout << "Options:\n";
-    std::cout << "  --input name          read input from this file/directory\n";
-    std::cout << "  --output name         write output to files with this prefix\n";
-    std::cout << "  --type {nt|aa}        set input sequence type (default nt)\n";
-    std::cout << "  --length size         remove sequences shorter than this length (default 100)\n";
-    std::cout << "  --clean {0|1}         remove sequences with missing bases (default 1)\n";
-    std::cout << "  --group {0|1}         cluster very high similarity sequences (default 1)\n";
-    std::cout << "\n";
-} // usage
 
 
 void run(const AppConfig& opt, AppLog& log) {
@@ -641,7 +641,7 @@ int main(int argc, char* argv[]) {
     std::map<std::string, std::string> conf;
 
     if (argc == 1) {
-	usage();
+	AppConfig::usage();
 	return 0;
     }
 
@@ -653,7 +653,7 @@ int main(int argc, char* argv[]) {
 
     if (res == false) {
 	if (pos == -1) {
-	    usage();
+	    AppConfig::usage();
 	    std::cout << error << "incorrect command line arguments\n";
 	    return 0;
 	} else {

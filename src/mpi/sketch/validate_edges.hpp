@@ -21,6 +21,7 @@
 #include <mpix/simple_partition.hpp>
 
 #include "SequenceDB.hpp"
+#include "StaticWSQueue.hpp"
 #include "config_log.hpp"
 
 
@@ -84,10 +85,10 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
     report << info << "processing remaining edges: " << std::flush;
 
     unsigned int n = edges.size() - mid;
-    id2rank i2r(SL.N, size);
 
     if (n > 0) {
 	// sort according to location
+	id2rank i2r(SL.N, size);
 	read2rank r2r(rank, i2r);
 	std::vector<rank_read_t> rank_id(n);
 
@@ -137,10 +138,140 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
     } // if n
 
     // finalize
-    report << step << "cleaning edges..." << std::endl;
+    report << info << "cleaning edges..." << std::endl;
     edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar(opt.level)), edges.end());
 
     return std::make_pair(true, "");
 } // validate_edges
+
+
+inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
+						      const SequenceList& SL, SequenceRMA& rma_seq,
+						      std::vector<read_pair>& edges) {
+    report << step << "validating edges:" << std::endl;
+
+    int size, rank;
+
+    MPI_Comm_size(comm, &size);
+    MPI_Comm_rank(comm, &rank);
+
+    report << info << "creating tasks..." << std::endl;
+
+    // divide into local and remote
+    unsigned int mid =
+	std::partition(edges.begin(), edges.end(), local(SL.seqs.front().id, SL.seqs.back().id)) - edges.begin();
+
+    unsigned int n = edges.size() - mid;
+
+    // sort remote according to location
+    id2rank i2r(SL.N, size);
+    read2rank r2r(rank, i2r);
+
+    std::sort(edges.begin() + mid, edges.end(), compare_rank(r2r));
+
+    // transform remote edges to reads location
+    std::vector<rank_read_t> rank_id(n);
+    std::transform(edges.begin() + mid, edges.end(), rank_id.begin(), r2r);
+
+    // get tasks list
+    typedef StaticWSQueue<read_pair> ws_queue_type;
+    const unsigned int SBLOCK = 1024;
+
+    std::vector<ws_queue_type::range_type> tasks;
+    unsigned int pos = 0;
+
+    for (unsigned int i = 1; i < n + 1; ++i) {
+	int crank = -1;
+	if (i < n) crank = rank_id[i].first;
+	if ((rank_id[pos].first != crank) ||
+	    ((rank_id[pos].first == crank) && (rank_id[i].second - rank_id[pos].second > SBLOCK))) {
+	    tasks.push_back(ws_queue_type::make_range(pos, i));
+	    pos = i;
+	}
+    } // for i
+
+    // create work queue from remote edges
+    ws_queue_type wsq(comm);
+
+    if (wsq.init(edges.begin() + mid, edges.end(), tasks.begin(), tasks.end()) == false) {
+	return std::make_pair(false, "task queue failed to initialize");
+    }
+
+    // process local edges
+    report << info << "processing local edges..." << std::endl;
+
+    sequence_identity<general_compare> ident(SL, SL.seqs.front().id, general_compare(opt));
+    edges.resize(mid);
+
+    std::transform(edges.begin(), edges.end(), edges.begin(), ident);
+    edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar(opt.level)), edges.end());
+
+    n = edges.size();
+
+    // process tasks
+    report << info << "processing remaining edges, be patient..." << std::endl;
+
+    const read_pair* first = 0;
+    const read_pair* last = 0;
+
+    // here one edges is local
+    unsigned int id0 = -1;
+    std::string s0 = "";
+    std::string s1 = "";
+
+    while (wsq.get(first, last) == true) {
+	for (; first != last; ++first) {
+	    const read_pair& e = *first;
+
+	    if (i2r(e.id0) != rank) {
+		if (id0 != e.id0) {
+		    id0 = e.id0;
+		    s0 = rma_seq.get(e.id0);
+		}
+	    }
+
+	    if (i2r(e.id1) != rank) s1 = rma_seq.get(e.id1);
+
+	    if (i2r(e.id0) != rank) {
+		if (i2r(e.id1) != rank) edges.push_back(ident(e, s0, s1));
+		else edges.push_back(ident(s0, e));
+	    } else edges.push_back(ident(e, s1));
+	} // for
+
+	wsq.progress();
+    } // while wsq.get
+
+    report << info << "almost there..." << std::endl;
+
+    read_pair* sfirst = 0;
+    read_pair* slast = 0;
+
+    while (wsq.steal(sfirst, slast) == true) {
+	for (read_pair* rpp = sfirst; rpp != slast; ++rpp) {
+	    const read_pair& e = *rpp;
+
+	    if (i2r(e.id0) != rank) {
+		if (id0 != e.id0) {
+		    id0 = e.id0;
+		    s0 = rma_seq.get(e.id0);
+		}
+	    }
+
+	    if (i2r(e.id1) != rank) s1 = rma_seq.get(e.id1);
+
+	    if (i2r(e.id0) != rank) {
+		if (i2r(e.id1) != rank) edges.push_back(ident(e, s0, s1));
+		else edges.push_back(ident(s0, e));
+	    } else edges.push_back(ident(e, s1));
+	} // for
+
+	delete[] sfirst;
+    } // while wsq.steal
+
+    edges.erase(std::remove_if(edges.begin() + n, edges.end(), not_similar(opt.level)), edges.end());
+    wsq.finalize();
+
+    return std::make_pair(true, "");
+} // validate_edges_ws
 
 #endif // VALIDATE_EDGES_HPP

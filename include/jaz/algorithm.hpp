@@ -69,6 +69,48 @@ namespace jaz {
   } // compact
 
 
+  /** Function: mode
+   */
+  template <typename Iter, typename Pred>
+  std::pair<Iter, Iter> mode(Iter first, Iter last, Pred pred) {
+      if (first == last) return std::make_pair(first, first);
+
+      std::size_t count = 0;
+      Iter res_first;
+      Iter res_last;
+
+      std::size_t cur_count = 1;
+      Iter cur_first = first;
+
+      first++;
+
+      for (; first != last; ++first) {
+	  if (pred(*cur_first, *first)) {
+	      if (count < cur_count) {
+		  res_first = cur_first;
+		  res_last = first;
+		  count = cur_count;
+	      }
+	      cur_first = first;
+	      cur_count = 1;
+	  } else cur_count++;
+      }
+
+      if (count < cur_count) {
+	  res_first = cur_first;
+	  res_last = first;
+      }
+
+      return std::make_pair(res_first, res_last);
+  } // mode
+
+  template <typename Iter>
+  std::pair<Iter, Iter> mode(Iter first, Iter last) {
+      typedef typename std::iterator_traits<Iter>::value_type value_type;
+      return mode(first, last, std::less<value_type>());
+  } // mode
+
+
   /** Function: intersection_size
    */
   template <typename Iter1, typename Iter2, typename Pred>

@@ -102,7 +102,7 @@ public:
 
 
     std::pair<bool, std::string> init(const SequenceList& SL) {
-	if (is_active_ == true) return std::make_pair(false, "RMA already activated");
+	if (is_active_ == true) return std::make_pair(false, "SequenceRMA already activated");
 
 	int size;
 	MPI_Comm_size(comm_, &size);
@@ -112,7 +112,7 @@ public:
 
 	// index
 	if (MPI_Alloc_mem((nloc + 1) * sizeof(unsigned int), MPI_INFO_NULL, &index_) != MPI_SUCCESS) {
-	    return std::make_pair(false, "could not allocate memory");
+	    return std::make_pair(false, "SequenceRMA could not allocate memory");
 	}
 
 	index_[0] = 0;
@@ -123,7 +123,7 @@ public:
 
 	// sequences
 	if (MPI_Alloc_mem(index_[nloc], MPI_INFO_NULL, &seqs_) != MPI_SUCCESS) {
-	    return std::make_pair(false, "could not allocate memory");
+	    return std::make_pair(false, "SequenceRMA could not allocate memory");
 	}
 
 	char* pos = seqs_;
@@ -161,14 +161,14 @@ public:
 	MPE_Log_event(mpe_start_, 0, "start sequencedb_get");
 #endif // WITH_MPE
 
-	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, index_win_);
+	MPI_Win_lock(MPI_LOCK_SHARED, rank, MPI_MODE_NOCHECK, index_win_);
 	MPI_Get(len, 2, MPI_UNSIGNED, rank, offset, 2, MPI_UNSIGNED, index_win_);
 	MPI_Win_unlock(rank, index_win_);
 
 	unsigned int l = len[1] - len[0];
 	buf_.resize(l);
 
-	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, seqs_win_);
+	MPI_Win_lock(MPI_LOCK_SHARED, rank, MPI_MODE_NOCHECK, seqs_win_);
 	MPI_Get(&buf_[0], l, MPI_CHAR, rank, len[0], l, MPI_CHAR, seqs_win_);
 	MPI_Win_unlock(rank, seqs_win_);
 
