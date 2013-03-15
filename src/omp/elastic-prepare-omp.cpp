@@ -5,7 +5,7 @@
  *  Created: May 20, 2012
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
- *  Copyright (c) 2012 Jaroslaw Zola
+ *  Copyright (c) 2012-2013 Jaroslaw Zola
  *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
@@ -113,37 +113,43 @@ struct AppConfig {
 	    }
 	}
 
-	// check hidden options
-	if (jaz::check_option(conf, "kmer1", val) == true) {
-	    kmer1 = boost::lexical_cast<unsigned short int>(val);
-	    if ((kmer1 < 5) || (kmer1 > 31)) {
-		return std::make_pair(false, "incorrect size of kmer1");
-	    }
-	}
+	try {
 
-	if (jaz::check_option(conf, "kmer2", val) == true) {
-	    kmer2 = boost::lexical_cast<unsigned short int>(val);
-	    if ((kmer2 < 3) || (kmer2 > kmer1)) {
-		return std::make_pair(false, "incorrect size of kmer2");
-	    }
-	}
-
-	// check other options
-	if (jaz::check_option(conf, "clean", val) == true) {
-	    clean = boost::lexical_cast<unsigned int>(val);
-	}
-
-	if (jaz::check_option(conf, "group", val) == true) {
-	    group = boost::lexical_cast<unsigned int>(val);
-	}
-
-	if (jaz::check_option(conf, "length", val) == true) {
-	    length = boost::lexical_cast<unsigned short int>(val);
-	    if (group == true) {
-		if ((length < kmer1) || (length - kmer1 < kmer2)) {
-		    return std::make_pair(false, "incorrect minimal sequence length");
+	    // check hidden options
+	    if (jaz::check_option(conf, "kmer1", val) == true) {
+		kmer1 = boost::lexical_cast<unsigned short int>(val);
+		if ((kmer1 < 5) || (kmer1 > 31)) {
+		    return std::make_pair(false, "incorrect size of kmer1");
 		}
 	    }
+
+	    if (jaz::check_option(conf, "kmer2", val) == true) {
+		kmer2 = boost::lexical_cast<unsigned short int>(val);
+		if ((kmer2 < 3) || (kmer2 > kmer1)) {
+		    return std::make_pair(false, "incorrect size of kmer2");
+		}
+	    }
+
+	    // check other options
+	    if (jaz::check_option(conf, "clean", val) == true) {
+		clean = boost::lexical_cast<unsigned int>(val);
+	    }
+
+	    if (jaz::check_option(conf, "group", val) == true) {
+		group = boost::lexical_cast<unsigned int>(val);
+	    }
+
+	    if (jaz::check_option(conf, "length", val) == true) {
+		length = boost::lexical_cast<unsigned short int>(val);
+		if (group == true) {
+		    if ((length < kmer1) || (length - kmer1 < kmer2)) {
+			return std::make_pair(false, "incorrect minimal sequence length");
+		    }
+		}
+	    }
+
+	} catch (boost::bad_lexical_cast& ex) {
+	    return std::make_pair(false, "incorrect argument(s)");
 	}
 
 	return std::make_pair(true, "");

@@ -1,20 +1,21 @@
-ELaSTIC Similarity via Sketching Version 0.94:2013-02-12
+ELaSTIC Similarity via Sketching Version 1.0:2013-03-15
 Copyright (c) 2012-2013 Jaroslaw Zola
 
 Usage: elastic-sketch-mpi --input name --output name [options...]
 
 Options:
   --input name          read input from files with this prefix
-  --output name         write output to this file
+  --output name         write output to files with this prefix
   --config name         read configuration from this file
   --type {nt|aa}        set input sequence type (default nt)
   --sigma type          use this compressed amino acid alphabet (default A20)
   --method {0|1}        use this method to validate edges: 0 - alignment, 1 - kmer fraction (default 0)
-  --gaps list           use these parameters for affine gap alignment (default [5,-4,-10,-1])
-  --kmer size           use kmers of this size for sketching (default 15)
+  --gaps list           use these parameters for alignment (default [5,-4,-10,-1])
+  --kmer size           use kmers of this size for sketching and kmer fraction (default 15)
   --level size          use this threshold for edge validation (default 75)
   --mod size            use this value to perform mod operation in sketching (default 25)
   --iter size           limit the number of sketching iterations to this size (default 7)
   --cmax size           use this limit to mark frequent kmers (default 5000)
   --jmin size           use this limit to extract candidate edges (default 50)
+  --wsq {0|1}           enable work stealing during validation (default 1)
 

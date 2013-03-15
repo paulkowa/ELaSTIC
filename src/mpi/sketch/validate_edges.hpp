@@ -20,8 +20,8 @@
 
 #include <mpix/simple_partition.hpp>
 
+#include "../StaticWSQueue.hpp"
 #include "SequenceDB.hpp"
-#include "StaticWSQueue.hpp"
 #include "config_log.hpp"
 
 
@@ -161,8 +161,6 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
     unsigned int mid =
 	std::partition(edges.begin(), edges.end(), local(SL.seqs.front().id, SL.seqs.back().id)) - edges.begin();
 
-    unsigned int n = edges.size() - mid;
-
     // sort remote according to location
     id2rank i2r(SL.N, size);
     read2rank r2r(rank, i2r);
@@ -170,12 +168,14 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
     std::sort(edges.begin() + mid, edges.end(), compare_rank(r2r));
 
     // transform remote edges to reads location
+    unsigned int n = edges.size() - mid;
     std::vector<rank_read_t> rank_id(n);
+
     std::transform(edges.begin() + mid, edges.end(), rank_id.begin(), r2r);
 
     // get tasks list
     typedef StaticWSQueue<read_pair> ws_queue_type;
-    const unsigned int SBLOCK = 1024;
+    const unsigned int SBLOCK = 4096;
 
     std::vector<ws_queue_type::range_type> tasks;
     unsigned int pos = 0;
@@ -206,69 +206,71 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
     std::transform(edges.begin(), edges.end(), edges.begin(), ident);
     edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar(opt.level)), edges.end());
 
-    n = edges.size();
-
     // process tasks
     report << info << "processing remaining edges, be patient..." << std::endl;
 
     const read_pair* first = 0;
     const read_pair* last = 0;
 
-    // here one edges is local
-    unsigned int id0 = -1;
-    std::string s0 = "";
-    std::string s1 = "";
+    // here one read is local
+    std::vector<std::string> sv;
 
     while (wsq.get(first, last) == true) {
-	for (; first != last; ++first) {
-	    const read_pair& e = *first;
+	unsigned int l = last - first;
 
-	    if (i2r(e.id0) != rank) {
-		if (id0 != e.id0) {
-		    id0 = e.id0;
-		    s0 = rma_seq.get(e.id0);
-		}
-	    }
+	rank_id.resize(l);
+	std::transform(first, last, rank_id.begin(), r2r);
 
-	    if (i2r(e.id1) != rank) s1 = rma_seq.get(e.id1);
+	rma_seq.get(rank_id.begin(), rank_id.end(), sv);
+	unsigned int start_id = rank_id[0].second;
 
-	    if (i2r(e.id0) != rank) {
-		if (i2r(e.id1) != rank) edges.push_back(ident(e, s0, s1));
-		else edges.push_back(ident(s0, e));
-	    } else edges.push_back(ident(e, s1));
-	} // for
+	for (unsigned int j = 0; j < l; ++j) {
+	    const std::string& s = sv[rank_id[j].second - start_id];
+	    const read_pair& e = first[j];
+
+	    if (i2r(e.id0) == rank) edges.push_back(ident(e, s));
+	    else edges.push_back(ident(s, e));
+	} // for j
 
 	wsq.progress();
     } // while wsq.get
 
-    report << info << "almost there..." << std::endl;
+    // we start stealing process
+    report << info << "almost done..." << std::endl;
 
+    int vrank = -1;
     read_pair* sfirst = 0;
     read_pair* slast = 0;
 
-    while (wsq.steal(sfirst, slast) == true) {
-	for (read_pair* rpp = sfirst; rpp != slast; ++rpp) {
-	    const read_pair& e = *rpp;
+    std::string s0;
 
-	    if (i2r(e.id0) != rank) {
-		if (id0 != e.id0) {
-		    id0 = e.id0;
-		    s0 = rma_seq.get(e.id0);
-		}
+    while (wsq.steal(vrank, sfirst, slast) == true) {
+	unsigned int l = slast - sfirst;
+	read2rank vr2r(vrank, i2r);
+
+	rank_id.resize(l);
+	std::transform(sfirst, slast, rank_id.begin(), vr2r);
+
+	rma_seq.get(rank_id.begin(), rank_id.end(), sv);
+	unsigned int start_id = rank_id[0].second;
+
+	for (unsigned int j = 0; j < l; ++j) {
+	    const std::string& s = sv[rank_id[j].second - start_id];
+	    const read_pair& e = sfirst[j];
+
+	    if (i2r(e.id0) == rank_id[j].first) {
+		s0 = rma_seq.get(e.id1);
+		edges.push_back(ident(e, s, s0));
+	    } else {
+		s0 = rma_seq.get(e.id0);
+		edges.push_back(ident(e, s0, s));
 	    }
-
-	    if (i2r(e.id1) != rank) s1 = rma_seq.get(e.id1);
-
-	    if (i2r(e.id0) != rank) {
-		if (i2r(e.id1) != rank) edges.push_back(ident(e, s0, s1));
-		else edges.push_back(ident(s0, e));
-	    } else edges.push_back(ident(e, s1));
 	} // for
 
 	delete[] sfirst;
     } // while wsq.steal
 
-    edges.erase(std::remove_if(edges.begin() + n, edges.end(), not_similar(opt.level)), edges.end());
+    edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar(opt.level)), edges.end());
     wsq.finalize();
 
     return std::make_pair(true, "");

@@ -27,3 +27,6 @@
 
 # use this limit to extract candidate edges (default 50)
 ; jmin = 50
+
+# enable work stealing during validation (default 1)
+; wsq = 1

@@ -42,7 +42,7 @@ struct AppConfig {
 	iter = 7;
 	cmax = 5000;
 	jmin = 50;
-	wsq = false;
+	wsq = true;
     } // AppConfig
 
     static void usage() {
@@ -50,18 +50,19 @@ struct AppConfig {
 	std::cout << "\n";
 	std::cout << "Options:\n";
 	std::cout << "  --input name          read input from files with this prefix\n";
-	std::cout << "  --output name         write output to this file\n";
+	std::cout << "  --output name         write output to files with this prefix\n";
 	std::cout << "  --config name         read configuration from this file\n";
 	std::cout << "  --type {nt|aa}        set input sequence type (default nt)\n";
 	std::cout << "  --sigma type          use this compressed amino acid alphabet (default A20)\n";
 	std::cout << "  --method {0|1}        use this method to validate edges: 0 - alignment, 1 - kmer fraction (default 0)\n";
-	std::cout << "  --gaps list           use these parameters for affine gap alignment (default [5,-4,-10,-1])\n";
-	std::cout << "  --kmer size           use kmers of this size for sketching (default 15)\n";
+	std::cout << "  --gaps list           use these parameters for alignment (default [5,-4,-10,-1])\n";
+	std::cout << "  --kmer size           use kmers of this size for sketching and kmer fraction (default 15)\n";
 	std::cout << "  --level size          use this threshold for edge validation (default 75)\n";
 	std::cout << "  --mod size            use this value to perform mod operation in sketching (default 25)\n";
 	std::cout << "  --iter size           limit the number of sketching iterations to this size (default 7)\n";
 	std::cout << "  --cmax size           use this limit to mark frequent kmers (default 5000)\n";
 	std::cout << "  --jmin size           use this limit to extract candidate edges (default 50)\n";
+	std::cout << "  --wsq {0|1}           enable work stealing during validation (default 1)\n";
 	std::cout << "\n";
     } // usage
 
@@ -106,90 +107,96 @@ struct AppConfig {
 
 	// from here complete config is in ext_conf
 
-	if (jaz::check_option(ext_conf, "method", val) == true) {
-	    method = boost::lexical_cast<unsigned short int>(val);
-	    if ((method != 0) && (method != 1)) {
-		return std::make_pair(false, "incorrect method");
-	    }
-	}
+	try {
 
-	if (jaz::check_option(ext_conf, "type", val) == true) {
-	    if ((val != "nt") && (val != "aa")) {
-		return std::make_pair(false, "incorrect type");
+	    if (jaz::check_option(ext_conf, "method", val) == true) {
+		method = boost::lexical_cast<unsigned short int>(val);
+		if ((method != 0) && (method != 1)) {
+		    return std::make_pair(false, "incorrect method");
+		}
 	    }
-	    is_dna = (val == "nt");
-	}
 
-	if (jaz::check_option(ext_conf, "sigma", val) == true) {
-	    if (val[0] == '[') {
-		return std::make_pair(false, "custom alphabets not supported");
-	    } else if ((val == "A20") || (val == "Dayhoff6")) {
-		sigma = val;
-	    } else {
-		return std::make_pair(false, "unknown compressed alphabet");
+	    if (jaz::check_option(ext_conf, "type", val) == true) {
+		if ((val != "nt") && (val != "aa")) {
+		    return std::make_pair(false, "incorrect type");
+		}
+		is_dna = (val == "nt");
 	    }
-	}
 
-	if (jaz::check_option(ext_conf, "gaps", val) == true) {
-	    val.erase(val.begin());
-	    val.erase(val.end() - 1);
-	    std::vector<std::string> agap;
-	    jaz::split(',', val, std::back_inserter(agap));
-	    if (agap.size() != 4) {
-		return std::make_pair(false, "incorrect gaps");
+	    if (jaz::check_option(ext_conf, "sigma", val) == true) {
+		if (val[0] == '[') {
+		    return std::make_pair(false, "custom alphabets not supported");
+		} else if ((val == "A20") || (val == "Dayhoff6")) {
+		    sigma = val;
+		} else {
+		    return std::make_pair(false, "unknown compressed alphabet");
+		}
 	    }
-	    for (unsigned int i = 0; i < 4; ++i) {
-		gaps[i] = boost::lexical_cast<int>(agap[i]);
+
+	    if (jaz::check_option(ext_conf, "gaps", val) == true) {
+		val.erase(val.begin());
+		val.erase(val.end() - 1);
+		std::vector<std::string> agap;
+		jaz::split(',', val, std::back_inserter(agap));
+		if (agap.size() != 4) {
+		    return std::make_pair(false, "incorrect gaps");
+		}
+		for (unsigned int i = 0; i < 4; ++i) {
+		    gaps[i] = boost::lexical_cast<int>(agap[i]);
+		}
 	    }
-	}
 
-	if (jaz::check_option(ext_conf, "kmer", val) == true) {
-	    kmer = boost::lexical_cast<unsigned int>(val);
-	    if ((kmer < 3) || (kmer > 31)) {
-		return std::make_pair(false, "incorrect kmer");
+	    if (jaz::check_option(ext_conf, "kmer", val) == true) {
+		kmer = boost::lexical_cast<unsigned int>(val);
+		if ((kmer < 3) || (kmer > 31)) {
+		    return std::make_pair(false, "incorrect kmer");
+		}
 	    }
-	}
 
-	if (jaz::check_option(ext_conf, "level", val) == true) {
-	    level = boost::lexical_cast<short int>(val);
-	    if ((level < 10) || (level > 100)) {
-		return std::make_pair(false, "incorrect level");
+	    if (jaz::check_option(ext_conf, "level", val) == true) {
+		level = boost::lexical_cast<short int>(val);
+		if ((level < 10) || (level > 100)) {
+		    return std::make_pair(false, "incorrect level");
+		}
 	    }
-	}
 
-	if (jaz::check_option(ext_conf, "mod", val) == true) {
-	    mod = boost::lexical_cast<short int>(val);
-	    if ((mod < 1) || (mod > 100)) {
-		return std::make_pair(false, "incorrect mod");
+	    if (jaz::check_option(ext_conf, "mod", val) == true) {
+		mod = boost::lexical_cast<short int>(val);
+		if ((mod < 1) || (mod > 100)) {
+		    return std::make_pair(false, "incorrect mod");
+		}
 	    }
-	}
 
-	if (jaz::check_option(ext_conf, "iter", val) == true) {
-	    iter = boost::lexical_cast<short int>(val);
-	    if ((iter < 1) || (mod < iter)) {
-		return std::make_pair(false, "incorrect iter");
+	    if (jaz::check_option(ext_conf, "iter", val) == true) {
+		iter = boost::lexical_cast<short int>(val);
+		if ((iter < 1) || (mod < iter)) {
+		    return std::make_pair(false, "incorrect iter");
+		}
 	    }
-	}
 
-	if (iter == -1) iter = mod;
+	    if (iter == -1) iter = mod;
 
-	if (jaz::check_option(ext_conf, "cmax", val) == true) {
-	    cmax = boost::lexical_cast<short int>(val);
-	    if (cmax < 1) {
-		return std::make_pair(false, "incorrect cmax");
+	    if (jaz::check_option(ext_conf, "cmax", val) == true) {
+		cmax = boost::lexical_cast<short int>(val);
+		if (cmax < 1) {
+		    return std::make_pair(false, "incorrect cmax");
+		}
 	    }
-	}
 
-	if (jaz::check_option(ext_conf, "jmin", val) == true) {
-	    jmin = boost::lexical_cast<short int>(val);
-	    if ((jmin < 10) || (jmin > 100)) {
-		return std::make_pair(false, "incorrect jmin");
+	    if (jaz::check_option(ext_conf, "jmin", val) == true) {
+		jmin = boost::lexical_cast<short int>(val);
+		if ((jmin < 10) || (jmin > 100)) {
+		    return std::make_pair(false, "incorrect jmin");
+		}
 	    }
-	}
 
-	// temporal options
-	if (jaz::check_option(ext_conf, "wsq", val) == true) {
-	    wsq = boost::lexical_cast<bool>(val);
+	    // temporal options
+	    if (jaz::check_option(ext_conf, "wsq", val) == true) {
+		wsq = boost::lexical_cast<bool>(val);
+	    }
+
+	} catch (boost::bad_lexical_cast& ex) {
+	    return std::make_pair(false, "incorrect argument(s)");
 	}
 
 	return std::make_pair(true, "");
