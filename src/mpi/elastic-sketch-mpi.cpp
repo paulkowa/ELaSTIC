@@ -65,6 +65,10 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     std::string err = "";
 
 
+    // set random seed
+    std::srand((rank + 1) * std::time(0));
+
+
     // read input sequence
     SequenceList SL;
 
