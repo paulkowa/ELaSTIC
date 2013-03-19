@@ -190,6 +190,8 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
 	}
     } // for i
 
+    report << info << "initializing queue..." << std::endl;
+
     // create work queue from remote edges
     ws_queue_type wsq(comm);
 

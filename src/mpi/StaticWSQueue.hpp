@@ -60,9 +60,8 @@ public:
 
 	unsigned int n = dlast - dfirst;
 
-	if (MPI_Alloc_mem(n * sizeof(T), MPI_INFO_NULL, &data_) != MPI_SUCCESS) return false;
-	std::copy(dfirst, dlast, data_);
-	MPI_Win_create(data_, n * sizeof(T), sizeof(T), MPI_INFO_NULL, comm_, &data_win_);
+	data_.resize(n);
+	std::copy(dfirst, dlast, data_.begin());
 
 	unsigned int m = tlast - tfirst;
 
@@ -86,10 +85,6 @@ public:
 
 	    while (progress() == true) { }
 	    MPI_Cancel(&req_);
-
-	    MPI_Win_free(&data_win_);
-	    MPI_Free_mem(data_);
-	    MPI_Type_free(&MPI_RANGE_TYPE);
 	} // if
 
 	active_ = false;
@@ -105,8 +100,8 @@ public:
 	if ((queue_[0] + 1) == queue_[1]) return false;
 	else queue_[0]++;
 
-	first = data_ + task_[queue_[0]].first;
-	last = data_ + task_[queue_[0]].last;
+	first = &data_[task_[queue_[0]].first];
+	last = &data_[task_[queue_[0]].last];
 
 	return true;
     } // get
@@ -163,10 +158,7 @@ public:
 		first = new T[k];
 		last = first + k;
 
-		MPI_Win_lock(MPI_LOCK_SHARED, vic, MPI_MODE_NOCHECK, data_win_);
-		MPI_Get(first, k * sizeof(T), MPI_BYTE, vic, task.first, k * sizeof(T), MPI_BYTE, data_win_);
-		MPI_Win_unlock(vic, data_win_);
-
+		MPI_Recv(first, k * sizeof(T), MPI_BYTE, vic, SWSQ_TASK_DATA, comm_, &stat);
 		vrank = vic;
 	    }
 	} while ((task.first == task.last) && (victims_.empty() == false));
@@ -204,6 +196,10 @@ public:
 		}
 
 		MPI_Send(&task, 1, MPI_RANGE_TYPE, req_buf_[0], SWSQ_TASK_ANS, comm_);
+		if (ht == true) {
+		    unsigned int k = task.last - task.first;
+		    MPI_Send(&data_[task.first], k * sizeof(T), MPI_BYTE, req_buf_[0], SWSQ_TASK_DATA, comm_);
+		}
 		MPI_Irecv(req_buf_, 2, MPI_INT, MPI_ANY_SOURCE, SWSQ_STEAL_REQ, comm_, &req_);
 
 		t++;
@@ -253,7 +249,7 @@ public:
 
 
 private:
-    enum { SWSQ_STEAL_REQ = 111, SWSQ_TASK_ANS = 222 };
+    enum { SWSQ_STEAL_REQ = 111, SWSQ_TASK_ANS = 222, SWSQ_TASK_DATA = 333 };
 
     bool active_;
 
@@ -267,8 +263,7 @@ private:
     MPI_Datatype MPI_RANGE_TYPE;
 
     // data and task storage
-    MPI_Win data_win_;
-    T* data_;
+    std::vector<T> data_;
 
     std::vector<range_type> task_;
 
