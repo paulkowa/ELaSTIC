@@ -29,6 +29,7 @@
 
 #include "SequenceDB.hpp"
 #include "config_log.hpp"
+#include "iomanip.hpp"
 
 #ifdef WITH_MPE
 #include <mpe.h>

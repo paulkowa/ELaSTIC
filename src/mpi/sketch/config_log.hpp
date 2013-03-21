@@ -24,6 +24,8 @@
 
 #include <jaz/parameters.hpp>
 
+#include "config.hpp"
+
 
 struct AppConfig {
     AppConfig() {
@@ -220,7 +222,7 @@ struct AppConfig {
 
 
 struct AppLog {
-    AppLog() : argv(), cpus(0), wtime(0), input(0), cedges(0), vedges(0), through(0) {
+    AppLog() : argv(), cpus(0), wtime(0), input(0), cedges(0), vedges(0) {
 	time_t t;
 	time(&t);
 	date = ctime(&t);
@@ -233,7 +235,6 @@ struct AppLog {
     unsigned int input;
     unsigned int cedges;
     unsigned int vedges;
-    unsigned int through;
 
     friend std::ostream& operator<<(std::ostream& os, const AppLog& log) {
 	os << "execution date: " << log.date;
@@ -244,7 +245,6 @@ struct AppLog {
 	os << "input sequences: " << log.input << "\n";
 	os << "candidate edges: " << log.cedges << "\n";
 	os << "validated edges: " << log.vedges << "\n";
-	os << "edge throughput: " << log.through << "\n";
 	return os;
     } // operator<<
 }; // struct AppLog

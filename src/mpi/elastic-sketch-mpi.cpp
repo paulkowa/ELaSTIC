@@ -28,6 +28,7 @@
 #include "sketch/make_shingles.hpp"
 #include "sketch/read_input.hpp"
 #include "sketch/validate_edges.hpp"
+#include "sketch/write_output.hpp"
 
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
@@ -35,8 +36,6 @@
 
 #include <jaz/parameters.hpp>
 #include <jaz/hash.hpp>
-
-#include <mpix/write_cbuffer.hpp>
 
 
 void welcome() {
@@ -103,6 +102,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
 
     // generate candidate edges
+    // at the end processors are most likely out of sync
     std::vector<read_pair> edges;
 
     boost::tie(res, err) = generate_edges(opt, log, report, comm, SL, shingles, edges);
@@ -125,30 +125,24 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 	MPI_Abort(comm, MPI_ABRT_SIG);
     }
 
+
     // this barrier is needed for BG
     report << info << "syncing..." << std::endl;
     MPI_Barrier(comm);
 
 
     // write output
-    report << info << "writing output..." << std::endl;
+    boost::tie(res, err) = write_output(opt, log, report, comm, edges);
 
-    /*
-    boost::format fmt("%05d");
-    fmt % rank;
-
-    std::ofstream of((opt.output + "." + fmt.str()).c_str());
-    std::copy(edges.begin(), edges.end(), std::ostream_iterator<read_pair>(of, "\n"));
-    of.close();
-    */
-
-    std::ostringstream os;
-    std::copy(edges.begin(), edges.end(), std::ostream_iterator<read_pair>(os, "\n"));
-
-    if (mpix::write_cbuffer((opt.output + ".00000"), os.str().c_str(), os.str().size(), comm) == false) {
-	report.critical << error << ("unable to create " + opt.output + ".00000") << std::endl;
+    if (res == false) {
+	report.critical << error << err << std::endl;
 	MPI_Abort(comm, MPI_ABRT_SIG);
     }
+
+
+    // final sync
+    MPI_Barrier(comm);
+    log.wtime = MPI_Wtime() - t0;
 
 
     // update log
@@ -164,18 +158,15 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     MPI_Reduce(&tv0, &gst, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
 
     log.cedges = num_cedges;
-    log.through = static_cast<unsigned int>(num_cedges / (gtv1 - gtv0));
 
     unsigned int l = edges.size();
     MPI_Reduce(&l, &log.vedges, 1, MPI_UNSIGNED, MPI_SUM, 0, comm);
 
-    MPI_Barrier(comm);
-    log.wtime = MPI_Wtime() - t0;
-
     report << info << "extracted " << log.cedges << " candidate edges" << std::endl;
     report << info << "generated " << log.vedges << " valid edges" << std::endl;
-    report << info << "edge throughput: " << log.through << std::endl;
     report << info << "sketching phase: " << gst << std::endl;
+    report << info << "validation phase: " << (gtv1 - gtv0) << std::endl;
+    report << info << "edge throughput: " << static_cast<unsigned int>(num_cedges / (gtv1 - gtv0)) << std::endl;
 
     // write log
     if (rank == 0) {

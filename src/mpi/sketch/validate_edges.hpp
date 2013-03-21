@@ -23,6 +23,7 @@
 #include "../StaticWSQueue.hpp"
 #include "SequenceDB.hpp"
 #include "config_log.hpp"
+#include "iomanip.hpp"
 
 
 class general_compare {

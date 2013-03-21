@@ -26,6 +26,7 @@
 
 #include "SequenceDB.hpp"
 #include "config_log.hpp"
+#include "iomanip.hpp"
 #include "tools.hpp"
 
 
