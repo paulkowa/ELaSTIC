@@ -106,7 +106,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     std::vector<read_pair> edges;
 
     boost::tie(res, err) = generate_edges(opt, log, report, comm, SL, shingles, edges);
-    unsigned int etot = edges.size();
+    unsigned long long int etot = edges.size();
 
     if (res == false) {
 	report.critical << error << err << std::endl;
@@ -146,11 +146,11 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
 
     // update log
-    unsigned int num_cedges = 0;
+    unsigned long long int num_cedges = 0;
     double gtv0 = 0.0;
     double gtv1 = 0.0;
 
-    MPI_Reduce(&etot, &num_cedges, 1, MPI_UNSIGNED, MPI_SUM, 0, comm);
+    MPI_Reduce(&etot, &num_cedges, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, 0, comm);
     MPI_Reduce(&tv0, &gtv0, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
     MPI_Reduce(&tv1, &gtv1, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
 
@@ -159,8 +159,8 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
     log.cedges = num_cedges;
 
-    unsigned int l = edges.size();
-    MPI_Reduce(&l, &log.vedges, 1, MPI_UNSIGNED, MPI_SUM, 0, comm);
+    unsigned long long int l = edges.size();
+    MPI_Reduce(&l, &log.vedges, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, 0, comm);
 
     report << info << "extracted " << log.cedges << " candidate edges" << std::endl;
     report << info << "generated " << log.vedges << " valid edges" << std::endl;

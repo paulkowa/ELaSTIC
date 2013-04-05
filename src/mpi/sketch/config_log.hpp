@@ -233,8 +233,8 @@ struct AppLog {
     unsigned int cpus;
     double wtime;
     unsigned int input;
-    unsigned int cedges;
-    unsigned int vedges;
+    unsigned long long int cedges;
+    unsigned long long int vedges;
 
     friend std::ostream& operator<<(std::ostream& os, const AppLog& log) {
 	os << "execution date: " << log.date;

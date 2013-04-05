@@ -30,10 +30,10 @@ namespace mpix {
 
       if (err != MPI_SUCCESS) return false;
 
-      unsigned int size = bsz;
-      unsigned int offset = 0;
+      unsigned long long int size = bsz;
+      unsigned long long int offset = 0;
 
-      MPI_Scan(&size, &offset, 1, MPI_UNSIGNED, MPI_SUM, comm);
+      MPI_Scan(&size, &offset, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, comm);
       offset -= size;
 
       char type[] = "native";
