@@ -1,32 +1,55 @@
-# set input sequence type (default nt)
+# Set input sequence type.
+# Two sequence types are supported:
+# nt = DNA/RNA,
+# aa = proteins.
+# Default: nt
 ; type = nt
 
-# use this compressed amino acid alphabet (default A20)
-; sigma = A20
+# Select compressed amino acid alphabet.
+# Currently, two compressed alphabets are supported:
+# A20 = standard amino acids,
+# Dayhoff6 = 6 groups (see Edgar, NAR 2004; 32(1): 380-385).
+# Default: Dayhoff6
+; sigma = Dayhoff6
 
-# use this method to validate edges: 0 - alignment, 1 - kmers count (default 0)
+# Select method to perform validation.
+# Currently, three methods are available:
+# 0 = kmer fraction,
+# 1 = CD-HIT identity,
+# 2 = BLAST identity.
+# Default: 0
 ; method = 0
 
-# use these parameters for affine gap alignment (default [5,-4,-10,-1])
+# Set affine gap alignment parameters to compute CD-HIT or BLAST identity.
+# Format used: [match, substitution, gap opening, gap extension].
+# Default: [5,-4,-10,-1]
 ; gaps = [5,-4,-10,-1]
 
-# use kmers of this size for sketching (default 15)
+# Set kmer size used during the sketching phase, and for validation
+# if the kmer fraction method is selected.
+# Default: 15
 ; kmer = 15
 
-# use this threshold for edge validation (default 75)
+# Set the threshold value above which edges are valid.
+# Default: 75
 ; level = 75
 
-# use this value to perform mod operation in sketching (default 25)
+# Set mod value for the sketching phase.
+# Default: 25
 ; mod = 25
 
-# limit the number of sketching iterations to this size (default 7)
+# Set the number of iterations in the sketching phase.
+# Default: 7
 ; iter = 7
 
-# use this limit to mark frequent kmers (default 5000)
+# Set the limit to mark frequent kmers.
+# Default: 5000
 ; cmax = 5000
 
-# use this limit to extract candidate edges (default 50)
+# Set the threshold to extract candidate edges.
+# Default: 50
 ; jmin = 50
 
-# enable work stealing during validation (default 1)
+# Enable work stealing in the validation phase.
+# Default: 1
 ; wsq = 1

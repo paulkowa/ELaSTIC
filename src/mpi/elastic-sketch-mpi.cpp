@@ -178,6 +178,8 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 	}
 
 	flog << log;
+	flog << "config:" << std::endl;
+	flog << opt;
 	flog.close();
     }
 

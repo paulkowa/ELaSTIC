@@ -73,7 +73,7 @@ struct AppConfig {
     } // AppConfig
 
     static void usage() {
-	std::cout << "Usage: elastic-prepare-omp --input name --output name [options...]\n";
+	std::cout << "Usage: " << ELASTIC_PREPARE_SHORT << " --input name --output name [options...]\n";
 	std::cout << "\n";
 	std::cout << "Options:\n";
 	std::cout << "  --input name          read input from this file/directory\n";
@@ -349,45 +349,24 @@ void welcome() {
 } // welcome
 
 
-void run(const AppConfig& opt, AppLog& log) {
+std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& report) {
     double t0 = get_time();
 
     // pre-open output files
     std::ofstream fmap((opt.output + ".emap").c_str());
-
-    if (!fmap) {
-	std::cout << error << "unable to create " << opt.output + ".emap" << std::endl;
-	return;
-    }
+    if (!fmap) return std::make_pair(false, "unable to create " + opt.output + ".emap");
 
     std::ofstream fdel((opt.output + ".edel").c_str());
-
-    if (!fdel) {
-	std::cout << error << "unable to create " << opt.output + ".edel" << std::endl;
-	return;
-    }
+    if (!fdel) return std::make_pair(false, "unable to create " + opt.output + ".edel");
 
     std::ofstream fseq((opt.output + ".eseq").c_str(), std::ios_base::binary);
-
-    if (!fseq) {
-	std::cout << error << "unable to create " << opt.output + ".eseq" << std::endl;
-	return;
-    }
+    if (!fseq) return std::make_pair(false, "unable to create " + opt.output + ".eseq");
 
     std::ofstream fidx((opt.output + ".eidx").c_str(), std::ios_base::binary);
-
-    if (!fidx) {
-	std::cout << error << "unable to create " << opt.output + ".eidx" << std::endl;
-	return;
-    }
+    if (!fidx) return std::make_pair(false, "unable to create " + opt.output + ".eidx");
 
     std::ofstream flog((opt.output + ".eplog").c_str());
-
-    if (!flog) {
-	std::cout << error << "unable to create " << opt.output + ".eplog" << std::endl;
-	return;
-    }
-
+    if (!flog) return std::make_pair(false, "unable to create " + opt.output + ".eplog");
 
     // get files to process
     std::cout << step << "scanning " << opt.input << " for input files..." << std::endl;
@@ -396,17 +375,13 @@ void run(const AppConfig& opt, AppLog& log) {
     std::vector<fs::path> cfiles; // clean files
 
     if (jaz::files(opt.input, std::back_inserter(files)) == false) {
-	std::cout << error << "unable to scan " << opt.input << std::endl;
-	return;
+	return std::make_pair(false, "unable to scan " + opt.input);
     }
 
-    if (files.empty() == true) {
-	std::cout << error << "no files to process" << std::endl;
-	return;
-    }
+    if (files.empty() == true) return std::make_pair(false, "no files to process");
 
-    std::cout << info << "found " << files.size() << " input file(s)" << std::endl;
-    std::cout << step << "extracting sequences..." << std::endl;
+    report << info << "found " << files.size() << " input file(s)" << std::endl;
+    report << step << "extracting sequences..." << std::endl;
 
     // GET INPUT SEQUENCES
     const unsigned int SBUF_SIZE = 512 * 1024;
@@ -427,7 +402,7 @@ void run(const AppConfig& opt, AppLog& log) {
 	std::istream* is = open_stream(files[i], fs, cs);
 
 	if (is == 0) {
-	    std::cout << warning << "unable to open " << files[i].string() << ", ignoring" << std::endl;
+	    report.critical << warning << "unable to open " << files[i].string() << ", ignoring" << std::endl;
 	    continue;
 	}
 
@@ -460,7 +435,7 @@ void run(const AppConfig& opt, AppLog& log) {
 		unsigned int n = seqs.size();
 		sdesc.resize(pos + n);
 
-		std::cout << info << "valid " << n << " out of " << m << " sequences" << std::endl;
+		report << info << "valid " << n << " out of " << m << " sequences" << std::endl;
 		log.input += m;
 		log.extracted += n;
 
@@ -490,14 +465,11 @@ void run(const AppConfig& opt, AppLog& log) {
     std::vector<sequence_type>().swap(seqs);
 
     // PERFORM CLUSTERING
-    if (sdesc.empty() == true) {
-	std::cout << error << "no sequences found" << std::endl;
-	return;
-    }
+    if (sdesc.empty() == true) return std::make_pair(false, "no sequences found");
 
     unsigned int n = sdesc.size();
 
-    std::cout << step << "indexing/clustering " << n << " sequences..." << std::endl;
+    report << step << "indexing/clustering " << n << " sequences..." << std::endl;
 
     // union find clustering
     std::vector<unsigned int> uf(n);
@@ -532,7 +504,7 @@ void run(const AppConfig& opt, AppLog& log) {
     } // for i
 
     log.groups = cluster.size();
-    std::cout << info << "created " << cluster.size() << " output groups" << std::endl;
+    report << info << "created " << cluster.size() << " output groups" << std::endl;
 
     // find longest sequence for each cluster
     // and move it to head
@@ -557,14 +529,11 @@ void run(const AppConfig& opt, AppLog& log) {
 
 	boost::tie(niter, res) = name2id.insert(std::make_pair(sdesc[iter->seqs[0]].name, sid));
 
-	if (res == false) {
-	    std::cout << error << "sequence with this name " << niter->first << " exists" << std::endl;
-	    return;
-	}
+	if (res == false) return std::make_pair(false, "sequence with this name " + niter->first + " exists");
     } // for iter
 
     // WRITE OUTPUT
-    std::cout << step << "writing output files..." << std::endl;
+    report << step << "writing output files..." << std::endl;
 
     // sequence map
     unsigned int cid = 0;
@@ -593,11 +562,7 @@ void run(const AppConfig& opt, AppLog& log) {
 	boost::iostreams::filtering_istream cs;
 
 	std::istream* is = open_stream(cfiles[i], fs, cs);
-
-	if (is == 0) {
-	    std::cout << error << "file " << cfiles[i].string() << " disappeared" << std::endl;
-	    return;
-	}
+	if (is == 0) return std::make_pair(false, "file " + cfiles[i].string() + " disappeared");
 
 	bio::fasta_input_iterator<> fi(*is), end;
 
@@ -632,11 +597,11 @@ void run(const AppConfig& opt, AppLog& log) {
 
     // write final log
     flog << log;
+    flog << "config:" << std::endl;
+    flog << opt;
     flog.close();
 
-    std::cout << "time: " << log.wtime << std::endl;
-    std::cout << "done!" << std::endl;
-    std::cout << std::endl;
+    return std::make_pair(true, "");
 } // run
 
 
@@ -661,10 +626,10 @@ int main(int argc, char* argv[]) {
 	if (pos == -1) {
 	    AppConfig::usage();
 	    std::cout << error << "incorrect command line arguments\n";
-	    return 0;
+	    return -1;
 	} else {
 	    std::cout << error << "incorrect command line argument " << argv[pos] << "\n";
-	    return 0;
+	    return -1;
 	}
     }
 
@@ -674,14 +639,24 @@ int main(int argc, char* argv[]) {
 
     if (res == false) {
 	std::cout << error << err << "\n";
-	return 0;
+	return -1;
     }
 
     AppLog log;
     log.argv = jaz::join(' ', argv + 1, argv + argc);
 
-    // and here we go
-    run(opt, log);
+    Reporter report(std::cout, std::cout);
+
+    boost::tie(res, err) = run(opt, log, report);
+
+    if (res == false) {
+	std::cout << error << err << "\n";
+	return -1;
+    }
+
+    std::cout << "time: " << log.wtime << std::endl;
+    std::cout << "done!" << std::endl;
+    std::cout << std::endl;
 
     return 0;
 } // main

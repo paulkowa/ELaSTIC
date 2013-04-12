@@ -31,25 +31,32 @@ public:
     explicit general_compare(const AppConfig& opt) : method_(opt.method) {
 	switch (opt.method) {
 	  case 0:
-	      A_ = alignment_identity(opt.gaps[0], opt.gaps[1], opt.gaps[2], opt.gaps[3]);
-	      break;
-	  case 1:
 	      K_ = kmer_identity(opt.kmer, opt.is_dna);
 	      break;
-	}
+
+	  case 1:
+	      Acdhit_ = alignment_cdhit_identity(opt.gaps[0], opt.gaps[1], opt.gaps[2], opt.gaps[3]);
+	      break;
+
+	  case 2:
+	      Ablast_ = alignment_blast_identity(opt.gaps[0], opt.gaps[1], opt.gaps[2], opt.gaps[3]);
+	      break;
+	} // switch
     } // general_compare
 
     unsigned short int operator()(const std::string& s0, const std::string& s1) {
 	switch (method_) {
-	  case 0: return A_(s0, s1);
-	  case 1: return K_(s0, s1);
+	  case 0: return K_(s0, s1);
+	  case 1: return Acdhit_(s0, s1);
+	  case 2: return Ablast_(s0, s1);
 	}
 	return 0;
     } // operator()
 
 private:
-    alignment_identity A_;
     kmer_identity K_;
+    alignment_cdhit_identity Acdhit_;
+    alignment_blast_identity Ablast_;
 
     unsigned int method_;
 

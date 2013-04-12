@@ -32,7 +32,7 @@ struct AppConfig {
 	input = "";
 	output = "";
 	is_dna = true;
-	sigma = "A20";
+	sigma = "Dayhoff6";
 	method = 0;
 	gaps[0] = 5;
 	gaps[1] = -4;
@@ -48,23 +48,23 @@ struct AppConfig {
     } // AppConfig
 
     static void usage() {
-	std::cout << "Usage: elastic-sketch-mpi --input name --output name [options...]\n";
+	std::cout << "Usage: " << ELASTIC_SKETCH_SHORT << " --input name --output name [options...]\n";
 	std::cout << "\n";
 	std::cout << "Options:\n";
-	std::cout << "  --input name          read input from files with this prefix\n";
-	std::cout << "  --output name         write output to files with this prefix\n";
-	std::cout << "  --config name         read configuration from this file\n";
-	std::cout << "  --type {nt|aa}        set input sequence type (default nt)\n";
-	std::cout << "  --sigma type          use this compressed amino acid alphabet (default A20)\n";
-	std::cout << "  --method {0|1}        use this method to validate edges: 0 - alignment, 1 - kmer fraction (default 0)\n";
-	std::cout << "  --gaps list           use these parameters for alignment (default [5,-4,-10,-1])\n";
-	std::cout << "  --kmer size           use kmers of this size for sketching and kmer fraction (default 15)\n";
-	std::cout << "  --level size          use this threshold for edge validation (default 75)\n";
-	std::cout << "  --mod size            use this value to perform mod operation in sketching (default 25)\n";
-	std::cout << "  --iter size           limit the number of sketching iterations to this size (default 7)\n";
-	std::cout << "  --cmax size           use this limit to mark frequent kmers (default 5000)\n";
-	std::cout << "  --jmin size           use this limit to extract candidate edges (default 50)\n";
-	std::cout << "  --wsq {0|1}           enable work stealing during validation (default 1)\n";
+	std::cout << "  --input name       read input from files with this prefix\n";
+	std::cout << "  --output name      write output to files with this prefix\n";
+	std::cout << "  --config name      read configuration from this file\n";
+	std::cout << "  --type {nt|aa}     set input sequence type (default nt)\n";
+	std::cout << "  --sigma type       use this compressed amino acid alphabet (default Dayhoff6)\n";
+	std::cout << "  --method type      use this method to validate edges (default 0)\n";
+	std::cout << "  --gaps list        use these alignment parameters (default [5,-4,-10,-1])\n";
+	std::cout << "  --kmer size        use kmers of this size (default 15)\n";
+	std::cout << "  --level size       use this threshold for edge validation (default 75)\n";
+	std::cout << "  --mod size         use this mod value in sketching (default 25)\n";
+	std::cout << "  --iter size        limit the number of sketching iterations to this (default 7)\n";
+	std::cout << "  --cmax size        use this limit to mark frequent kmers (default 5000)\n";
+	std::cout << "  --jmin size        use this limit to extract candidate edges (default 50)\n";
+	std::cout << "  --wsq {0|1}        enable work stealing in validation (default 1)\n";
 	std::cout << "\n";
     } // usage
 
@@ -113,7 +113,7 @@ struct AppConfig {
 
 	    if (jaz::check_option(ext_conf, "method", val) == true) {
 		method = boost::lexical_cast<unsigned short int>(val);
-		if ((method != 0) && (method != 1)) {
+		if (method > 2) {
 		    return std::make_pair(false, "incorrect method");
 		}
 	    }
@@ -176,8 +176,6 @@ struct AppConfig {
 		}
 	    }
 
-	    if (iter == -1) iter = mod;
-
 	    if (jaz::check_option(ext_conf, "cmax", val) == true) {
 		cmax = boost::lexical_cast<short int>(val);
 		if (cmax < 1) {
@@ -217,6 +215,25 @@ struct AppConfig {
     unsigned int cmax;
     unsigned short int jmin;
     bool wsq;
+
+    friend std::ostream& operator<<(std::ostream& os, const AppConfig& opt) {
+	os << "input = " << opt.input << "\n";
+	os << "output = " << opt.output << "\n";
+	os << "dna = " << opt.is_dna << "\n";
+	os << "sigma = " << opt.sigma << "\n";
+	os << "method = " << opt.method << "\n";
+	os << "gaps =";
+	for (unsigned int i = 0; i < 4; ++i) os << " " << opt.gaps[i];
+	os << "\n";
+	os << "kmer = " << opt.kmer << "\n";
+	os << "level = " << opt.level << "\n";
+	os << "mod = " << opt.mod << "\n";
+	os << "iter = " << opt.iter << "\n";
+	os << "cmax = " << opt.cmax << "\n";
+	os << "jmin = " << opt.jmin << "\n";
+	os << "wsq = " << opt.wsq << "\n";
+	return os;
+    } // operator<<
 
 }; // struct AppConfig
 
