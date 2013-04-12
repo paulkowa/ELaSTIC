@@ -169,7 +169,7 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     if (files.empty() == true) return std::make_pair(false, "no files to process");
 
     report << info << "found " << files.size() << " input file(s)" << std::endl;
-    report << step << "extracting clusters..." << std::endl;
+    report << step << "extracting clusters, be patient..." << std::endl;
 
     std::vector<unsigned int> uf(opt.nodes);
     unsigned int num_edges = 0;
@@ -230,6 +230,9 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     log.wtime = get_time() - t0;
     log.input = num_edges;
     log.extracted = cnum;
+
+    report << info << "found " << num_edges << " edges" << std::endl;
+    report << info << "extracted " << cnum << " clusters" << std::endl;
 
     // write final log
     flog << log;

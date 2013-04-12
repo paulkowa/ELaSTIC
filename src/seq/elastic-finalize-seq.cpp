@@ -156,8 +156,12 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     std::ofstream fcls((opt.output + ".clust").c_str());
     if (!flog) return std::make_pair(false, "unable to create " + opt.output + ".clust");
 
+    report << step << "reading map..." << std::endl;
+
     SequenceMap smap;
     if (smap.read(opt.map) == false) return std::make_pair(false, "unable to read " + opt.map);
+
+    report << step << "formatting clusters, be patient..." << std::endl;
 
     // read clusters and format output
     jaz::getline_iterator<> gi(fin), end;
