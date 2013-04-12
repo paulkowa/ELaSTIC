@@ -20,6 +20,10 @@
 #include <jaz/parameters.hpp>
 
 #include <boost/lexical_cast.hpp>
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/accumulators/statistics/mean.hpp>
+#include <boost/accumulators/statistics/median.hpp>
 #include <boost/tuple/tuple.hpp>
 
 #include "SequenceMap.hpp"
@@ -86,7 +90,7 @@ struct AppConfig {
 
 
 struct AppLog {
-    AppLog() : argv(), wtime(0), clusters(0), mcluster(0), acluster(0) {
+    AppLog() : argv(), wtime(0), clusters(0), maxc(0), meanc(0), medianc(0) {
 	time_t t;
 	time(&t);
 	date = ctime(&t);
@@ -96,8 +100,9 @@ struct AppLog {
     std::string argv;
     double wtime;
     unsigned int clusters;
-    unsigned int mcluster;
-    double acluster;
+    unsigned int maxc;
+    unsigned int meanc;
+    unsigned int medianc;
 
     friend std::ostream& operator<<(std::ostream& os, const AppLog& log) {
 	os << "execution date: " << log.date;
@@ -105,8 +110,9 @@ struct AppLog {
 	os << "program options: " << log.argv << "\n";
 	os << "walltime used: " << log.wtime << "\n";
 	os << "processed clusters: " << log.clusters << "\n";
-	os << "largest cluster: " << log.mcluster << "\n";
-	os << "average cluster: " << log.acluster << "\n";
+	os << "largest cluster: " << log.maxc << "\n";
+	os << "average cluster: " << log.meanc << "\n";
+	os << "median cluster: " << log.medianc << "\n";
 	return os;
     } // operator<<
 }; // struct AppLog
@@ -169,9 +175,10 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     std::vector<std::string> buf;
     std::vector<unsigned int> nodes;
 
+    using namespace boost::accumulators;
+
     unsigned int nclust = 0;
-    unsigned int maxcs = 0;
-    double avgcs = 0;
+    accumulator_set<unsigned int, stats<tag::max, tag::mean, tag::median> > acc;
 
     for (; gi != end; ++gi) {
 	buf.clear();
@@ -191,8 +198,7 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
 	unsigned int tot = write_plain_cluster(fcls, smap, nclust, nodes);
 	if (tot == 0) return std::make_pair(false, "error in cluster " + boost::lexical_cast<std::string>(nclust));
 
-	if (maxcs < tot) maxcs = tot;
-	avgcs += tot;
+	acc(tot);
 	nclust++;
     } // for gi
 
@@ -201,8 +207,14 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
 
     log.wtime = get_time() - t0;
     log.clusters = nclust;
-    log.mcluster = maxcs;
-    log.acluster = avgcs / nclust;
+    log.maxc = max(acc);
+    log.meanc = mean(acc);
+    log.medianc = median(acc);
+
+    report << info << "extracted " << nclust << " clusters" << std::endl;
+    report << info << "largest cluster: " << log.maxc << std::endl;
+    report << info << "average cluster: " << log.meanc << std::endl;
+    report << info << "median cluster: " << log.medianc << std::endl;
 
     // write final log
     flog << log;
