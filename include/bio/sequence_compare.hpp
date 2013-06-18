@@ -5,7 +5,7 @@
  *  Created: May 03, 2012
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
- *  Copyright (c) 2012 Jaroslaw Zola
+ *  Copyright (c) 2012-2013 Jaroslaw Zola
  *  Distributed under the Boost Software License.
  *
  *  Boost Software License - Version 1.0 - August 17th, 2003
@@ -37,8 +37,11 @@
 #define SEQUENCE_COMPARE_HPP
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
+#include <fstream>
 #include <functional>
+#include <limits>
 #include <map>
 #include <string>
 #include <vector>
@@ -204,10 +207,118 @@ namespace bio {
   }; // struct sequence_compare
 
 
+
+  /** Class: scoring_matrix
+   *
+   *  Functor encapsulating a scoring_matrix functionality.
+   */
+  class scoring_matrix {
+  public:
+      scoring_matrix() : sz_(0), matrix_(0) { std::memset(sigma_, 0, 256); }
+
+      /** Constructor: scoring_matrix
+       *
+       *  Parameter:
+       *  sigma -  Map of the alphabet used by the matrix.
+       *  matrix - Raw-wise substitution matrix.
+       */
+      scoring_matrix(unsigned char sigma[256], const std::vector<char>& matrix)
+	  : matrix_(matrix), sz_(std::sqrt(matrix.size())) { std::memcpy(sigma_, sigma, 256); }
+
+      /** Function: operator()
+       *
+       *  Returns:
+       *  Substitution score between a and b.
+       */
+      int operator()(char a, char b) const { return matrix_[sigma_[a] * sz_ + sigma_[b]]; }
+
+
+  private:
+      unsigned int sz_;
+      unsigned char sigma_[256];
+      std::vector<char> matrix_;
+
+  }; // scoring_matrix
+
+
+  scoring_matrix make_dummy_sm(int m, int s) {
+      unsigned char sigma[256];
+      for (unsigned int i = 0; i < 256; ++i) sigma[i] = i;
+      std::vector<char> matrix(256 * 256, s);
+      for (unsigned int i = 0; i < 256; ++i) matrix[(i << 8) + i] = m;
+      return scoring_matrix(sigma, matrix);
+  } // make_dummy_sm
+
+  scoring_matrix make_dna_sm(int m, int s) {
+      unsigned char sigma[256];
+      for (unsigned int i = 0; i < 256; ++i) sigma[i] = 4;
+
+      sigma['a'] = sigma['A'] = 0;
+      sigma['c'] = sigma['C'] = 1;
+      sigma['g'] = sigma['G'] = 2;
+      sigma['t'] = sigma['T'] = 3;
+
+      std::vector<char> matrix(5 * 5, s);
+      for (unsigned int i = 0; i < 5; ++i) matrix[(5 * i) + i] = m;
+
+      return scoring_matrix(sigma, matrix);
+  }; // make_dna_sm
+
+  bool read_file_sm(const std::string& name, scoring_matrix& sub) {
+      std::ifstream f(name.c_str());
+      if (!f) return false;
+
+      unsigned char sigma[256];
+      std::string buf;
+
+      // read comments
+      while (!f.eof()) {
+	  buf = "";
+	  std::getline(f, buf);
+	  if ((buf.empty() == true) || (buf[0] != '#')) break;
+      } // while
+
+      if (buf.empty() == true) return false;
+
+      // parse column header
+      std::string head = buf;
+      head.erase(std::remove(head.begin(), head.end(), ' '), head.end());
+
+      unsigned int len = head.size();
+      if (head[head.size() - 1] != '*') return false;
+
+      std::vector<char> matrix(len * len, 0);
+
+      for (unsigned int i = 0; i < 256; ++i) sigma[i] = len - 1;
+      for (unsigned int i = 0; i < len - 1; ++i) sigma[head[i]] = i;
+
+      // read matrix
+      for (unsigned int i = 0; i < len; ++i) {
+	  char id = 0;
+	  int val;
+
+	  f >> id;
+	  if (!f || (id != head[i])) return false;
+
+	  for (unsigned int j = 0; j < len; ++j) {
+	      f >> val;
+	      if (!f) return false;
+	      unsigned int pos0 = sigma[head[i]];
+	      unsigned int pos1 = sigma[head[j]];
+	      matrix[pos0 * len + pos1] = val;
+	  } // for j
+      } // for i
+
+      f.close();
+
+      sub = scoring_matrix(sigma, matrix);
+      return true;
+  } // read_scoring_matrix
+
+
   /** Class: global_alignment
    *  Functor implementing memory-efficient global pairwise sequence alignment
-   *  with affine gap penalty. The implementation is alphabet oblivious.
-   *  No thread safety guarantees.
+   *  with affine gap penalty.
    */
   class global_alignment : public sequence_compare<global_alignment> {
   public:
@@ -220,13 +331,23 @@ namespace bio {
        *  h - Gap extension penalty (negative number).
        */
       explicit global_alignment(int m = 0, int s = 0, int g = 0, int h = 0)
-	  : m_(m), s_(s), g_(g), h_(h) { }
+	  : sub_(make_dummy_sm(m, s)), g_(g), h_(h) { }
+
+      /** Constructor: global_alignment
+       *
+       *  Parameter:
+       *  sm - Substitution matrix.
+       *  g -  Gap opening penalty (negative number).
+       *  h -  Gap extension penalty (negative number).
+       */
+      global_alignment(const scoring_matrix& sm, int g, int h)
+	  : sub_(sm), g_(g), h_(h) { }
 
       /** Function: operator()
-       *  Compute alignment score between s0 and s1.
+       *  Compute alignment between s0 and s1.
        *
        *  Returns:
-       *  3-tuple (alignment score, alignment length, number of matches).
+       *  3-tuple (alignment score, alignment length without terminal gaps, number of matches).
        */
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
 	  unsigned int n = s0.size() + 1;
@@ -247,7 +368,7 @@ namespace bio {
 	  }
 
 	  unsigned int pos = 0;
-	  unsigned int Sij = 0;
+	  int Sij = 0;
 
 	  for (unsigned int i = 1; i < n; ++i) {
 	      int Si = g_ + i * h_;
@@ -262,27 +383,22 @@ namespace bio {
 		  Di = std::max(Di, Si + g_) + h_;
 		  I_[j] = std::max(I_[j], S_[j] + g_) + h_;
 
-		  int d = (s0[i - 1] == s1[j - 1]) ? m_ : s_;
+		  Si = Sij + sub_(s0[i - 1], s1[j - 1]);
 
-		  Si = Sij + d;
+		  // default: max in Si
+		  track_[pos] = DIAG;
 
 		  if (Di < I_[j]) {
 		      if (Si < I_[j]) {
 			  // max in I_[j]
 			  Si = I_[j];
 			  track_[pos] = TOP;
-		      } else {
-			  // max in Si
-			  track_[pos] = DIAG;
 		      }
 		  } else {
 		      if (Si < Di) {
 			  // max in Di
 			  Si = Di;
 			  track_[pos] = LEFT;
-		      } else {
-			  // max in Si
-			  track_[pos] = DIAG;
 		      }
 		  } // if
 
@@ -301,43 +417,267 @@ namespace bio {
 	  unsigned int match = 0;
 	  unsigned int length = 0;
 
+	  bool has_gap = false;
+	  unsigned int sgap = 0;
+	  unsigned int egap = 0;
+
+	  has_path_ = false;
+	  path_.clear();
+
 	  while ((i > 0) || (j > 0)) {
 	      switch (track_[i * m + j]) {
 		case TOP:
 		    --i;
+		    sgap++;
+		    path_.push_back('d');
 		    break;
 
 		case LEFT:
 		    --j;
+		    sgap++;
+		    path_.push_back('i');
 		    break;
 
 		case DIAG:
 		    --i;
 		    --j;
-		    if (s0[i] == s1[j]) match++;
+
+		    if (s0[i] == s1[j]) {
+			match++;
+			path_.push_back('m');
+		    } else path_.push_back('s');
+
+		    if (has_gap == false) {
+			has_gap = true;
+			egap = sgap;
+		    }
+
+		    sgap = 0;
 		    break;
 	      } // switch
+
 	      length++;
 	  } // while
 
-	  return boost::make_tuple(S_.back(), length, match);
+	  return boost::make_tuple(S_.back(), length - sgap - egap, match);
       } // operator()
+
+      /** Function: path
+       *  Return the edit path of the last alignment.
+       *
+       *  Returns:
+       *  Edit path where 'i' means insert gap in s0, 'd' is deletion,
+       *  's' is substitution, and 'm' is match.
+       */
+      std::string path() {
+	  if (has_path_ == false) {
+	      std::reverse(path_.begin(), path_.end());
+	      has_path_ = true;
+	  }
+	  return path_;
+      } // path
+
 
   private:
       enum { TOP, LEFT, DIAG };
 
+      bool has_path_;
+      std::string path_;
       std::vector<unsigned char> track_;
 
       std::vector<int> S_;
       std::vector<int> I_;
 
-      int m_;
-      int s_;
+      scoring_matrix sub_;
 
       int g_;
       int h_;
 
   }; // class global_alignment
+
+
+  /** Class: cfe_global_alignment
+   *  Functor implementing memory-efficient global pairwise sequence alignment
+   *  with cost-free end gaps affine gap penalty. Cost-free end gaps are
+   *  allowed only in one sequence.
+   */
+  class cfe_global_alignment : public sequence_compare<global_alignment> {
+  public:
+      /** Constructor: cfe_global_alignment
+       *
+       *  Parameter:
+       *  m - Match score (some positive number).
+       *  s - Substitution penalty (usually negative number).
+       *  g - Gap opening penalty (negative number).
+       *  h - Gap extension penalty (negative number).
+       */
+      explicit cfe_global_alignment(int m = 0, int s = 0, int g = 0, int h = 0)
+	  : sub_(make_dummy_sm(m, s)), g_(g), h_(h) { }
+
+      /** Constructor: cfe_global_alignment
+       *
+       *  Parameter:
+       *  sm - Substitution matrix.
+       *  g -  Gap opening penalty (negative number).
+       *  h -  Gap extension penalty (negative number).
+       */
+      cfe_global_alignment(const scoring_matrix& sm, int g, int h)
+	  : sub_(sm), g_(g), h_(h) { }
+
+      /** Function: operator()
+       *  Compute alignment between s0 and s1. s0 is assumed to be a shorter query sequence
+       *  in which end-gaps are free (i.e. s0 is contained in s1).
+       *
+       *  Returns:
+       *  3-tuple (alignment score, alignment length without terminal gaps, number of matches).
+       */
+      boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
+	  unsigned int n = s0.size() + 1;
+	  unsigned int m = s1.size() + 1;
+
+	  // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j) }
+	  // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
+	  // I(i, j) = max{ I(i - 1, j), S(i - 1, j) + g } + h
+
+	  S_.resize(m, 0);
+	  I_.resize(m, 0);
+
+	  track_.resize(n * m);
+
+	  for (unsigned int j = 1; j < m; ++j) {
+	      I_[j] = g_ + j * h_;
+	      track_[j] = LEFT;
+	  }
+
+	  unsigned int pos = 0;
+	  int Sij = 0;
+
+	  for (unsigned int i = 1; i < n; ++i) {
+	      int Si = g_ + i * h_;
+	      int Di = g_ + i * h_;
+
+	      pos = i * m;
+	      track_[pos] = TOP;
+
+	      for (unsigned int j = 1; j < m; ++j) {
+		  pos++;
+
+		  Di = std::max(Di, Si + g_) + h_;
+		  I_[j] = std::max(I_[j], S_[j] + g_) + h_;
+
+		  Si = Sij + sub_(s0[i - 1], s1[j - 1]);
+
+		  // default: max in Si
+		  track_[pos] = DIAG;
+
+		  if (Di < I_[j]) {
+		      if (Si < I_[j]) {
+			  // max in I_[j]
+			  Si = I_[j];
+			  track_[pos] = TOP;
+		      }
+		  } else {
+		      if (Si < Di) {
+			  // max in Di
+			  Si = Di;
+			  track_[pos] = LEFT;
+		      }
+		  } // if
+
+		  Sij = S_[j];
+		  S_[j] = Si;
+
+	      } // for j
+
+	      Sij = g_ + i * h_;
+	  } // for i
+
+	  // backtrack
+	  unsigned int i = n - 1;
+	  unsigned int j = std::max_element(S_.begin() + 1, S_.end()) - S_.begin();
+
+	  int score = S_[j];
+
+	  unsigned int match = 0;
+	  unsigned int length = (m - 1) - j;
+
+	  bool has_gap = true;
+	  unsigned int sgap = 0;
+	  unsigned int egap = length;
+
+	  has_path_ = false;
+	  path_ = std::string(length, 'i');
+
+	  while ((i > 0) || (j > 0)) {
+	      switch (track_[i * m + j]) {
+		case TOP:
+		    --i;
+		    sgap++;
+		    path_.push_back('d');
+		    break;
+
+		case LEFT:
+		    --j;
+		    sgap++;
+		    path_.push_back('i');
+		    break;
+
+		case DIAG:
+		    --i;
+		    --j;
+
+		    if (s0[i] == s1[j]) {
+			match++;
+			path_.push_back('m');
+		    } else path_.push_back('s');
+
+		    if (has_gap == false) {
+			has_gap = true;
+			egap = sgap;
+		    }
+
+		    sgap = 0;
+		    break;
+	      } // switch
+
+	      length++;
+	  } // while
+
+	  return boost::make_tuple(score, length - sgap - egap, match);
+      } // operator()
+
+      /** Function: path
+       *  Return the edit path of the last alignment.
+       *
+       *  Returns:
+       *  Edit path where 'i' means insert gap in s0, 'd' is deletion,
+       *  's' is substitution, and 'm' is match.
+       */
+      std::string path() {
+	  if (has_path_ == false) {
+	      std::reverse(path_.begin(), path_.end());
+	      has_path_ = true;
+	  }
+	  return path_;
+      } // path
+
+
+  private:
+      enum { TOP = 0, LEFT = 1, DIAG = 2 };
+
+      bool has_path_;
+      std::string path_;
+      std::vector<unsigned char> track_;
+
+      std::vector<int> S_;
+      std::vector<int> I_;
+
+      scoring_matrix sub_;
+
+      int g_;
+      int h_;
+
+  }; // class cfe_global_alignment
 
 
   /** Class: d2
