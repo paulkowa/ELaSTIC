@@ -1,11 +1,11 @@
 /***
  *  $Id$
  **
- *  File: elastic-sketch-mpi.cpp
+ *  File: elastic-sketch.cpp
  *  Created: May 20, 2012
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
- *  Copyright (c) 2012 Jaroslaw Zola
+ *  Copyright (c) 2012-2013 Jaroslaw Zola
  *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
@@ -79,9 +79,11 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     }
 
 
-    // initialize RMA
-    SequenceRMA rma_seq(comm);
-    boost::tie(res, err) = rma_seq.init(SL);
+    // generate shingles
+    jaz::murmur264 hash;
+    std::vector<shingle_list_type> shingles;
+
+    boost::tie(res, err) = make_shingles(opt, log, report, SL, hash, shingles);
 
     if (res == false) {
 	report.critical << error << err << std::endl;
@@ -89,11 +91,19 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     }
 
 
-    // generate shingles
-    jaz::murmur264 hash;
-    std::vector<shingle_list_type> shingles;
+    // compress sequences
+    if ((opt.is_dna == false) && (opt.compress == true) && (opt.sigma != "A20")) {
+	CompressedAlphabet ca(opt.sigma);
+	unsigned int n = SL.seqs.size();
+	for (unsigned int i = 0; i < n; ++i) {
+	    SL.seqs[i].s = ca(SL.seqs[i].s);
+	}
+    }
 
-    boost::tie(res, err) = make_shingles(opt, log, report, SL, hash, shingles);
+
+    // initialize RMA
+    SequenceRMA rma_seq(comm);
+    boost::tie(res, err) = rma_seq.init(SL);
 
     if (res == false) {
 	report.critical << error << err << std::endl;

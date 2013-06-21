@@ -1,7 +1,7 @@
 /***
  *  $Id$
  **
- *  File: elastic-prepare-omp.cpp
+ *  File: elastic-prepare.cpp
  *  Created: May 20, 2012
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
