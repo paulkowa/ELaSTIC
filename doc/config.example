@@ -1,36 +1,47 @@
-# Set input sequence type.
-# Two sequence types are supported:
+# Set input data type.
+# Two types are supported:
 # nt = DNA/RNA,
 # aa = proteins.
 # Default: nt
 ; type = nt
 
-# Select compressed amino acid alphabet.
-# Currently, two compressed alphabets are supported:
+# Select compressed amino acid alphabet (valid for proteins only).
+# Any alphabet can be defined in the form [group1,group2,...,groupN].
+# For example [AGPST,C,DENQ,FWY,HKR,ILMV] defines 6 groups.
+# Additionally, two alphabets are predefined:
 # A20 = standard amino acids,
-# Dayhoff6 = 6 groups (see Edgar, NAR 2004; 32(1): 380-385).
-# Default: Dayhoff6
-; sigma = Dayhoff6
+# Dayhoff6 = 6 groups (see Edgar, NAR 2004; 32(1):380-385).
+# Default: A20
+; sigma = A20
+
+# Use compressed alphabet during validation (valid for proteins only).
+# Default: 0
+; compress = 0
 
 # Select method to perform validation.
 # Currently, three methods are available:
 # 0 = kmer fraction,
-# 1 = CD-HIT identity,
-# 2 = BLAST identity.
+# 1 = CD-HIT identity from cost-free end gaps global alignment.
+# 2 = CD-HIT identity from global alignment.
+# 3 = BLAST identity from cost-free end gaps global alignment.
+# 4 = BLAST identity from global alignment.
 # Default: 0
 ; method = 0
 
-# Set affine gap alignment parameters to compute CD-HIT or BLAST identity.
-# Format used: [match, substitution, gap opening, gap extension].
+# Set affine gap alignment parameters (valid for alignment-based methods only).
+# Format used is [match, substitution, gap opening, gap extension],
+# or [substitution matrix path, gap opening, gap extension].
+# For example [/scratch/blosum62.txt,-10,-1] will use matrix from
+# /scratch/blosum62.txt.
 # Default: [5,-4,-10,-1]
 ; gaps = [5,-4,-10,-1]
 
-# Set kmer size used during the sketching phase, and for validation
+# Set kmer size used during the sketching phase, and during validation
 # if the kmer fraction method is selected.
 # Default: 15
 ; kmer = 15
 
-# Set the threshold value above which edges are valid.
+# Set the threshold value above which edges are considered valid.
 # Default: 75
 ; level = 75
 

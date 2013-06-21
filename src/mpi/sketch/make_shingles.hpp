@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "CompressedAlphabet.hpp"
 #include "SequenceCodec.hpp"
 
 #include "SequenceDB.hpp"
@@ -33,16 +34,18 @@ std::pair<bool, std::string> make_shingles(const AppConfig& opt, AppLog& log, Re
     unsigned short int k = opt.kmer;
     unsigned int n = SL.seqs.size();
 
+    CompressedAlphabet ca(opt.sigma);
+    if (opt.is_dna == true) ca = CompressedAlphabet("A20");
+
     SequenceCodec sc(opt.is_dna);
     shingles.resize(n);
 
     for (unsigned int i = 0; i < n; ++i) {
 	unsigned int l = SL.seqs[i].s.size();
-        const char* s = SL.seqs[i].s.c_str();
+	std::string s = ca(SL.seqs[i].s);
 
 	shingles[i].resize(l - k + 1);
-
-	for (unsigned int j = 0; j < l - k + 1; ++j, ++s) shingles[i][j] = hash(sc.code(std::string(s, k)));
+	for (unsigned int j = 0; j < l - k + 1; ++j) shingles[i][j] = hash(sc.code(s.substr(j, k)));
     } // for i
 
     return std::make_pair(true, "");

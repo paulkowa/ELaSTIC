@@ -11,8 +11,8 @@ ifdef BOOST_LIB
     LDFLAGS+=$(BOOST_LIB)
 endif
 
-PROGS=elastic-cluster-seq \
-      elastic-finalize-seq
+PROGS=elastic-cluster \
+      elastic-finalize
 
 all: $(PROGS)
 

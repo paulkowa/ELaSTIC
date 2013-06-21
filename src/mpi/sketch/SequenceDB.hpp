@@ -545,44 +545,6 @@ private:
 }; // class appx_kmer_fraction
 
 
-class alignment_cdhit_identity {
-public:
-    explicit alignment_cdhit_identity(int m = 0, int s = 0, int g = 0, int h = 0)
-	: align_(m, s, g, h) { }
-
-    unsigned short int operator()(const std::string& s1, const std::string& s2) {
-	unsigned int score;
-	unsigned int length;
-	unsigned int matches;
-	boost::tie(score, length, matches) = align_(s1, s2);
-	return (100 * matches) / std::min(s1.size(), s2.size());
-    } // operator
-
-private:
-    bio::global_alignment align_;
-
-}; // class alignment_cdhit_identity
-
-
-class alignment_blast_identity {
-public:
-    explicit alignment_blast_identity(int m = 0, int s = 0, int g = 0, int h = 0)
-	: align_(m, s, g, h) { }
-
-    unsigned short int operator()(const std::string& s1, const std::string& s2) {
-	unsigned int score;
-	unsigned int length;
-	unsigned int matches;
-	boost::tie(score, length, matches) = align_(s1, s2);
-	return (100 * matches) / length;
-    } // operator
-
-private:
-    bio::global_alignment align_;
-
-}; // class alignment_blast_identity
-
-
 class kmer_identity {
 public:
     explicit kmer_identity(unsigned int k = 0, bool is_dna = true) : kf_(k, is_dna) { }
@@ -601,12 +563,98 @@ private:
 }; // class kmer_identity
 
 
+class alignment_cdhit_identity {
+public:
+    explicit alignment_cdhit_identity(int m = 0, int s = 0, int g = 0, int h = 0)
+	: align_(m, s, g, h) { }
+
+    alignment_cdhit_identity(const bio::scoring_matrix& sm, int g, int h)
+	: align_(sm, g, h) { }
+
+    unsigned short int operator()(const std::string& s1, const std::string& s2) {
+	int score;
+	unsigned int length;
+	unsigned int matches;
+	boost::tie(score, length, matches) = align_(s1, s2);
+	return (100 * matches) / std::min(s1.size(), s2.size());
+    } // operator
+
+private:
+    bio::global_alignment align_;
+
+}; // class alignment_cdhit_identity
+
+
+class cfe_alignment_cdhit_identity {
+public:
+    explicit cfe_alignment_cdhit_identity(int m = 0, int s = 0, int g = 0, int h = 0)
+	: align_(m, s, g, h) { }
+
+    cfe_alignment_cdhit_identity(const bio::scoring_matrix& sm, int g, int h)
+	: align_(sm, g, h) { }
+
+    unsigned short int operator()(const std::string& s1, const std::string& s2) {
+	int score;
+	unsigned int length;
+	unsigned int matches;
+	boost::tie(score, length, matches) = align_(s1, s2);
+	return (100 * matches) / std::min(s1.size(), s2.size());
+    } // operator
+
+private:
+    bio::cfe_global_alignment align_;
+
+}; // class cfe_alignment_cdhit_identity
+
+
+class alignment_blast_identity {
+public:
+    explicit alignment_blast_identity(int m = 0, int s = 0, int g = 0, int h = 0)
+	: align_(m, s, g, h) { }
+
+    alignment_blast_identity(const bio::scoring_matrix& sm, int g, int h)
+	: align_(sm, g, h) { }
+
+    unsigned short int operator()(const std::string& s1, const std::string& s2) {
+	int score;
+	unsigned int length;
+	unsigned int matches;
+	boost::tie(score, length, matches) = align_(s1, s2);
+	return (length == 0) ? 0 : (100 * matches) / length;
+    } // operator
+
+private:
+    bio::global_alignment align_;
+
+}; // class alignment_blast_identity
+
+
+class cfe_alignment_blast_identity {
+public:
+    explicit cfe_alignment_blast_identity(int m = 0, int s = 0, int g = 0, int h = 0)
+	: align_(m, s, g, h) { }
+
+    cfe_alignment_blast_identity(const bio::scoring_matrix& sm, int g, int h)
+	: align_(sm, g, h) { }
+
+    unsigned short int operator()(const std::string& s1, const std::string& s2) {
+	int score;
+	unsigned int length;
+	unsigned int matches;
+	boost::tie(score, length, matches) = align_(s1, s2);
+	return (length == 0) ? 0 : (100 * matches) / length;
+    } // operator
+
+private:
+    bio::cfe_global_alignment align_;
+
+}; // class cfe_alignment_blast_identity
+
+
 template <typename Compare> class sequence_identity {
 public:
     sequence_identity(const SequenceList& SL, unsigned int offset, Compare compare)
-	: SL_(SL), offset_(offset), compare_(compare) {
-
-    } // sequence_identity
+	: SL_(SL), offset_(offset), compare_(compare) { }
 
     read_pair operator()(read_pair rp) {
 	unsigned int id0 = rp.id0 - offset_;

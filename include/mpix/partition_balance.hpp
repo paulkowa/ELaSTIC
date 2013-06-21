@@ -106,12 +106,17 @@ namespace mpix {
       MPI_Comm_size(Comm, &size);
       MPI_Comm_rank(Comm, &rank);
 
+      if (size == 1) {
+	  value_type* data = new value_type[n];
+	  std::copy(first, last, data);
+	  return std::make_pair(data, data + n);
+      }
+
       std::vector<value_type> data(n);
       std::copy(first, last, data.begin());
 
       // step 1: local sort
       std::sort(data.begin(), data.end(), pred);
-      if (size == 1) return std::make_pair<pointer_type, pointer_type>(0, 0);
 
       // step 2: gather bucket data
       std::vector<unsigned int> parts;

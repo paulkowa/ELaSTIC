@@ -25,6 +25,12 @@ namespace mpix {
       MPI_File fh;
       MPI_Status stat;
 
+      int rank;
+      MPI_Comm_rank(comm, &rank);
+
+      if (rank == 0) MPI_File_delete(const_cast<char*>(name.c_str()), MPI_INFO_NULL);
+      MPI_Barrier(comm);
+
       int err = MPI_File_open(comm, const_cast<char*>(name.c_str()),
 			      MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fh);
 

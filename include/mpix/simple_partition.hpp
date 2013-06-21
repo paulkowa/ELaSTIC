@@ -38,7 +38,12 @@ namespace mpix {
       MPI_Comm_rank(Comm, &rank);
 
       unsigned int p = size;
-      if (p == 1) return std::make_pair<value_type*, value_type*>(0, 0);
+
+      if (p == 1) {
+	  value_type* data = new value_type[n];
+	  std::copy(first, last, data);
+	  return std::make_pair(data, data + n);
+      }
 
       std::vector<int> bin_sz(p, 0);
       for (Iter iter = first; iter != last; ++iter) bin_sz[hash(*iter) % p]++;

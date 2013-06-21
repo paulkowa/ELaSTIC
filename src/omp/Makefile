@@ -11,7 +11,7 @@ ifdef BOOST_LIB
     LDFLAGS+=$(BOOST_LIB)
 endif
 
-PROGS=elastic-prepare-omp
+PROGS=elastic-prepare
 
 all: $(PROGS)
 

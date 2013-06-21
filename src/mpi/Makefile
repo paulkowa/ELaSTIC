@@ -16,7 +16,7 @@ ifdef WITH_MPE
     CXXFLAGS+=$(MPE_INCLUDE) $(WITH_MPE)
 endif
 
-PROGS=elastic-sketch-mpi
+PROGS=elastic-sketch
 
 all: $(PROGS)
 

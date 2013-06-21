@@ -21,7 +21,6 @@
 
 #include <arpa/inet.h>
 
-#include "CompressedAlphabet.hpp"
 #include "SequenceCodec.hpp"
 
 #include "SequenceDB.hpp"
@@ -89,16 +88,12 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
     std::vector<Sequence>& seqs = SL.seqs;
 
     SequenceCodec sc(opt.is_dna);
-
-    CompressedAlphabet ca(opt.sigma);
-    if (opt.is_dna == true) ca = CompressedAlphabet("A20");
-
     seqs.resize(nloc);
 
     unsigned int pos = index[0];
 
     seqs[0].id = ntohl(*reinterpret_cast<uint32_t*>(&data[0]));
-    seqs[0].s = ca(sc.decode(std::string(data.begin() + 4, data.begin() + pos)));
+    seqs[0].s = sc.decode(std::string(data.begin() + 4, data.begin() + pos));
 
     if ((seqs[0].s.size() < opt.kmer) || (seqs[0].s.find('?') != std::string::npos)) {
 	return std::make_pair(false, "invalid input sequence, change kmer?");
@@ -106,7 +101,7 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
 
     for (unsigned int i = 1; i < nloc; ++i) {
 	seqs[i].id = ntohl(*reinterpret_cast<uint32_t*>(&data[pos]));
-	seqs[i].s = ca(sc.decode(std::string(data.begin() + pos + 4, data.begin() + pos + index[i])));
+	seqs[i].s = sc.decode(std::string(data.begin() + pos + 4, data.begin() + pos + index[i]));
 
 	if ((seqs[i].s.size() < opt.kmer) || (seqs[i].s.find('?') != std::string::npos)) {
 	    return std::make_pair(false, "invalid input sequence, change kmer?");

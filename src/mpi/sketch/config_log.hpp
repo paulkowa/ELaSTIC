@@ -24,6 +24,9 @@
 
 #include <jaz/parameters.hpp>
 
+#include "CompressedAlphabet.hpp"
+#include "create_smatrix.hpp"
+
 #include "config.hpp"
 
 
@@ -32,12 +35,10 @@ struct AppConfig {
 	input = "";
 	output = "";
 	is_dna = true;
-	sigma = "Dayhoff6";
+	sigma = "A20";
+	compress = 0;
 	method = 0;
-	gaps[0] = 5;
-	gaps[1] = -4;
-	gaps[2] = -10;
-	gaps[3] = -1;
+	gaps = "[1,-2,-10,-1]";
 	level = 75;
 	kmer = 15;
 	mod = 25;
@@ -55,9 +56,10 @@ struct AppConfig {
 	std::cout << "  --output name      write output to files with this prefix\n";
 	std::cout << "  --config name      read configuration from this file\n";
 	std::cout << "  --type {nt|aa}     set input sequence type (default nt)\n";
-	std::cout << "  --sigma type       use this compressed amino acid alphabet (default Dayhoff6)\n";
+	std::cout << "  --sigma type       use this compressed amino acid alphabet (default A20)\n";
+	std::cout << "  --compress {0|1}   use compressed alphabet during validation (default 0)\n";
 	std::cout << "  --method type      use this method to validate edges (default 0)\n";
-	std::cout << "  --gaps list        use these alignment parameters (default [5,-4,-10,-1])\n";
+	std::cout << "  --gaps list        use these alignment parameters (default [1,-2,-10,-1])\n";
 	std::cout << "  --kmer size        use kmers of this size (default 15)\n";
 	std::cout << "  --level size       use this threshold for edge validation (default 75)\n";
 	std::cout << "  --mod size         use this mod value in sketching (default 25)\n";
@@ -113,7 +115,7 @@ struct AppConfig {
 
 	    if (jaz::check_option(ext_conf, "method", val) == true) {
 		method = boost::lexical_cast<unsigned short int>(val);
-		if (method > 2) {
+		if (method > 4) {
 		    return std::make_pair(false, "incorrect method");
 		}
 	    }
@@ -126,25 +128,26 @@ struct AppConfig {
 	    }
 
 	    if (jaz::check_option(ext_conf, "sigma", val) == true) {
-		if (val[0] == '[') {
-		    return std::make_pair(false, "custom alphabets not supported");
-		} else if ((val == "A20") || (val == "Dayhoff6")) {
+		if ((val == "A20") || (val == "Dayhoff6")) sigma = val;
+		else {
+		    CompressedAlphabet ca(val);
+		    if (ca.test() == false) return std::make_pair(false, "unknown compressed alphabet");
 		    sigma = val;
-		} else {
-		    return std::make_pair(false, "unknown compressed alphabet");
 		}
 	    }
 
+	    if (jaz::check_option(ext_conf, "compress", val) == true) {
+		compress = boost::lexical_cast<bool>(val);
+	    }
+
 	    if (jaz::check_option(ext_conf, "gaps", val) == true) {
-		val.erase(val.begin());
-		val.erase(val.end() - 1);
-		std::vector<std::string> agap;
-		jaz::split(',', val, std::back_inserter(agap));
-		if (agap.size() != 4) {
+		gaps = val;
+
+		int g, h;
+		bio::scoring_matrix sm;
+
+		if (create_smatrix(gaps, is_dna, sm, g, h) == false) {
 		    return std::make_pair(false, "incorrect gaps");
-		}
-		for (unsigned int i = 0; i < 4; ++i) {
-		    gaps[i] = boost::lexical_cast<int>(agap[i]);
 		}
 	    }
 
@@ -206,8 +209,9 @@ struct AppConfig {
     std::string output;
     bool is_dna;
     std::string sigma;
+    bool compress;
     unsigned short int method;
-    int gaps[4];
+    std::string gaps;
     unsigned short int kmer;
     unsigned short int level;
     short int mod;
@@ -221,10 +225,9 @@ struct AppConfig {
 	os << "output = " << opt.output << "\n";
 	os << "dna = " << opt.is_dna << "\n";
 	os << "sigma = " << opt.sigma << "\n";
+	os << "compress = " << opt.compress << "\n";
 	os << "method = " << opt.method << "\n";
-	os << "gaps =";
-	for (unsigned int i = 0; i < 4; ++i) os << " " << opt.gaps[i];
-	os << "\n";
+	os << "gaps = " << opt.gaps << "\n";
 	os << "kmer = " << opt.kmer << "\n";
 	os << "level = " << opt.level << "\n";
 	os << "mod = " << opt.mod << "\n";

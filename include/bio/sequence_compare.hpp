@@ -358,9 +358,13 @@ namespace bio {
 	  // I(i, j) = max{ I(i - 1, j), S(i - 1, j) + g } + h
 
 	  S_.resize(m, 0);
+	  std::fill(S_.begin(), S_.end(), 0);
+
 	  I_.resize(m, 0);
+	  std::fill(I_.begin(), I_.end(), 0);
 
 	  track_.resize(n * m);
+	  std::fill(track_.begin(), track_.end(), 0);
 
 	  for (unsigned int j = 1; j < m; ++j) {
 	      track_[j] = LEFT;
@@ -540,9 +544,13 @@ namespace bio {
 	  // I(i, j) = max{ I(i - 1, j), S(i - 1, j) + g } + h
 
 	  S_.resize(m, 0);
+	  std::fill(S_.begin(), S_.end(), 0);
+
 	  I_.resize(m, 0);
+	  std::fill(I_.begin(), I_.end(), 0);
 
 	  track_.resize(n * m);
+	  std::fill(track_.begin(), track_.end(), 0);
 
 	  for (unsigned int j = 1; j < m; ++j) {
 	      I_[j] = g_ + j * h_;

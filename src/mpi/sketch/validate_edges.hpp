@@ -21,42 +21,68 @@
 #include <mpix/simple_partition.hpp>
 
 #include "../StaticWSQueue.hpp"
+
 #include "SequenceDB.hpp"
 #include "config_log.hpp"
+#include "create_smatrix.hpp"
+
 #include "iomanip.hpp"
 
 
 class general_compare {
 public:
     explicit general_compare(const AppConfig& opt) : method_(opt.method) {
+	bio::scoring_matrix sm;
+	int g, h;
+
+	if (opt.method > 0) create_smatrix(opt.gaps, opt.is_dna, sm, g, h);
+
 	switch (opt.method) {
 	  case 0:
-	      K_ = kmer_identity(opt.kmer, opt.is_dna);
+	      Kid_ = kmer_identity(opt.kmer, opt.is_dna);
 	      break;
 
 	  case 1:
-	      Acdhit_ = alignment_cdhit_identity(opt.gaps[0], opt.gaps[1], opt.gaps[2], opt.gaps[3]);
+	      Acdhit_ = alignment_cdhit_identity(sm, g, h);
 	      break;
 
 	  case 2:
-	      Ablast_ = alignment_blast_identity(opt.gaps[0], opt.gaps[1], opt.gaps[2], opt.gaps[3]);
+	      cAcdhit_ = cfe_alignment_cdhit_identity(sm, g, h);
+	      break;
+
+	  case 3:
+	      Ablast_ = alignment_blast_identity(sm, g, h);
+	      break;
+
+	  case 4:
+	      cAblast_ = cfe_alignment_blast_identity(sm, g, h);
 	      break;
 	} // switch
     } // general_compare
 
     unsigned short int operator()(const std::string& s0, const std::string& s1) {
+	const std::string* sa = &s0;
+	const std::string* sb = &s1;
+
+	if (s1.size() < s0.size()) std::swap(sa, sb);
+
 	switch (method_) {
-	  case 0: return K_(s0, s1);
-	  case 1: return Acdhit_(s0, s1);
-	  case 2: return Ablast_(s0, s1);
+	  case 0: return Kid_(*sa, *sb);
+	  case 1: return Acdhit_(*sa, *sb);
+	  case 2: return cAcdhit_(*sa, *sb);
+	  case 3: return Ablast_(*sa, *sb);
+	  case 4: return cAblast_(*sa, *sb);
 	}
+
 	return 0;
     } // operator()
 
 private:
-    kmer_identity K_;
+    kmer_identity Kid_;
     alignment_cdhit_identity Acdhit_;
+    cfe_alignment_cdhit_identity cAcdhit_;
     alignment_blast_identity Ablast_;
+    cfe_alignment_blast_identity cAblast_;
 
     unsigned int method_;
 
