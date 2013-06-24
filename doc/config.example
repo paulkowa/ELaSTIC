@@ -21,9 +21,9 @@
 # Select method to perform validation.
 # Currently, three methods are available:
 # 0 = kmer fraction,
-# 1 = CD-HIT identity from cost-free end gaps global alignment.
+# 1 = CD-HIT identity from global alignment with cost-free end gaps.
 # 2 = CD-HIT identity from global alignment.
-# 3 = BLAST identity from cost-free end gaps global alignment.
+# 3 = BLAST identity from global alignment with cost-free end gaps.
 # 4 = BLAST identity from global alignment.
 # Default: 0
 ; method = 0
