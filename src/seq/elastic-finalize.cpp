@@ -40,7 +40,7 @@ struct AppConfig {
     } // AppConfig
 
     static void usage() {
-	std::cout << "Usage: " << ELASTIC_FINALIZE_SHORT << " --input name --output name\n";
+	std::cout << "Usage: " << ELASTIC_FINALIZE_SHORT << " --input name --output name --map name\n";
 	std::cout << "\n";
 	std::cout << "Options:\n";
 	std::cout << "  --input name          read input from this file\n";

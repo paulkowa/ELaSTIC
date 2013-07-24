@@ -37,12 +37,12 @@ struct AppConfig {
     } // AppConfig
 
     static void usage() {
-	std::cout << "Usage: " << ELASTIC_CLUSTER_SHORT << " --input name --output name\n";
+	std::cout << "Usage: " << ELASTIC_CLUSTER_SHORT << " --input name --output name --nodes size [options...]\n";
 	std::cout << "\n";
 	std::cout << "Options:\n";
 	std::cout << "  --input name          read input from this file/directory\n";
 	std::cout << "  --output name         write output to files with this prefix\n";
-	std::cout << "  --nodes size          assume that many input sequences\n";
+	std::cout << "  --nodes size          assume that many input nodes\n";
 	std::cout << "  --level size          use this threshold to filter edges (default 0)\n";
 	std::cout << "\n";
     } // usage

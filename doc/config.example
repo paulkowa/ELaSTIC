@@ -1,7 +1,7 @@
 # Set input data type.
 # Two types are supported:
-# nt = DNA/RNA,
-# aa = proteins.
+# nt = DNA/RNA
+# aa = proteins
 # Default: nt
 ; type = nt
 
@@ -9,8 +9,8 @@
 # Any alphabet can be defined in the form [group1,group2,...,groupN].
 # For example [AGPST,C,DENQ,FWY,HKR,ILMV] defines 6 groups.
 # Additionally, two alphabets are predefined:
-# A20 = standard amino acids,
-# Dayhoff6 = 6 groups (see Edgar, NAR 2004; 32(1):380-385).
+# A20 = standard amino acids
+# Dayhoff6 = 6 groups (see Edgar, NAR 2004; 32(1):380-385)
 # Default: A20
 ; sigma = A20
 
@@ -18,30 +18,30 @@
 # Default: 0
 ; compress = 0
 
-# Select method to perform validation.
-# Currently, three methods are available:
-# 0 = kmer fraction,
-# 1 = CD-HIT identity from global alignment with cost-free end gaps.
-# 2 = CD-HIT identity from global alignment.
-# 3 = BLAST identity from global alignment with cost-free end gaps.
-# 4 = BLAST identity from global alignment.
+# Select the method to perform validation.
+# Currently, five methods are available:
+# 0 = kmer fraction
+# 1 = CD-HIT identity from global alignment with cost-free end gaps
+# 2 = CD-HIT identity from global alignment
+# 3 = BLAST identity from global alignment with cost-free end gaps
+# 4 = BLAST identity from global alignment
 # Default: 0
 ; method = 0
-
-# Set affine gap alignment parameters (valid for alignment-based methods only).
-# Format used is [match, substitution, gap opening, gap extension],
-# or [substitution matrix path, gap opening, gap extension].
-# For example [/scratch/blosum62.txt,-10,-1] will use matrix from
-# /scratch/blosum62.txt.
-# Default: [5,-4,-10,-1]
-; gaps = [5,-4,-10,-1]
 
 # Set kmer size used during the sketching phase, and during validation
 # if the kmer fraction method is selected.
 # Default: 15
 ; kmer = 15
 
-# Set the threshold value above which edges are considered valid.
+# Set affine gap alignment parameters (valid for alignment-based methods only).
+# Format used is [match,substitution,gap opening,gap extension],
+# or [substitution matrix path,gap opening,gap extension].
+# For example, [/scratch/blosum62.txt,-10,-1] will use matrix from
+# /scratch/blosum62.txt.
+# Default: [1,-2,-10,-1]
+; gaps = [1,-2,-10,-1]
+
+# Set the threshold value above which canidate pairs are considered valid.
 # Default: 75
 ; level = 75
 
@@ -57,10 +57,10 @@
 # Default: 5000
 ; cmax = 5000
 
-# Set the threshold to extract candidate edges.
+# Set the threshold to extract candidate pairs.
 # Default: 50
 ; jmin = 50
 
-# Enable work stealing in the validation phase.
+# Enable work-stealing in the validation phase.
 # Default: 1
 ; wsq = 1

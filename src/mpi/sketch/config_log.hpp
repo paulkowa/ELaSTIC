@@ -38,9 +38,9 @@ struct AppConfig {
 	sigma = "A20";
 	compress = 0;
 	method = 0;
+	kmer = 15;
 	gaps = "[1,-2,-10,-1]";
 	level = 75;
-	kmer = 15;
 	mod = 25;
 	iter = 7;
 	cmax = 5000;
@@ -58,15 +58,15 @@ struct AppConfig {
 	std::cout << "  --type {nt|aa}     set input sequence type (default nt)\n";
 	std::cout << "  --sigma type       use this compressed amino acid alphabet (default A20)\n";
 	std::cout << "  --compress {0|1}   use compressed alphabet during validation (default 0)\n";
-	std::cout << "  --method type      use this method to validate edges (default 0)\n";
-	std::cout << "  --gaps list        use these alignment parameters (default [1,-2,-10,-1])\n";
+	std::cout << "  --method type      use this method for validation (default 0)\n";
 	std::cout << "  --kmer size        use kmers of this size (default 15)\n";
-	std::cout << "  --level size       use this threshold for edge validation (default 75)\n";
+	std::cout << "  --gaps type        use these alignment parameters (default [1,-2,-10,-1])\n";
+	std::cout << "  --level size       use this threshold during validation (default 75)\n";
 	std::cout << "  --mod size         use this mod value in sketching (default 25)\n";
 	std::cout << "  --iter size        limit the number of sketching iterations to this (default 7)\n";
 	std::cout << "  --cmax size        use this limit to mark frequent kmers (default 5000)\n";
-	std::cout << "  --jmin size        use this limit to extract candidate edges (default 50)\n";
-	std::cout << "  --wsq {0|1}        enable work stealing in validation (default 1)\n";
+	std::cout << "  --jmin size        use this limit to extract candidate pairs (default 50)\n";
+	std::cout << "  --wsq {0|1}        enable work stealing during validation (default 1)\n";
 	std::cout << "\n";
     } // usage
 
@@ -140,6 +140,13 @@ struct AppConfig {
 		compress = boost::lexical_cast<bool>(val);
 	    }
 
+	    if (jaz::check_option(ext_conf, "kmer", val) == true) {
+		kmer = boost::lexical_cast<unsigned int>(val);
+		if ((kmer < 3) || (kmer > 31)) {
+		    return std::make_pair(false, "incorrect kmer");
+		}
+	    }
+
 	    if (jaz::check_option(ext_conf, "gaps", val) == true) {
 		gaps = val;
 
@@ -148,13 +155,6 @@ struct AppConfig {
 
 		if (create_smatrix(gaps, is_dna, sm, g, h) == false) {
 		    return std::make_pair(false, "incorrect gaps");
-		}
-	    }
-
-	    if (jaz::check_option(ext_conf, "kmer", val) == true) {
-		kmer = boost::lexical_cast<unsigned int>(val);
-		if ((kmer < 3) || (kmer > 31)) {
-		    return std::make_pair(false, "incorrect kmer");
 		}
 	    }
 
@@ -211,8 +211,8 @@ struct AppConfig {
     std::string sigma;
     bool compress;
     unsigned short int method;
-    std::string gaps;
     unsigned short int kmer;
+    std::string gaps;
     unsigned short int level;
     short int mod;
     short int iter;
@@ -227,8 +227,8 @@ struct AppConfig {
 	os << "sigma = " << opt.sigma << "\n";
 	os << "compress = " << opt.compress << "\n";
 	os << "method = " << opt.method << "\n";
-	os << "gaps = " << opt.gaps << "\n";
 	os << "kmer = " << opt.kmer << "\n";
+	os << "gaps = " << opt.gaps << "\n";
 	os << "level = " << opt.level << "\n";
 	os << "mod = " << opt.mod << "\n";
 	os << "iter = " << opt.iter << "\n";
