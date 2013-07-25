@@ -1,0 +1,303 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>ELaSTIC User Guide</title><link rel="stylesheet" type="text/css" href="userguide.css"><meta name="generator" content="DocBook XSL Stylesheets V1.78.0"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div lang="en" class="article"><div class="titlepage"><div><div><h2 class="title"><a name="idm139846363429568"></a>ELaSTIC User Guide</h2></div><div><div class="author"><h3 class="author"><span class="firstname">Jaroslaw</span> <span class="surname">Zola</span></h3></div></div><div><p class="copyright">Copyright © 2013 Jaroslaw Zola</p></div></div><hr></div><div class="toc"><p><b>Table of Contents</b></p><dl class="toc"><dt><span class="section"><a href="#idm139846362642976">Introduction</a></span></dt><dt><span class="section"><a href="#tools">Tools</a></span></dt><dd><dl><dt><span class="section"><a href="#elastic-prepare">elastic-prepare</a></span></dt><dt><span class="section"><a href="#elastic-sketch">elastic-sketch</a></span></dt><dt><span class="section"><a href="#elastic-cluster">elastic-cluster</a></span></dt><dt><span class="section"><a href="#elastic-finalize">elastic-finalize</a></span></dt></dl></dd><dt><span class="section"><a href="#idm139846357919200">Algorithms</a></span></dt><dd><dl><dt><span class="section"><a href="#sketch">Candidate Pairs</a></span></dt></dl></dd><dt><span class="section"><a href="#file-formats">File Formats</a></span></dt><dt><span class="section"><a href="#example-use">Example Use</a></span></dt><dt><span class="section"><a href="#references">References</a></span></dt></dl></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="idm139846362642976"></a>Introduction</h2></div></div></div><p>
+      Constructing and clustering of homology/similarity graphs is one of the most important tasks in computational biology.
+      Although there are several clustering tools available, e.g. <a class="ulink" href="http://drive5.com/usearch/" target="_top">USEARCH</a> or
+      <a class="ulink" href="http://weizhong-lab.ucsd.edu/cd-hit/" target="_top">CD-HIT</a>, they do not scale to the
+      data sets with millions of sequences, which are becoming more and more common. ELaSTIC is a software suite
+      designed to address this challenge. ELaSTIC can quickly construct homology/similarity graphs from millions of
+      DNA/RNA or amino acids sequences, and then can run different clustering procedures on the resulting graphs.
+      Thanks to the clever use of the MinHash concept, and the application of parallel algorithms,
+      ELaSTIC is extremely efficient and scalable. Thanks to the modular design, it can be easily combined
+      with other tools, for example <a class="ulink" href="http://code.google.com/p/pclust/" target="_top">pClust</a>.
+    </p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="tools"></a>Tools</h2></div></div></div><p>
+      ELaSTIC consists of a set of tools that together make for a complete pipeline
+      to construct and cluster large scale homology/similarity graphs.
+      Below, a brief description of each tool is provided. The following convention is used:
+    </p><div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem"><p><em class="replaceable"><code>name</code></em> implies a file system path
+      or a path prefix.</p></li><li class="listitem"><p><em class="replaceable"><code>type</code></em> implies a parameter which
+      can be a string or an integer.</p></li><li class="listitem"><p><em class="replaceable"><code>size</code></em> implies an integer variable.</p></li><li class="listitem"><p><em class="replaceable"><code>{0|1}</code></em> implies a binary variable,
+      where 0 means no/false/disabled, and 1 means yes/true/enabled.</p></li></ul></div><div class="section"><div class="titlepage"><div><div><h3 class="title"><a name="elastic-prepare"></a>elastic-prepare</h3></div></div></div><p>
+	This tool performs the initial preprocessing of FASTA files
+	to filter too short, or low-quality sequences, to identify duplicate, or nearly identical sequences, and
+	to generate input files ready for the analysis with <a class="link" href="#elastic-sketch" title="elastic-sketch"><span class="command"><strong>elastic-sketch</strong></span></a>.
+	It uses a simple OpenMP parallelism, and can be executed on any server/workstation with a sufficient memory.
+      </p><div class="variablelist"><p>
+	  Supported options:
+	</p><dl class="variablelist"><dt><span class="term">--input <em class="replaceable"><code>name</code></em></span></dt><dd><p>
+	      Read input sequences from a file or a directory <em class="replaceable"><code>name</code></em>.
+	      Files must be in the FASTA format, but can be <span class="command"><strong>gzip</strong></span> or <span class="command"><strong>bzip2</strong></span>
+	      compressed. If <em class="replaceable"><code>name</code></em> points to a directory,
+	      all readable (regular as well as compressed) FASTA files in that directory are parsed.
+	    </p></dd><dt><span class="term">--output <em class="replaceable"><code>name</code></em></span></dt><dd><p>
+	      Write output to files with a prefix <em class="replaceable"><code>name</code></em>.
+	      Five files are created: <code class="filename"><em class="replaceable"><code>name</code></em>.eplog</code>
+	      storing execution log, <code class="filename"><em class="replaceable"><code>name</code></em>.eidx</code>
+	      with data index, <code class="filename"><em class="replaceable"><code>name</code></em>.eseq</code>
+	      with the actual sequence data, <code class="filename"><em class="replaceable"><code>name</code></em>.emap</code>
+	      with a mapping between sequence identifiers and sequence names, and
+	      <code class="filename"><em class="replaceable"><code>name</code></em>.edel</code>
+	      with names of filtered sequences.
+	      Please, refer to <a class="link" href="#file-formats" title="File Formats">File Formats</a>
+	      for a detailed description of ELaSTIC file formats.
+	    </p></dd><dt><span class="term">--type <em class="replaceable"><code>{nt|aa}</code></em></span></dt><dd><p>
+	      Set input sequence type. Currently, only DNA/RNA (<em class="replaceable"><code>nt</code></em>)
+	      and amino acid (<em class="replaceable"><code>aa</code></em>) sequences are supported.
+	      By default <em class="replaceable"><code>nt</code></em> is assumed.
+	    </p></dd><dt><span class="term">--length <em class="replaceable"><code>size</code></em></span></dt><dd><p>
+	      Filter sequences shorter than <em class="replaceable"><code>size</code></em>.
+	      Filtered sequences are ignored from any further processing, and are not included
+	      in <code class="filename">.eidx</code> and <code class="filename">.eseq</code> files.
+	      By default <em class="replaceable"><code>100</code></em> is assumed.
+	    </p></dd><dt><span class="term">--clean <em class="replaceable"><code>{0|1}</code></em></span></dt><dd><p>
+	      Filter low quality sequences that contain undetermined residues. For DNA/RNA any
+	      character different than the standard A,C,G,T/U is considered undetermined.
+	      Similarly, any character different than the standard 20 amino acids
+	      is assumed undetermined. If this option is disabled, missing characters
+	      are replaced with T in DNA sequences, and A in amino acid sequences.
+	      By default <em class="replaceable"><code>1</code></em> is assumed.
+	    </p></dd><dt><span class="term">--group <em class="replaceable"><code>{0|1}</code></em></span></dt><dd><p>
+	      Group duplicate or nearly identical sequences. To perform clustering
+	      at this stage a very fast super-shingling procedure is used. Each obtained
+	      group is represented by the longest component sequence, and only these
+	      representative sequences are included <code class="filename">.eidx</code> and
+	      <code class="filename">.eseq</code> files.
+	      By default <em class="replaceable"><code>1</code></em> is assumed.
+	    </p></dd></dl></div></div><div class="section"><div class="titlepage"><div><div><h3 class="title"><a name="elastic-sketch"></a>elastic-sketch</h3></div></div></div><p>
+	This is the main tool in the ELaSTIC suite. It is designed to construct similarity graphs
+	from large-scale input sequence data. The tool can handle data sets with millions of sequences
+	in very reasonable time limits. There are two primary components that make it possible:
+	i) a scalable parallel implementation based on MPI, and ii) efficient candidate pairs selection procedure
+	based on the <a class="link" href="#sketch" title="Candidate Pairs">sketching algorithm</a> and the MinHash concept. The tool is parallel,
+	and is meant to run on distributed memory clusters and supercomputers.
+      </p><div class="variablelist"><p>
+	  Supported options:
+	</p><dl class="variablelist"><dt><span class="term">--input <em class="replaceable"><code>name</code></em></span></dt><dd><p>
+	      Read input data from files with a prefix <em class="replaceable"><code>name</code></em>.
+	      Two files must be provided:
+	      <code class="filename"><em class="replaceable"><code>name</code></em>.eidx</code> and
+	      <code class="filename"><em class="replaceable"><code>name</code></em>.eseq</code>. These files are created
+	      in the preprocessing stage by <a class="link" href="#elastic-prepare" title="elastic-prepare"><span class="command"><strong>elastic-prepare</strong></span></a>.
+	      Please, refer to <a class="link" href="#file-formats" title="File Formats">File Formats</a> for a detailed description of the ELaSTIC file formats.
+	    </p></dd><dt><span class="term">--output <em class="replaceable"><code>name</code></em></span></dt><dd><p>
+	      Write output to files with a prefix <em class="replaceable"><code>name</code></em>.
+	      Two files are created: <code class="filename"><em class="replaceable"><code>name</code></em>.eslog</code>
+	      storing execution log, and <code class="filename"><em class="replaceable"><code>name</code></em>.sim.00000</code>
+	      storing computed similarity graph. Please, refer to <a class="link" href="#file-formats" title="File Formats">File Formats</a>
+	      for a detailed description of ELaSTIC file formats.
+	    </p></dd><dt><span class="term">--config <em class="replaceable"><code>name</code></em></span></dt><dd><p>
+	      Read configuration from <code class="filename"><em class="replaceable"><code>name</code></em></code>.
+	      The configuration file is parsed before any other option, and hence parameters set
+	      in the configuration file can be overwritten by command line switches. An example configuration file
+	      is provided together with the ELaSTIC source code.
+	      Please, refer to <a class="link" href="#file-formats" title="File Formats">File Formats</a>
+	      for a detailed description of ELaSTIC file formats.
+	    </p></dd><dt><span class="term">--type <em class="replaceable"><code>{nt|aa}</code></em></span></dt><dd><p>
+	      Set input sequence type. Currently, only DNA/RNA (<em class="replaceable"><code>nt</code></em>)
+	      and amino acid (<em class="replaceable"><code>aa</code></em>) sequences are supported.
+	      Note, that complete sequence preprocessing,
+	      e.g. filtering of low quality sequences, is done in the preprocessing stage by <a class="link" href="#elastic-prepare" title="elastic-prepare"><span class="command"><strong>elastic-prepare</strong></span></a>.
+	      By default <em class="replaceable"><code>nt</code></em> is assumed.
+	    </p></dd><dt><span class="term">--sigma <em class="replaceable"><code>type</code></em></span></dt><dd><p>
+	      Use <em class="replaceable"><code>type</code></em> amino acid (compressed) alphabet.
+	      Because the <a class="link" href="#sketch" title="Candidate Pairs">sketching algorithm</a> to identify
+	      candidate sequence pairs works with k-mers, usually it is advantageous
+	      to employ compressed alphabet in this stage (e.g. <a class="ulink" href="http://dx.doi.org/10.1093/nar/gkh180" target="_top">Dayhoff6</a>).
+	      The alphabet can be specified as a list <em class="replaceable"><code>[group1,group2,...,groupN]</code></em>,
+	      where <em class="replaceable"><code>grpupI</code></em> is a single amino acid group. For example,
+	      <em class="replaceable"><code>--sigma [AGPST,C,DENQ,FWY,HKR,ILMV]</code></em> defines the Dayhoff6 alphabet
+	      with six groups. Alternatively, two predefined alphabets are provided: <em class="replaceable"><code>A20</code></em>
+	      representing the standard amino acid alphabet, and <em class="replaceable"><code>Dayhoff6</code></em> as defined above.
+	      By default <em class="replaceable"><code>A20</code></em> is assumed. This option is used
+	      only if <em class="parameter"><code>--type aa</code></em> is enabled.
+	    </p></dd><dt><span class="term">--compress {0|1}</span></dt><dd><p>
+	      Use compressed alphabet during the validation stage. If enabled, all sequences
+	      are translated into the compressed alphabet before validation.
+	      By default <em class="replaceable"><code>0</code></em> is assumed.
+	      This option is used only if <em class="parameter"><code>--type aa</code></em> is enabled.
+	    </p></dd><dt><span class="term">--method type</span></dt><dd><p>
+	      Specify the method to validate candidate sequence pairs. All methods
+	      report some form of sequence identity as a integer value in the range
+	      [0,100]. Currently, five
+	      different methods are supported: <em class="replaceable"><code>0</code></em>
+	      k-mer fraction identity, where the fraction of shared k-mers between two
+	      sequences over the number of k-mers in the shorter sequence is computed. The
+	      k-mer size is set via <em class="parameter"><code>--kmer</code></em> switch. The
+	      k-mer fraction identity is a very fast method, and it works particularly well
+	      with small alphabets. It can capture sequence containment.  <em class="replaceable"><code>1</code></em> CD-HIT sequence identity computed from
+	      the exact global pairwise alignment with cost-free end gaps in the shorter
+	      sequence.  <em class="replaceable"><code>2</code></em> CD-HIT sequence
+	      identity computed from the exact global pairwise alignment. <em class="replaceable"><code>3</code></em> BLAST sequence identity computed from
+	      the exact global pairwise alignment with cost-free end gaps in the shorter
+	      sequence.  <em class="replaceable"><code>4</code></em> BLAST sequence
+	      identity computed from the exact global pairwise alignment. Methods
+	      <em class="replaceable"><code>1</code></em> to <em class="replaceable"><code>4</code></em> involve computing pairwise global alignment
+	      with affine gap penalty, which usually is computationally costly, but may be desired in
+	      many cases. There is a significant difference in how CD-HIT and BLAST define
+	      identity. The former defines identity as <span class="emphasis"><em>(identities/shorter-sequence-length)</em></span>, while the
+	      later as <span class="emphasis"><em>(identities/alignment-length)</em></span>.  Here,
+	      <span class="emphasis"><em>identities</em></span> is the number of
+	      matches in the alignment, and <span class="emphasis"><em>alignment-length</em></span> is the total length of the
+	      alignment without end gaps. Edgar <a class="ulink" href="http://drive5.com/usearch/id_defs.html" target="_top">provides some interesting
+	      discussion</a> regarding definitions of pairwise sequence identity.  By
+	      default <em class="replaceable"><code>0</code></em> is assumed.
+	    </p></dd><dt><span class="term">--kmer size</span></dt><dd><p>
+	      Set k-mer size used by the <a class="link" href="#sketch" title="Candidate Pairs">sketching algorithm</a> to identify
+	      candidate sequence pairs, and by the k-mer fraction identity method during the validation stage.
+	      The size must be in range <em class="replaceable"><code>[3,31]</code></em>.
+	      By default <em class="replaceable"><code>15</code></em> is assumed.
+	    </p></dd><dt><span class="term">--gaps type</span></dt><dd><p>
+	      Specify global alignment parameters. Parameters can be provided as
+	      <em class="replaceable"><code>[match,sub,gopen,gext]</code></em>
+	      or <em class="replaceable"><code>[path-to-smatrix,gopen,gext]</code></em>.
+	      Here, <em class="replaceable"><code>match,sub,gopen,gext</code></em> are
+	      match score, mismatch score, gap open score and gap extension score, respectively,
+	      while <em class="replaceable"><code>path-to-smatrix</code></em> is a path
+	      to a substitution matrix in the NCBI BLAST format.
+	      By default <em class="replaceable"><code>[1,-2,-10,-1]</code></em> is assumed. This option is used
+	      only if <em class="parameter"><code>--method type</code></em> with <em class="replaceable"><code>type</code></em> different than
+	      0 is enabled.
+	    </p></dd><dt><span class="term">--level size</span></dt><dd><p>
+	      Set sequence identity threshold to decide, during validation,
+	      whether given two sequences are similar.
+	      The level must be in range <em class="replaceable"><code>[10,100]</code></em>.
+	      By default <em class="replaceable"><code>75</code></em> is assumed.
+	    </p></dd><dt><span class="term">--mod size</span></dt><dd><p>
+	      Set mod value used to extract sketches by the <a class="link" href="#sketch" title="Candidate Pairs">sketching algorithm</a>.
+	      In general, this value should be set such that the expected number of sketches extracted
+	      from a sequence is more than one, and must be in range <em class="replaceable"><code>[1,100]</code></em>.
+	      By default <em class="replaceable"><code>25</code></em> is assumed.
+	    </p></dd><dt><span class="term">--iter size</span></dt><dd><p>
+	      Set the number of iterations the <a class="link" href="#sketch" title="Candidate Pairs">sketching algorithm</a>
+	      should run to identify candidate sequence pairs. It is recommended
+	      to run more than <em class="replaceable"><code>1</code></em> iteration.
+	      The number of iterations must be less than the mod value set by
+	      <em class="parameter"><code>--mod</code></em>.
+	      By default <em class="replaceable"><code>7</code></em> is assumed.
+	    </p></dd><dt><span class="term">--cmax size</span></dt><dd><p>
+	      Set the threshold value to detect frequent k-mers. K-mer
+	      is considered frequent if it occurs in more than <em class="replaceable"><code>size</code></em> sequences. Note, that frequent k-mers are
+	      treated differently by the <a class="link" href="#sketch" title="Candidate Pairs">sketching algorithm</a>.
+	      By default <em class="replaceable"><code>5000</code></em> is assumed.
+	    </p></dd><dt><span class="term">--jmin size</span></dt><dd><p>
+	      Set sequence identity threshold to extract candidate sequence pairs.
+	      Only pairs with the estimated identity above this threshold
+	      are reported, and checked during the validation stage.
+	      In general, the threshold should be lower than the similarity level
+	      set by <em class="parameter"><code>--level</code></em>, and must
+	      be in range <em class="replaceable"><code>[10,100]</code></em>.
+	      By default <em class="replaceable"><code>50</code></em> is assumed.
+	    </p></dd><dt><span class="term">--wsq {0|1}</span></dt><dd><p>
+	      Enable work-stealing in the validation stage. Because
+	      computing similarity scores during validation is inherently
+	      imbalanced, work-stealing can be used for better performance. Note however,
+	      that work-stealing requires very efficient remote memory access (RMA),
+	      and hence on some architectures this option may be better disabled.
+	      By default <em class="replaceable"><code>1</code></em> is assumed.
+	    </p></dd></dl></div></div><div class="section"><div class="titlepage"><div><div><h3 class="title"><a name="elastic-cluster"></a>elastic-cluster</h3></div></div></div><p>
+	This tool performs clustering of homology/similarity graphs. Currently, it offers
+	only connected components enumeration. It is sequential, and can be executed on
+	any server/workstation with a sufficient memory.
+      </p><div class="variablelist"><p>
+	  Supported options:
+	</p><dl class="variablelist"><dt><span class="term">--input <em class="replaceable"><code>name</code></em></span></dt><dd><p>
+	      Read input graph from a file or a directory <em class="replaceable"><code>name</code></em>.
+	      The graph must be provided as a list of edges stored in a single or multiple files.
+	      If <em class="replaceable"><code>name</code></em> points to a directory,
+	      all readable files in that directory are parsed.
+	      Please, refer to <a class="link" href="#file-formats" title="File Formats">File Formats</a>
+	      for a detailed description of ELaSTIC file formats.
+	    </p></dd><dt><span class="term">--output <em class="replaceable"><code>name</code></em></span></dt><dd><p>
+	      Write output to files with a prefix <em class="replaceable"><code>name</code></em>.
+	      Two files are created: <code class="filename"><em class="replaceable"><code>name</code></em>.eclog</code>
+	      storing execution log, and <code class="filename"><em class="replaceable"><code>name</code></em>.cls.00000</code>
+	      storing identified clusters in the MCL format.
+	      Please, refer to <a class="link" href="#file-formats" title="File Formats">File Formats</a>
+	      for a detailed description of ELaSTIC file formats.
+	    </p></dd><dt><span class="term">--nodes size</span></dt><dd><p>
+	      Set the number of nodes in the input graph. If the provided number is higher
+	      than the actual number of nodes, the extra nodes are treated as singletons.
+	    </p></dd><dt><span class="term">--level size</span></dt><dd><p>
+	      Set similarity threshold to filter edges that should not be considered
+	      during clustering. By default <em class="replaceable"><code>0</code></em> is assumed.
+	    </p></dd></dl></div></div><div class="section"><div class="titlepage"><div><div><h3 class="title"><a name="elastic-finalize"></a>elastic-finalize</h3></div></div></div><p>
+	This tool performs the final postprocessing to unwind clusters,
+	convert their component sequence identifiers to sequence names,
+	and store them in a human readable form.  It is sequential, and can be executed on
+	any server/workstation with a sufficient memory.
+      </p><div class="variablelist"><p>
+	  Supported options:
+	</p><dl class="variablelist"><dt><span class="term">--input <em class="replaceable"><code>name</code></em></span></dt><dd><p>
+	      Read input clusters from a file <em class="replaceable"><code>name</code></em>.
+	      Clusters must be provided in the MCL format.
+	      Please, refer to <a class="link" href="#file-formats" title="File Formats">File Formats</a>
+	      for a detailed description of ELaSTIC file formats.
+	    </p></dd><dt><span class="term">--output <em class="replaceable"><code>name</code></em></span></dt><dd><p>
+	      Write output to files with a prefix <em class="replaceable"><code>name</code></em>.
+	      Two files are created: <code class="filename"><em class="replaceable"><code>name</code></em>.eflog</code>
+	      storing execution log, and <code class="filename"><em class="replaceable"><code>name</code></em>.clust</code>
+	      storing converted clusters.
+	      Please, refer to <a class="link" href="#file-formats" title="File Formats">File Formats</a>
+	      for a detailed description of ELaSTIC file formats.
+	    </p></dd><dt><span class="term">--map <em class="replaceable"><code>name</code></em></span></dt><dd><p>
+	      Use sequence map from a file <em class="replaceable"><code>name</code></em>.
+	      Note, that maps are created in the preprocessing stage by <a class="link" href="#elastic-prepare" title="elastic-prepare"><span class="command"><strong>elastic-prepare</strong></span></a>
+	      Please, refer to <a class="link" href="#file-formats" title="File Formats">File Formats</a>
+	      for a detailed description of ELaSTIC file formats.
+	    </p></dd></dl></div></div></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="idm139846357919200"></a>Algorithms</h2></div></div></div><p>
+      This section is not ready. Please refer to the <a class="ulink" href="http://aluru-sun.ece.iastate.edu/doku.php?id=closet" target="_top">CLOSET white paper</a> for
+      a description of algorithms, which ELaSTIC builds upon.
+    </p><div class="section"><div class="titlepage"><div><div><h3 class="title"><a name="sketch"></a>Candidate Pairs</h3></div></div></div><p>
+	Please see Figure 1 in the <a class="ulink" href="http://aluru-sun.ece.iastate.edu/doku.php?id=closet" target="_top">CLOSET white paper</a>.
+	Symbols used in this figure have the following mapping to ELaSTIC options:
+	<span class="emphasis"><em>t</em></span> corresponds to <em class="parameter"><code>--level</code></em>,
+	<span class="emphasis"><em>M</em></span> to <em class="parameter"><code>--mod</code></em>,
+	<span class="emphasis"><em>C<sub>max</sub></em></span> to <em class="parameter"><code>--cmax</code></em>,
+	and <span class="emphasis"><em>C<sub>min</sub></em></span> to <em class="parameter"><code>--jmin</code></em>.
+      </p></div></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="file-formats"></a>File Formats</h2></div></div></div><p>
+      Below a brief description of file formats used by ELaSTIC tools is provided.
+    </p><p>
+      <span class="strong"><strong>EIDX</strong></span> Portable binary file
+      storing index of the input sequences from the accompanying <code class="filename">eseq</code> file.
+      The binary format is used to enable fast parallel I/O on large parallel machines.
+    </p><p>
+      <span class="strong"><strong>ESEQ</strong></span> Portable binary file
+      storing compressed input sequences.
+      The binary format is used to enable fast parallel I/O on large parallel machines.
+    </p><p>
+      <span class="strong"><strong>EMAP</strong></span> Text file with mapping between sequence
+      identifiers and sequence names. The file consists of a list of records, where each
+      record is in the form:
+      </p><pre class="programlisting">
+id M
+seq_name_1
+seq_name_2
+...
+seq_name_M</pre><p> where, <span class="emphasis"><em>id</em></span> is a sequence identifier,
+      <span class="emphasis"><em>M</em></span> is the number of duplicate or nearly identical sequences represented
+      by a given identifier, and <span class="emphasis"><em>seq_name_I</em></span> is the name of <span class="emphasis"><em>I</em></span>-th
+      sequence assigned given identifier.
+      <span class="emphasis"><em>seq_name_1</em></span> is the name of the longest sequence, that is used as a representative
+      sequence for a given group.
+    </p><p>
+      <span class="strong"><strong>EDEL</strong></span> Simple text file listing
+      names of sequences filtered during the preprocessing stage. A single line
+      stores one sequence name.
+    </p><p>
+      <span class="strong"><strong>SIM.00000</strong></span> Text file storing a similarity graph as a edge list.
+      A single line stores one edge in the form:
+      </p><pre class="programlisting"> source_id [space] target_id [tab] weight</pre><p>
+    </p><p>
+      <span class="strong"><strong>CLS.00000</strong></span> Text file storing a list of clusters
+      in the <a class="ulink" href="http://micans.org/mcl/" target="_top">MCL</a> format. A single line
+      stores one cluster represented as a list of component node identifiers separated
+      by a white space.
+    </p><p>
+      <span class="strong"><strong>CLUST</strong></span> Text file storing a list of clusters
+      in a FASTA-like, human readable format. Each cluster is stored in the form:
+      </p><pre class="programlisting">&gt;Cluster_Name
+seq_name_1
+seq_name_2
+...
+seq_name_M</pre><p> where, <span class="emphasis"><em>Cluster_Name</em></span> is a unique cluster name,
+      and <span class="emphasis"><em>seq_name_I</em></span> is the name of <span class="emphasis"><em>I</em></span>-th
+      sequence in a given cluster.
+    </p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="example-use"></a>Example Use</h2></div></div></div><p>This section is not ready.</p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a name="references"></a>References</h2></div></div></div><p>This section is not ready.</p></div></div></body></html>

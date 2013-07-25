@@ -1,0 +1,138 @@
+ELaSTIC - Efficient LArge Scale Taxonomy Independent Clustering
+
+
+1. Compatibility
+
+This software has been implemented in C++, OpenMP-2.5 and MPI-2 standards.
+It has been tested with major C++ compilers and MPI implementations,
+including platforms such as IBM Blue Gene.
+
+
+2. Requirements
+
+The main requirement are the Boost C++ Libraries, version 1.48 or newer.
+To compile elastic-prepare and elastic-cluster, three compiled libraries
+are necessary: Boost.Filesystem, Boost.IOstreams and Boost.System. Other
+tools depend on header-only libraries, e.g. Boost.Tuple. Note, that current
+Linux distributions provide Boost installation by default. If not, the Boost
+libraries can be obtained from http://www.boost.org/. To build elastic-sketch,
+which usually will be done on a cluster, header-only libraries are sufficient.
+Finally, elastic-sketch requires an MPI implementation compatible with the
+MPI-2 standard, and with MPI I/O support enabled.
+
+
+3. What is in the package
+
+The following files and directories are included in the package:
+
+doc/
+include/
+src/
+LICENSE
+Makefile
+README
+config.mk
+
+The doc/ directory contains installation instruction, example configuration
+file for elastic-sketch, and ELaSTIC User Guide. The include/ and src/
+directories contain the source code of ELaSTIC. Finally, the LICENSE file
+contains license information.
+
+
+4. Building and installation
+
+The ELaSTIC package consists of four tools (elastic-prepare, elastic-sketch,
+elastic-cluster and elastic-finalize). It is possible to build A) the entire
+package, i.e. all four tools, B) tools that do not require MPI and can
+run on workstation/server (elastic-prepare, elastic-cluster, elastic-finalize),
+and C) elastic-sketch only.
+
+
+4.A Building the entire package
+
+To build all four tools make sure that the Boost C++ binary libraries are
+installed, and MPI compiler is available. Then, follow the steps below.
+
+
+4.A.1 Unpack ELaSTIC-X.Y.tar.bz2 tarball, where X and Y are major and minor
+      release number. Enter the resulting directory:
+
+      $ tar xfj ELaSTIC-X.Y.tar.bz2
+      $ cd ELaSTIC-X.Y
+
+4.A.2 Using your favorite text editor, edit config.mk file. If you are working
+      with a standard Linux box most likely no changes will be required. Below,
+      example config.mk with Boost installed in /opt/boost is provided. If your
+      compiler does not support OpenMP, or you do not want to use OpenMP
+      parallelism, you can comment out OMPFLAGS option.
+
+      CXX=g++
+      AR=ar
+      MPICXX=mpicxx
+      OMPFLAGS=-fopenmp
+      CXXFLAGS=-O3
+      BOOST_INCLUDE=-I/opt/boost/include
+      BOOST_LIB=-L/opt/boost/lib
+
+4.A.3 Run make install to build the package:
+
+      $ make install
+
+4.A.4 If successful, bin/ subdirectory containing all four tools should
+      be created:
+
+      $ ls bin/
+
+4.A.5 Finalize installation by copying all four tools into your preferred
+      location, e.g.:
+
+      $ cp bin/* ~/bin
+
+
+4.B Building non-MPI tools
+
+This is advantageous when system on which non-MPI tools will be run has no
+MPI installation.
+
+4.B.1 Execute steps 4.A.1 and 4.A.2. Note, that when editing config.mk
+      MPICXX option can be ignored.
+
+4.B.2 Run make others-install to build non-MPI tools:
+
+      $ make others-install
+
+4.B.3 Follow steps 4.A.4 and 4.A.5 to conclude the installation.
+
+
+4.C Building elastic-sketch only
+
+Unlike other tools, elastic-sketch is meant to run on large distributed memory
+machines, such as clusters and supercomputers. Therefore, it can be built
+separately of other tools:
+
+4.C.1 Execute steps 4.A.1 and 4.A.2. Note, that when editing config.mk
+      OMPFLAGS and BOOST_LIB options can be completely ignored. Below,
+      an example config.mk for IBM Blue Gene/P with GNU C++ compiler
+      is listed (we found GNU C++ to generate faster code than IBM XLC):
+
+      CXX=powerpc-bgp-linux-g++
+      AR=ar
+      MPICXX=mpicxx
+      #OMPFLAGS=-fopenmp
+      CXXFLAGS=-mcpu=450fp2 -mstrict-align -fno-strict-aliasing -O3
+      BOOST_INCLUDE=-I/scratch/bgapps/boost/include
+      #BOOST_LIB=-L/opt/boost/lib
+
+4.C.2 Run make sketch-install to build elastic-sketch:
+
+      $ make sketch-install
+
+4.C.3 Follow steps 4.A.4 and 4.A.5 to conclude the installation.
+
+
+5. Copyright
+
+ELaSTIC (C) 2012-2013 Jaroslaw Zola under the MIT License.
+BIO  (C) 2012-2013 Jaroslaw Zola under the Boost Software License.
+JAZ  (C) 2004-2013 Jaroslaw Zola under the Boost Software License.
+MPIX (C) 2005-2013 Jaroslaw Zola under the Boost Software License.

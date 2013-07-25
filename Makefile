@@ -27,6 +27,8 @@ mpi-doc: mpi-install
 mpi-install: mpi
 	$(MAKE) -C src/mpi install
 
+others-install: seq-install omp-install
+
 sketch: mpi
 sketch-doc: mpi-doc
 sketch-install: mpi-install
