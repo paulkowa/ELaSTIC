@@ -31,20 +31,24 @@ inline bool create_smatrix(std::string val, bool is_dna, bio::scoring_matrix& sm
     std::vector<std::string> agap;
     jaz::split(',', val, std::back_inserter(agap));
 
-    if (agap.size() == 3) {
-	if (bio::read_file_sm(agap[0], sm) == false) return false;
-	g = boost::lexical_cast<int>(agap[1]);
-	h = boost::lexical_cast<int>(agap[2]);
-    } else if (agap.size() == 4) {
-	int gaps[4];
-	for (unsigned int i = 0; i < 4; ++i) {
-	    gaps[i] = boost::lexical_cast<int>(agap[i]);
-	}
-	if (is_dna == true) sm = bio::make_dna_sm(gaps[0], gaps[1]);
-	else sm = bio::make_dummy_sm(gaps[0], gaps[1]);
-	g = gaps[2];
-	h = gaps[3];
-    } else return false;
+    try {
+	if (agap.size() == 3) {
+	    if (bio::read_file_sm(agap[0], sm) == false) return false;
+	    g = boost::lexical_cast<int>(agap[1]);
+	    h = boost::lexical_cast<int>(agap[2]);
+	} else if (agap.size() == 4) {
+	    int gaps[4];
+	    for (unsigned int i = 0; i < 4; ++i) {
+		gaps[i] = boost::lexical_cast<int>(agap[i]);
+	    }
+	    if (is_dna == true) sm = bio::make_dna_sm(gaps[0], gaps[1]);
+	    else sm = bio::make_dummy_sm(gaps[0], gaps[1]);
+	    g = gaps[2];
+	    h = gaps[3];
+	} else return false;
+    } catch (boost::bad_lexical_cast& ex) {
+	return false;
+    }
 
     return true;
 } // create_smatrix
