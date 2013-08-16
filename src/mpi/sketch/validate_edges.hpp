@@ -43,19 +43,19 @@ public:
 	      break;
 
 	  case 1:
-	      Acdhit_ = alignment_cdhit_identity(sm, g, h);
-	      break;
-
-	  case 2:
 	      cAcdhit_ = cfe_alignment_cdhit_identity(sm, g, h);
 	      break;
 
+	  case 2:
+	      Acdhit_ = alignment_cdhit_identity(sm, g, h);
+	      break;
+
 	  case 3:
-	      Ablast_ = alignment_blast_identity(sm, g, h);
+	      cAblast_ = cfe_alignment_blast_identity(sm, g, h);
 	      break;
 
 	  case 4:
-	      cAblast_ = cfe_alignment_blast_identity(sm, g, h);
+	      Ablast_ = alignment_blast_identity(sm, g, h);
 	      break;
 	} // switch
     } // general_compare

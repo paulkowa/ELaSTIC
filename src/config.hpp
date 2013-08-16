@@ -10,7 +10,7 @@
 
 #define ELASTIC_SKETCH_SHORT "elastic-sketch"
 #define ELASTIC_SKETCH_FULL "ELaSTIC Similarity Graph Builder"
-#define ELASTIC_SKETCH_VERSION "1.10:2013-06-21"
+#define ELASTIC_SKETCH_VERSION "1.11:2013-08-16"
 #define ELASTIC_SKETCH_COPYRIGHT "Copyright (c) 2012-2013 Jaroslaw Zola"
 
 #define ELASTIC_CLUSTER_SHORT "elastic-cluster"
