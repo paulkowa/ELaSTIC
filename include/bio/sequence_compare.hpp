@@ -223,7 +223,7 @@ namespace bio {
        *  matrix - Raw-wise substitution matrix.
        */
       scoring_matrix(unsigned char sigma[256], const std::vector<char>& matrix)
-	  : matrix_(matrix), sz_(std::sqrt(matrix.size())) { std::memcpy(sigma_, sigma, 256); }
+	  : sz_(std::sqrt(matrix.size())), matrix_(matrix) { std::memcpy(sigma_, sigma, 256); }
 
       /** Function: operator()
        *

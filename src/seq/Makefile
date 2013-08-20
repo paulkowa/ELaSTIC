@@ -12,6 +12,7 @@ ifdef BOOST_LIB
 endif
 
 PROGS=elastic-cluster \
+      elastic-convert \
       elastic-finalize
 
 all: $(PROGS)

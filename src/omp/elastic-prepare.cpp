@@ -132,11 +132,11 @@ struct AppConfig {
 
 	    // check other options
 	    if (jaz::check_option(conf, "clean", val) == true) {
-		clean = boost::lexical_cast<unsigned int>(val);
+		clean = boost::lexical_cast<bool>(val);
 	    }
 
 	    if (jaz::check_option(conf, "group", val) == true) {
-		group = boost::lexical_cast<unsigned int>(val);
+		group = boost::lexical_cast<bool>(val);
 	    }
 
 	    if (jaz::check_option(conf, "length", val) == true) {

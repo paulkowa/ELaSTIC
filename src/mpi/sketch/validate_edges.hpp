@@ -29,64 +29,51 @@
 #include "iomanip.hpp"
 
 
-class general_compare {
+class compare_method {
 public:
-    explicit general_compare(const AppConfig& opt) : method_(opt.method) {
-	bio::scoring_matrix sm;
-	int g, h;
+    explicit compare_method(const AppConfig& opt) : method_(opt.method) {
+	if (opt.method == 0) {
+	    kf_ = bio::kmer_fraction(opt.kmer, opt.is_dna);
+	} else {
+	    bio::scoring_matrix sm;
+	    int g, h;
 
-	if (opt.method > 0) create_smatrix(opt.gaps, opt.is_dna, sm, g, h);
+	    create_smatrix(opt.gaps, opt.is_dna, sm, g, h);
 
-	switch (opt.method) {
-	  case 0:
-	      Kid_ = kmer_identity(opt.kmer, opt.is_dna);
-	      break;
+	    if ((opt.method == 1) || (opt.method == 3)) {
+		cfe_align_ = bio::cfe_global_alignment(sm, g, h);
+	    } else {
+		align_ = bio::global_alignment(sm, g, h);
+	    }
+	}
+    } // compare_method
 
-	  case 1:
-	      cAcdhit_ = cfe_alignment_cdhit_identity(sm, g, h);
-	      break;
-
-	  case 2:
-	      Acdhit_ = alignment_cdhit_identity(sm, g, h);
-	      break;
-
-	  case 3:
-	      cAblast_ = cfe_alignment_blast_identity(sm, g, h);
-	      break;
-
-	  case 4:
-	      Ablast_ = alignment_blast_identity(sm, g, h);
-	      break;
-	} // switch
-    } // general_compare
-
-    unsigned short int operator()(const std::string& s0, const std::string& s1) {
+    boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
 	const std::string* sa = &s0;
 	const std::string* sb = &s1;
 
 	if (s1.size() < s0.size()) std::swap(sa, sb);
 
-	switch (method_) {
-	  case 0: return Kid_(*sa, *sb);
-	  case 1: return Acdhit_(*sa, *sb);
-	  case 2: return cAcdhit_(*sa, *sb);
-	  case 3: return Ablast_(*sa, *sb);
-	  case 4: return cAblast_(*sa, *sb);
-	}
+	boost::tuple<int, int, int> res = boost::make_tuple(-1, -1, -1);
 
-	return 0;
+	if (method_ == 0) res = kf_(*sa, *sb);
+	else if ((method_ == 1) || (method_ == 3)) res = cfe_align_(*sa, *sb);
+	else res = align_(*sa, *sb);
+
+	// correction to get score for CD-HIT identity score
+	if ((method_ == 1) || (method_ == 2)) boost::get<1>(res) = std::min(s0.size(), s1.size());
+
+	return res;
     } // operator()
 
 private:
-    kmer_identity Kid_;
-    alignment_cdhit_identity Acdhit_;
-    cfe_alignment_cdhit_identity cAcdhit_;
-    alignment_blast_identity Ablast_;
-    cfe_alignment_blast_identity cAblast_;
+    bio::kmer_fraction kf_;
+    bio::global_alignment align_;
+    bio::cfe_global_alignment cfe_align_;
 
     unsigned int method_;
 
-}; // struct general_compare
+}; // struct compare_method
 
 
 inline bool block_compare(const std::pair<unsigned int, unsigned int>& p1, const std::pair<unsigned int, unsigned int>& p2) {
@@ -112,7 +99,7 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
     // local edges are easy :-)
     report << info << "processing local edges..." << std::endl;
 
-    sequence_identity<general_compare> ident(SL, SL.seqs.front().id, general_compare(opt));
+    sequence_compare<compare_method> ident(SL, SL.seqs.front().id, compare_method(opt));
     std::transform(edges.begin(), edges.begin() + mid, edges.begin(), ident);
 
     // here we go with real work
@@ -173,7 +160,9 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
 
     // finalize
     report << info << "cleaning edges..." << std::endl;
-    edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar(opt.level)), edges.end());
+
+    edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar2(opt.method, opt.level)), edges.end());
+    if (opt.factor == false) std::transform(edges.begin(), edges.end(), edges.begin(), read_pair_count(opt.method));
 
     return std::make_pair(true, "");
 } // validate_edges
@@ -236,11 +225,11 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
     // process local edges
     report << info << "processing local edges..." << std::endl;
 
-    sequence_identity<general_compare> ident(SL, SL.seqs.front().id, general_compare(opt));
+    sequence_compare<compare_method> ident(SL, SL.seqs.front().id, compare_method(opt));
     edges.resize(mid);
 
     std::transform(edges.begin(), edges.end(), edges.begin(), ident);
-    edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar(opt.level)), edges.end());
+    edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar2(opt.method, opt.level)), edges.end());
 
     // process tasks
     report << info << "processing remaining edges, be patient..." << std::endl;
@@ -306,7 +295,9 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
 	delete[] sfirst;
     } // while wsq.steal
 
-    edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar(opt.level)), edges.end());
+    edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar2(opt.method, opt.level)), edges.end());
+    if (opt.factor == false) std::transform(edges.begin(), edges.end(), edges.begin(), read_pair_count(opt.method));
+
     wsq.finalize();
 
     return std::make_pair(true, "");

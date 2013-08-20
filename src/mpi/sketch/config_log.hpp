@@ -41,6 +41,7 @@ struct AppConfig {
 	kmer = 15;
 	gaps = "[1,-2,-10,-1]";
 	level = 75;
+	factor = false;
 	mod = 25;
 	iter = 7;
 	cmax = 5000;
@@ -62,6 +63,7 @@ struct AppConfig {
 	std::cout << "  --kmer size        use kmers of this size (default 15)\n";
 	std::cout << "  --gaps type        use these alignment parameters (default [1,-2,-10,-1])\n";
 	std::cout << "  --level size       use this threshold during validation (default 75)\n";
+	std::cout << "  --factor {0|1}     include elements of similarity score in output (default 0)\n";
 	std::cout << "  --mod size         use this mod value in sketching (default 25)\n";
 	std::cout << "  --iter size        limit the number of sketching iterations to this (default 7)\n";
 	std::cout << "  --cmax size        use this limit to mark frequent kmers (default 5000)\n";
@@ -160,9 +162,13 @@ struct AppConfig {
 
 	    if (jaz::check_option(ext_conf, "level", val) == true) {
 		level = boost::lexical_cast<short int>(val);
-		if ((level < 10) || (level > 100)) {
+		if (level > 100) {
 		    return std::make_pair(false, "incorrect level");
 		}
+	    }
+
+	    if (jaz::check_option(ext_conf, "factor", val) == true) {
+		factor = boost::lexical_cast<bool>(val);
 	    }
 
 	    if (jaz::check_option(ext_conf, "mod", val) == true) {
@@ -193,7 +199,6 @@ struct AppConfig {
 		}
 	    }
 
-	    // temporal options
 	    if (jaz::check_option(ext_conf, "wsq", val) == true) {
 		wsq = boost::lexical_cast<bool>(val);
 	    }
@@ -214,6 +219,7 @@ struct AppConfig {
     unsigned short int kmer;
     std::string gaps;
     unsigned short int level;
+    bool factor;
     short int mod;
     short int iter;
     unsigned int cmax;
@@ -230,6 +236,7 @@ struct AppConfig {
 	os << "kmer = " << opt.kmer << "\n";
 	os << "gaps = " << opt.gaps << "\n";
 	os << "level = " << opt.level << "\n";
+	os << "factor = " << opt.factor << "\n";
 	os << "mod = " << opt.mod << "\n";
 	os << "iter = " << opt.iter << "\n";
 	os << "cmax = " << opt.cmax << "\n";

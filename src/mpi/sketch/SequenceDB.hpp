@@ -334,6 +334,7 @@ struct read_pair {
     unsigned int id1;
     unsigned short int size;
     unsigned short int count;
+    int score;
 }; // struct read_pair
 
 inline std::ostream& operator<<(std::ostream& os, const read_pair& rp) {
@@ -370,9 +371,14 @@ inline read_pair make_read_pair(const sketch_id& r0, const sketch_id& r1) {
     if (tmp.id1 < tmp.id0) std::swap(tmp.id0, tmp.id1);
     tmp.size = std::max<unsigned short int>(std::min(r0.size, r1.size), 1);
     tmp.count = 1;
+    tmp.score = 0;
     return tmp;
 } // make_read_pair
 
+std::ostream& write_read_pair(std::ostream& os, const read_pair& rp) {
+    os << rp.id0 << " " << rp.id1 << "\t" << rp.score << " " << rp.size << " " << rp.count;
+    return os;
+} // write_read_pair
 
 
 typedef std::pair<unsigned int, unsigned int> rank_read_t;
@@ -444,21 +450,6 @@ private:
 }; // hash_read_pair2
 
 
-
-class not_similar {
-public:
-    explicit not_similar(unsigned short int jmin) : jmin_(jmin) { }
-
-    bool operator()(const read_pair& rp) const {
-	return rp.count < jmin_;
-    } // operator()
-
-private:
-    unsigned short int jmin_;
-
-}; // class not_similar
-
-
 class local {
 public:
     local(unsigned int lo, unsigned int hi) : lo_(lo), hi_(hi) { }
@@ -520,7 +511,6 @@ private:
 }; // class not_collocated
 
 
-
 inline read_pair kmer_fraction(read_pair rp) {
     rp.count = (100 * rp.count) / rp.size;
     return rp;
@@ -545,145 +535,119 @@ private:
 }; // class appx_kmer_fraction
 
 
-class kmer_identity {
-public:
-    explicit kmer_identity(unsigned int k = 0, bool is_dna = true) : kf_(k, is_dna) { }
+inline unsigned short int get_kmer_fraction(const read_pair& rp) {
+    return (100 * rp.score) / std::min(rp.size, rp.count);
+} // get_kmer_fraction
 
-    unsigned short int operator()(const std::string& s1, const std::string& s2) {
-	unsigned int S;
-	unsigned int l0;
-	unsigned int l1;
-	boost::tie(S, l0, l1) = kf_(s1, s2);
-	return (100 * S) / std::min(l0, l1);
-    } // operator
+inline unsigned short int get_alignment_identity(const read_pair& rp) {
+    // this is bit messy :-)
+    // for cd-hit identity rp.size is corrected by compare
+    // (called inside sequence_compare)
+    return (100 * rp.count) / rp.size;
+} // get_alignment_identity
+
+
+class not_similar {
+public:
+    explicit not_similar(unsigned short int jmin) : jmin_(jmin) { }
+
+    bool operator()(const read_pair& rp) const {
+        return rp.count < jmin_;
+    } // operator()
 
 private:
-    bio::kmer_fraction kf_;
+    unsigned short int jmin_;
 
-}; // class kmer_identity
+}; // class not_similar
 
 
-class alignment_cdhit_identity {
+class not_similar2 {
 public:
-    explicit alignment_cdhit_identity(int m = 0, int s = 0, int g = 0, int h = 0)
-	: align_(m, s, g, h) { }
+    not_similar2(unsigned int method, unsigned short int jmin)
+	: method_(method), jmin_(jmin) { }
 
-    alignment_cdhit_identity(const bio::scoring_matrix& sm, int g, int h)
-	: align_(sm, g, h) { }
+    bool operator()(const read_pair& rp) const {
+	unsigned int score = 0;
+	if (method_ == 0) {
+	    score = get_kmer_fraction(rp);
+	} else {
+	    score = get_alignment_identity(rp);
+	}
 
-    unsigned short int operator()(const std::string& s1, const std::string& s2) {
-	int score;
-	unsigned int length;
-	unsigned int matches;
-	boost::tie(score, length, matches) = align_(s1, s2);
-	return (100 * matches) / std::min(s1.size(), s2.size());
-    } // operator
+	return score < jmin_;
+    } // operator()
 
 private:
-    bio::global_alignment align_;
+    unsigned int method_;
+    unsigned short int jmin_;
 
-}; // class alignment_cdhit_identity
+}; // class not_similar2
 
 
-class cfe_alignment_cdhit_identity {
+class read_pair_count {
 public:
-    explicit cfe_alignment_cdhit_identity(int m = 0, int s = 0, int g = 0, int h = 0)
-	: align_(m, s, g, h) { }
+    explicit read_pair_count(unsigned int method) : method_(method) { }
 
-    cfe_alignment_cdhit_identity(const bio::scoring_matrix& sm, int g, int h)
-	: align_(sm, g, h) { }
-
-    unsigned short int operator()(const std::string& s1, const std::string& s2) {
-	int score;
-	unsigned int length;
-	unsigned int matches;
-	boost::tie(score, length, matches) = align_(s1, s2);
-	return (100 * matches) / std::min(s1.size(), s2.size());
-    } // operator
+    read_pair operator()(read_pair rp) const {
+	unsigned int score = 0;
+	if (method_ == 0) {
+	    score = get_kmer_fraction(rp);
+	} else {
+	    score = get_alignment_identity(rp);
+	}
+	rp.count = score;
+	return rp;
+    } // operator()
 
 private:
-    bio::cfe_global_alignment align_;
+    unsigned int method_;
 
-}; // class cfe_alignment_cdhit_identity
+}; // class read_pair_count
 
 
-class alignment_blast_identity {
+template <typename Compare> class sequence_compare {
 public:
-    explicit alignment_blast_identity(int m = 0, int s = 0, int g = 0, int h = 0)
-	: align_(m, s, g, h) { }
-
-    alignment_blast_identity(const bio::scoring_matrix& sm, int g, int h)
-	: align_(sm, g, h) { }
-
-    unsigned short int operator()(const std::string& s1, const std::string& s2) {
-	int score;
-	unsigned int length;
-	unsigned int matches;
-	boost::tie(score, length, matches) = align_(s1, s2);
-	return (length == 0) ? 0 : (100 * matches) / length;
-    } // operator
-
-private:
-    bio::global_alignment align_;
-
-}; // class alignment_blast_identity
-
-
-class cfe_alignment_blast_identity {
-public:
-    explicit cfe_alignment_blast_identity(int m = 0, int s = 0, int g = 0, int h = 0)
-	: align_(m, s, g, h) { }
-
-    cfe_alignment_blast_identity(const bio::scoring_matrix& sm, int g, int h)
-	: align_(sm, g, h) { }
-
-    unsigned short int operator()(const std::string& s1, const std::string& s2) {
-	int score;
-	unsigned int length;
-	unsigned int matches;
-	boost::tie(score, length, matches) = align_(s1, s2);
-	return (length == 0) ? 0 : (100 * matches) / length;
-    } // operator
-
-private:
-    bio::cfe_global_alignment align_;
-
-}; // class cfe_alignment_blast_identity
-
-
-template <typename Compare> class sequence_identity {
-public:
-    sequence_identity(const SequenceList& SL, unsigned int offset, Compare compare)
+    sequence_compare(const SequenceList& SL, unsigned int offset, Compare compare)
 	: SL_(SL), offset_(offset), compare_(compare) { }
 
     read_pair operator()(read_pair rp) {
 	unsigned int id0 = rp.id0 - offset_;
 	unsigned int id1 = rp.id1 - offset_;
-	rp.count = compare_(SL_.seqs[id0].s, SL_.seqs[id1].s);
+	boost::tuple<int, int, int> cmp = compare_(SL_.seqs[id0].s, SL_.seqs[id1].s);
+	prv_assign__(cmp, rp);
 	return rp;
     } // operator()
 
     // case where id0 is local
     read_pair operator()(read_pair rp, const std::string& s) {
 	unsigned int id0 = rp.id0 - offset_;
-	rp.count = compare_(SL_.seqs[id0].s, s);
+	boost::tuple<int, int, int> cmp = compare_(SL_.seqs[id0].s, s);
+	prv_assign__(cmp, rp);
 	return rp;
     } // operator()
 
     // case where id1 is local
     read_pair operator()(const std::string& s, read_pair rp) {
 	unsigned int id1 = rp.id1 - offset_;
-	rp.count = compare_(s, SL_.seqs[id1].s);
+	boost::tuple<int, int, int> cmp = compare_(s, SL_.seqs[id1].s);
+	prv_assign__(cmp, rp);
 	return rp;
     } // operator()
 
     // case where none is local
     read_pair operator()(read_pair rp, const std::string& s0, const std::string& s1) {
-	rp.count = compare_(s0, s1);
+	boost::tuple<int, int, int> cmp = compare_(s0, s1);
+	prv_assign__(cmp, rp);
 	return rp;
     } // operator()
 
 private:
+    void prv_assign__(const boost::tuple<int, int, int>& cmp, read_pair& rp) {
+	rp.score = boost::get<0>(cmp);
+	rp.size =  boost::get<1>(cmp);
+	rp.count = boost::get<2>(cmp);
+    } // prv_assign__
+
     const SequenceList& SL_;
     unsigned int offset_;
 

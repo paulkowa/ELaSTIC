@@ -79,10 +79,7 @@ public:
 
     void finalize() {
 	if (active_ == true) {
-	    MPI_Status stat;
-
 	    terminate();
-
 	    while (progress() == true) { }
 	    MPI_Cancel(&req_);
 	} // if

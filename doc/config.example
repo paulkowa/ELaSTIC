@@ -28,7 +28,7 @@
 # Default: 0
 ; method = 0
 
-# Set kmer size used during the sketching phase, and during validation
+# Set the kmer size used during the sketching phase, and during validation
 # if the kmer fraction method is selected.
 # Default: 15
 ; kmer = 15
@@ -44,6 +44,14 @@
 # Set the threshold value above which canidate pairs are considered valid.
 # Default: 75
 ; level = 75
+
+# Enable reporting of the similarity score components in the output file.
+# For kmer fraction reported elements are:
+#  [shared kmers, kmers in first sequence, kmers in second sequence]
+# For alignment-based methods:
+#  [alignment score, alignment length no end gaps, identities]
+# Default: 0
+; factor = 0
 
 # Set mod value for the sketching phase.
 # Default: 25
