@@ -36,7 +36,7 @@
 #endif // WITH_MPE
 
 
-template <typename T> T sqr(T x) { return x * x; }
+template <typename T> inline T sqr(T x) { return x * x; }
 
 template <typename Iter>
 inline void update_counts(Iter first, Iter last, const std::vector<int>& rem_list, double jmin) {
