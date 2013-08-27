@@ -139,7 +139,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 
     for (unsigned int i = 1; i < n; ++i) {
 	if ((sr[pos] != sr[i]) || (i == n - 1)) {
-	    unsigned int end = (sr[pos] == sr[i]) ? n : i;
+	    unsigned int end = (i == (n - 1)) ? n : i;
 
 	    if ((end - pos) >= opt.cmax) {
 		// we store in the temporal list (-1 separates lists)
@@ -152,11 +152,9 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 
 		// and we remove from sr
 		std::copy(sr + i, sr + n, sr + pos);
-		n = pos + n - i;
+		n = (i == (n - 1)) ? pos + n - end : pos + n - i;
 		i = pos + 1;
-	    } // if
-
-	    pos = i;
+	    } else pos = i;
 	} // if
     } // for i
 
@@ -192,7 +190,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     // get local counts
     for (unsigned int i = 1; i < n; ++i) {
 	if ((sr[pos] != sr[i]) || (i == n - 1)) {
-	    unsigned int end = (sr[pos] == sr[i]) ? n : i;
+	    unsigned int end = (i == (n - 1)) ? n : i;
 
 	    // enumerate all pairs with the same sketch
 	    for (unsigned int j = pos; j < end - 1; ++j) {
