@@ -153,7 +153,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 		// and we remove from sr
 		std::copy(sr + i, sr + n, sr + pos);
 		n = (i == (n - 1)) ? pos + n - end : pos + n - i;
-		i = pos + 1;
+		i = pos;
 	    } else pos = i;
 	} // if
     } // for i
