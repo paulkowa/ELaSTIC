@@ -39,33 +39,47 @@ namespace jaz {
   } // copy_n
 
 
+  /** Function: range
+   */
+  template <typename Iter, typename Comp>
+  Iter range(Iter first, Iter last, Comp comp) {
+      if (first == last) return last;
+      Iter iter = first;
+      while ((iter != last) && comp(*first, *iter)) iter++;
+      return iter;
+  } // range
+
+  template <typename Iter>
+  Iter range(Iter first, Iter last) {
+      typedef typename std::iterator_traits<Iter>::value_type value_type;
+      return range(first, last, std::equal_to<value_type>());
+  } // range
+
+
   /** Function: compact
    */
-  template <typename Iter, typename Oper>
-  Iter compact(Iter first, Iter last, Oper op) {
+  template <typename Iter, typename Oper, typename Comp>
+  Iter compact(Iter first, Iter last, Oper op, Comp comp) {
       if (first == last) return last;
 
       Iter res = first;
-      Iter pos = first;
 
-      first++;
-
-      for (; first != last; ++first) {
-	  if (*pos < *first) {
-	      *res = *pos;
-	      pos++;
-	      *res = std::accumulate(pos, first, *res, op);
-	      pos = first;
-	      res++;
-	  }
+      while (first != last) {
+	  Iter iter = range(first, last, comp);
+	  *res = *first;
+	  first++;
+	  *res = std::accumulate(first, iter, *res, op);
+	  first = iter;
+	  res++;
       }
 
-      *res = *pos;
-      pos++;
-      *res = std::accumulate(pos, last, *res, op);
-      res++;
-
       return res;
+  } // compact
+
+  template <typename Iter, typename Oper>
+  Iter compact(Iter first, Iter last, Oper op) {
+      typedef typename std::iterator_traits<Iter>::value_type value_type;
+      return compact(first, last, op, std::equal_to<value_type>());
   } // compact
 
 

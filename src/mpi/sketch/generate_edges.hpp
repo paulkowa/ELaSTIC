@@ -38,6 +38,7 @@
 
 template <typename T> inline T sqr(T x) { return x * x; }
 
+
 template <typename Iter>
 inline void update_counts(Iter first, Iter last, const std::vector<int>& rem_list, double jmin) {
 #ifdef WITH_MPE
@@ -182,26 +183,22 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     MPE_Log_event(mpe_gc_start, 0, "start get counts");
 #endif // WITH_MPE
 
-    std::vector<read_pair> counts;
-
-    n = (sr_end - sr);
-    pos = 0;
-
     // get local counts
-    for (unsigned int i = 1; i < n; ++i) {
-	if ((sr[pos] != sr[i]) || (i == n - 1)) {
-	    unsigned int end = (i == (n - 1)) ? n : i;
+    std::vector<read_pair> counts;
+    sr_temp = sr;
 
-	    // enumerate all pairs with the same sketch
-	    for (unsigned int j = pos; j < end - 1; ++j) {
-		for (unsigned int k = j + 1; k < end; ++k) {
-		    if (sr[j].id != sr[k].id) counts.push_back(make_read_pair(sr[j], sr[k]));
-		} // for k
-	    } // for j
+    while (sr_temp != sr_end) {
+	sketch_id* sr_iter = jaz::range(sr_temp, sr_end); // ???
 
-	    pos = i;
-	} // if
-    } // for i
+	// enumerate all pairs with the same sketch
+	for (sketch_id* j = sr_temp; j != sr_iter - 1; ++j) {
+	    for (sketch_id* k = j + 1; k != sr_iter; ++k) {
+		if (j->id != k->id) counts.push_back(make_read_pair(*j, *k));
+	    } // for k
+	} // for j
+
+	sr_temp = sr_iter;
+    } // while
 
     // perform counts compaction
     std::sort(counts.begin(), counts.end());
