@@ -45,7 +45,7 @@ inline std::pair<bool, std::string> write_output(const AppConfig& opt, AppLog& l
     std::ostringstream os;
 
     if (opt.factor == true) {
-	name = opt.output + ".tsv";
+	name = opt.output + ".tim.00000";
 	unsigned int m = edges.size();
 	for (unsigned int i = 0; i < m; ++i) {
 	    write_read_pair(os, edges[i]);
