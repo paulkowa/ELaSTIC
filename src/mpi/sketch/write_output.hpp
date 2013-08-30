@@ -41,20 +41,23 @@ inline std::pair<bool, std::string> write_output(const AppConfig& opt, AppLog& l
       of.close();
     */
 
+    std::string name;
     std::ostringstream os;
 
     if (opt.factor == true) {
+	name = opt.output + ".tsv";
 	unsigned int m = edges.size();
 	for (unsigned int i = 0; i < m; ++i) {
 	    write_read_pair(os, edges[i]);
 	    os << "\n";
 	}
     } else {
+	name = opt.output + ".sim.00000";
 	std::copy(edges.begin(), edges.end(), std::ostream_iterator<read_pair>(os, "\n"));
     }
 
-    if (mpix::write_cbuffer((opt.output + ".sim.00000"), os.str().c_str(), os.str().size(), comm) == false) {
-	report.critical << error << ("unable to create " + opt.output + ".sim.00000") << std::endl;
+    if (mpix::write_cbuffer(name, os.str().c_str(), os.str().size(), comm) == false) {
+	report.critical << error << ("unable to create " + name) << std::endl;
 	MPI_Abort(comm, MPI_ABRT_SIG);
     }
 

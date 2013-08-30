@@ -63,7 +63,7 @@ struct AppConfig {
 	std::cout << "  --kmer size        use kmers of this size (default 15)\n";
 	std::cout << "  --gaps type        use these alignment parameters (default [1,-2,-10,-1])\n";
 	std::cout << "  --level size       use this threshold during validation (default 75)\n";
-	std::cout << "  --factor {0|1}     include elements of similarity score in output (default 0)\n";
+	std::cout << "  --factor {0|1}     include intermediate values of similarity score in output (default 0)\n";
 	std::cout << "  --mod size         use this mod value in sketching (default 25)\n";
 	std::cout << "  --iter size        limit the number of sketching iterations to this (default 7)\n";
 	std::cout << "  --cmax size        use this limit to mark frequent kmers (default 5000)\n";

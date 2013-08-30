@@ -46,11 +46,14 @@
 # Default: 75
 ; level = 75
 
-# Enable reporting of the similarity score components in the output file.
+# Enable reporting of intemediate values used to compute the similarity score
+# in the output file.
 # For kmer fraction reported elements are:
 #  [shared kmers, kmers in first sequence, kmers in second sequence]
-# For alignment-based methods:
-#  [alignment score, alignment length no end gaps, identities]
+# For alignment-based methods 1-2:
+#  [alignment score, length of shorter sequence, identities]
+# For alignment-based methods 3-5:
+#  [alignment score, alignment length, identities]
 # Default: 0
 ; factor = 0
 

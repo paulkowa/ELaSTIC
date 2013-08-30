@@ -33,10 +33,9 @@ Makefile
 README
 config.mk
 
-The doc/ directory contains installation instruction, example configuration
-file for elastic-sketch, and ELaSTIC User Guide. The include/ and src/
-directories contain the source code of ELaSTIC. Finally, the LICENSE file
-contains license information.
+The doc/ directory contains installation instruction and example configuration
+file for elastic-sketch. The include/ and src/ directories contain the source code 
+of ELaSTIC. Finally, the LICENSE file contains license information.
 
 
 4. Building and installation
@@ -44,8 +43,8 @@ contains license information.
 The ELaSTIC package consists of four tools (elastic-prepare, elastic-sketch,
 elastic-cluster and elastic-finalize). It is possible to build A) the entire
 package, i.e. all four tools, B) tools that do not require MPI and can
-run on workstation/server (elastic-prepare, elastic-cluster, elastic-finalize),
-and C) elastic-sketch only.
+run on a workstation/server (elastic-prepare, elastic-cluster, elastic-finalize),
+and C) elastic-sketch only to run on e.g. a cluster.
 
 
 4.A Building the entire package
@@ -55,7 +54,7 @@ installed, and MPI compiler is available. Then, follow the steps below.
 
 
 4.A.1 Unpack ELaSTIC-X.Y.tar.bz2 tarball, where X and Y are major and minor
-      release number. Enter the resulting directory:
+      release numbers. Enter the resulting directory:
 
       $ tar xfj ELaSTIC-X.Y.tar.bz2
       $ cd ELaSTIC-X.Y
@@ -111,9 +110,10 @@ machines, such as clusters and supercomputers. Therefore, it can be built
 separately of other tools:
 
 4.C.1 Execute steps 4.A.1 and 4.A.2. Note, that when editing config.mk
-      OMPFLAGS and BOOST_LIB options can be completely ignored. Below,
-      an example config.mk for IBM Blue Gene/P with GNU C++ compiler
-      is listed (we found GNU C++ to generate faster code than IBM XLC):
+      OMPFLAGS and BOOST_LIB options can be completely ignored (you still
+      may have to customize BOOST_INCLUDE). Below, an example config.mk
+      for IBM Blue Gene/P with GNU C++ compiler is listed (we found GNU C++
+      to generate faster code than IBM XLC):
 
       CXX=powerpc-bgp-linux-g++
       AR=ar
@@ -133,6 +133,7 @@ separately of other tools:
 5. Copyright
 
 ELaSTIC (C) 2012-2013 Jaroslaw Zola under the MIT License.
+
 BIO  (C) 2012-2013 Jaroslaw Zola under the Boost Software License.
 JAZ  (C) 2004-2013 Jaroslaw Zola under the Boost Software License.
 MPIX (C) 2005-2013 Jaroslaw Zola under the Boost Software License.
