@@ -42,8 +42,10 @@ public:
 
 	    if ((opt.method == 1) || (opt.method == 3)) {
 		cfe_align_ = bio::cfe_global_alignment(sm, g, h);
-	    } else {
+	    } else if ((opt.method == 2) || (opt.method == 4)) {
 		align_ = bio::global_alignment(sm, g, h);
+	    } else {
+		loc_align_ = bio::local_alignment(sm, g, h);
 	    }
 	}
     } // compare_method
@@ -57,6 +59,7 @@ public:
 	boost::tuple<int, int, int> res = boost::make_tuple(-1, -1, -1);
 
 	if (method_ == 0) res = kf_(*sa, *sb);
+	else if (method_ == 5) res = loc_align_(*sa, *sb);
 	else if ((method_ == 1) || (method_ == 3)) res = cfe_align_(*sa, *sb);
 	else res = align_(*sa, *sb);
 
@@ -70,6 +73,7 @@ private:
     bio::kmer_fraction kf_;
     bio::global_alignment align_;
     bio::cfe_global_alignment cfe_align_;
+    bio::local_alignment loc_align_;
 
     unsigned int method_;
 

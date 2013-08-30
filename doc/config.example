@@ -25,6 +25,7 @@
 # 2 = CD-HIT identity from global alignment
 # 3 = BLAST identity from global alignment with cost-free end gaps
 # 4 = BLAST identity from global alignment
+# 5 = BLAST identity from local alignment
 # Default: 0
 ; method = 0
 

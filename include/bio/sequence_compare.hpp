@@ -200,6 +200,12 @@ namespace bio {
 
 
 
+  /** Class: sequence_compare
+   *
+   *  A general interface for sequence_compare algorithms.
+   *  All algorithms in this library support this interface.
+   *  Some, e.g. local_alignment, provide additional methods.
+   */
   template <typename Derived> struct sequence_compare {
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
 	  return static_cast<Derived*>(this)->operator()(s0, s1);
@@ -220,10 +226,10 @@ namespace bio {
        *
        *  Parameter:
        *  sigma -  Map of the alphabet used by the matrix.
-       *  matrix - Raw-wise substitution matrix.
+       *  matrix - Row-wise stored substitution matrix.
        */
       scoring_matrix(unsigned char sigma[256], const std::vector<char>& matrix)
-	  : sz_(std::sqrt(matrix.size())), matrix_(matrix) { std::memcpy(sigma_, sigma, 256); }
+	  : sz_(static_cast<unsigned int>(std::sqrt(matrix.size()))), matrix_(matrix) { std::memcpy(sigma_, sigma, 256); }
 
       /** Function: operator()
        *
@@ -241,6 +247,16 @@ namespace bio {
   }; // scoring_matrix
 
 
+  /** Function: make_dummy_sm
+   *
+   *  Parameter:
+   *  m - match score.
+   *  s - substitution score.
+   *
+   *  Returns:
+   *  A scoring matrix only with match and substitution scores,
+   *  for any alphabet.
+   */
   scoring_matrix make_dummy_sm(int m, int s) {
       unsigned char sigma[256];
       for (unsigned int i = 0; i < 256; ++i) sigma[i] = i;
@@ -249,6 +265,16 @@ namespace bio {
       return scoring_matrix(sigma, matrix);
   } // make_dummy_sm
 
+  /** Function: make_dna_sm
+   *
+   *  Parameter:
+   *  m - match score.
+   *  s - substitution score.
+   *
+   *  Returns:
+   *  A scoring matrix only with match and substitution scores,
+   *  for the DNA 4-letter alphabet.
+   */
   scoring_matrix make_dna_sm(int m, int s) {
       unsigned char sigma[256];
       for (unsigned int i = 0; i < 256; ++i) sigma[i] = 4;
@@ -264,6 +290,19 @@ namespace bio {
       return scoring_matrix(sigma, matrix);
   }; // make_dna_sm
 
+  /** Function: read_file_sm
+   *
+   *  Read scoring matrix from a file in the NCBI format.
+   *  No alphabet conversion is applied, i.e. lower and upper
+   *  case characters are considered different.
+   *
+   *  Parameter:
+   *  name - name of a file.
+   *  sub - scoring matrix to store the output.
+   *
+   *  Returns:
+   *  true on success, false otherwise.
+   */
   bool read_file_sm(const std::string& name, scoring_matrix& sub) {
       std::ifstream f(name.c_str());
       if (!f) return false;
@@ -285,7 +324,7 @@ namespace bio {
       head.erase(std::remove(head.begin(), head.end(), ' '), head.end());
 
       unsigned int len = head.size();
-      if (head[head.size() - 1] != '*') return false;
+      if (head[len -1] != '*') return false;
 
       std::vector<char> matrix(len * len, 0);
 
@@ -316,7 +355,220 @@ namespace bio {
   } // read_scoring_matrix
 
 
+  /** Class: local_alignment
+   *
+   *  Functor implementing memory-efficient local pairwise sequence alignment
+   *  with affine gap penalty.
+   */
+  class local_alignment : public sequence_compare<local_alignment> {
+  public:
+      /** Constructor: local_alignment
+       *
+       *  Parameter:
+       *  m - Match score (some positive number).
+       *  s - Substitution penalty (usually negative number).
+       *  g - Gap opening penalty (negative number).
+       *  h - Gap extension penalty (negative number).
+       */
+      explicit local_alignment(int m = 0, int s = 0, int g = 0, int h = 0)
+	  : sub_(make_dummy_sm(m, s)), g_(g), h_(h) { }
+
+      /** Constructor: local_alignment
+       *
+       *  Parameter:
+       *  sm - Substitution matrix.
+       *  g -  Gap opening penalty (negative number).
+       *  h -  Gap extension penalty (negative number).
+       */
+      local_alignment(const scoring_matrix& sm, int g, int h)
+	  : sub_(sm), g_(g), h_(h) { }
+
+      /** Function: operator()
+       *
+       *  Compute alignment between s0 and s1. Only the first
+       *  highest scoring alignment is discovered.
+       *
+       *  Returns:
+       *  3-tuple (alignment score, alignment length, number of matches).
+       */
+      boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
+	  unsigned int n = s0.size() + 1;
+	  unsigned int m = s1.size() + 1;
+
+	  // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j), 0 }
+	  // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
+	  // I(i, j) = max{ I(i - 1, j), S(i - 1, j) + g } + h
+
+	  S_.resize(m, 0);
+	  std::fill(S_.begin(), S_.end(), 0);
+
+	  I_.resize(m, 0);
+	  std::fill(I_.begin(), I_.end(), 0);
+
+	  track_.resize(n * m);
+	  std::fill(track_.begin(), track_.end(), 0);
+
+	  for (unsigned int j = 1; j < m; ++j) {
+	      track_[j] = LEFT;
+	      S_[j] = I_[j] = g_ + j * h_;
+	  }
+
+	  unsigned int pos = 0;
+	  int Sij = 0;
+
+	  // we keep track of max
+	  // the first highest value is kept
+	  unsigned int mi = 0;
+	  unsigned int mj = 0;
+	  unsigned int me = 0;
+
+	  for (unsigned int i = 1; i < n; ++i) {
+	      int Si = g_ + i * h_;
+	      int Di = g_ + i * h_;
+
+	      pos = i * m;
+	      track_[pos] = TOP;
+
+	      for (unsigned int j = 1; j < m; ++j) {
+		  pos++;
+
+		  Di = std::max(Di, Si + g_) + h_;
+		  I_[j] = std::max(I_[j], S_[j] + g_) + h_;
+
+		  Si = Sij + sub_(s0[i - 1], s1[j - 1]);
+
+		  if ((Si < 0) && (Di < 0) && (I_[j] < 0)) {
+		      // max is 0
+		      Si = 0;
+		      track_[pos] = NOPE;
+		  } else {
+		      // default: max in Si
+		      track_[pos] = DIAG;
+
+		      if (Di < I_[j]) {
+			  if (Si < I_[j]) {
+			      // max in I_[j]
+			      Si = I_[j];
+			      track_[pos] = TOP;
+			  }
+		      } else {
+			  if (Si < Di) {
+			      // max in Di
+			      Si = Di;
+			      track_[pos] = LEFT;
+			  }
+		      }
+		  } // if
+
+		  if (me < Si) {
+		      me = Si;
+		      mi = i;
+		      mj = j;
+		  }
+
+		  Sij = S_[j];
+		  S_[j] = Si;
+
+	      } // for j
+
+	      Sij = g_ + i * h_;
+	  } // for i
+
+	  // backtrack
+	  unsigned int i = mi;
+	  unsigned int j = mj;
+
+	  unsigned int match = 0;
+	  unsigned int length = 0;
+
+	  has_path_ = false;
+	  path_.clear();
+
+	  while (track_[i * m + j] != 0) {
+	      switch (track_[i * m + j]) {
+		case TOP:
+		    --i;
+		    path_.push_back('d');
+		    break;
+
+		case LEFT:
+		    --j;
+		    path_.push_back('i');
+		    break;
+
+		case DIAG:
+		    --i;
+		    --j;
+
+		    if (s0[i] == s1[j]) {
+			match++;
+			path_.push_back('m');
+		    } else path_.push_back('s');
+
+		    break;
+	      } // switch
+
+	      length++;
+	  } // while
+
+	  ps0_ = i;
+	  ps1_ = j;
+
+	  return boost::make_tuple(me, length, match);
+      } // operator()
+
+      /** Function: path
+       *
+       *  Return the edit path of the last computed alignment.
+       *
+       *  Returns:
+       *  Edit path where 'i' means insert gap in s0, 'd' is deletion,
+       *  's' is substitution, and 'm' is match.
+       */
+      std::string path() {
+	  if (has_path_ == false) {
+	      std::reverse(path_.begin(), path_.end());
+	      has_path_ = true;
+	  }
+	  return path_;
+      } // path
+
+      /** Function: position
+       *
+       *  Return the starting position of the last computed alignment.
+       *
+       *  Returns:
+       *  A pair where the first element is a position in s0,
+       *  and the second is a position in s1.
+       */
+      std::pair<unsigned int, unsigned int> position() const {
+	  return std::make_pair(ps0_, ps1_);
+      } // position
+
+
+  private:
+      enum { NOPE, TOP, LEFT, DIAG };
+
+      bool has_path_;
+      std::string path_;
+      std::vector<unsigned char> track_;
+
+      unsigned int ps0_;
+      unsigned int ps1_;
+
+      std::vector<int> S_;
+      std::vector<int> I_;
+
+      scoring_matrix sub_;
+
+      int g_;
+      int h_;
+
+  }; // class local_alignment
+
+
   /** Class: global_alignment
+   *
    *  Functor implementing memory-efficient global pairwise sequence alignment
    *  with affine gap penalty.
    */
@@ -344,6 +596,7 @@ namespace bio {
 	  : sub_(sm), g_(g), h_(h) { }
 
       /** Function: operator()
+       *
        *  Compute alignment between s0 and s1.
        *
        *  Returns:
@@ -467,7 +720,8 @@ namespace bio {
       } // operator()
 
       /** Function: path
-       *  Return the edit path of the last alignment.
+       *
+       *  Return the edit path of the last computed alignment.
        *
        *  Returns:
        *  Edit path where 'i' means insert gap in s0, 'd' is deletion,
@@ -501,6 +755,7 @@ namespace bio {
 
 
   /** Class: cfe_global_alignment
+   *
    *  Functor implementing memory-efficient global pairwise sequence alignment
    *  with cost-free end gaps affine gap penalty. Cost-free end gaps are
    *  allowed only in one sequence.
@@ -529,8 +784,9 @@ namespace bio {
 	  : sub_(sm), g_(g), h_(h) { }
 
       /** Function: operator()
-       *  Compute alignment between s0 and s1. s0 is assumed to be a shorter query sequence
-       *  in which end-gaps are free (i.e. s0 is contained in s1).
+       *
+       *  Compute alignment between s0 and s1. s0 is assumed to be a shorter
+       *  query sequence in which end-gaps are free (i.e. s0 is contained in s1).
        *
        *  Returns:
        *  3-tuple (alignment score, alignment length without terminal gaps, number of matches).
@@ -655,7 +911,8 @@ namespace bio {
       } // operator()
 
       /** Function: path
-       *  Return the edit path of the last alignment.
+       *
+       *  Return the edit path of the last computed alignment.
        *
        *  Returns:
        *  Edit path where 'i' means insert gap in s0, 'd' is deletion,
@@ -689,8 +946,8 @@ namespace bio {
 
 
   /** Class: d2
+   *
    *  Functor to compute the d2 distance.
-   *  No thread safety guarantees.
    */
   class d2 : public sequence_compare<d2> {
   public:
@@ -703,6 +960,7 @@ namespace bio {
       explicit d2(unsigned int k = 0, bool isdna = true) : k_(k), isdna_(isdna) { }
 
       /** Function: operator()
+       *
        *  Compute d2 score between s0 and s1.
        *
        *  Returns:
@@ -729,8 +987,9 @@ namespace bio {
       } // operator()
 
       /** Function: operator()
-       *  Compute d2 score between s0 and s1, where s0 is the sequence
-       *  passed to the previous call of the binary version of this operator.
+       *
+       *  Compute d2 score between s0 and s1, where s0 is a sequence
+       *  from the previous call of the binary version of this operator.
        *
        *  Returns:
        *  3-tuple (d2 score, number of unique kmers in s0, number of unique kmers in s1).
@@ -769,9 +1028,10 @@ namespace bio {
 
 
   /** Class: kmer_fraction
-   *  Functor to compute the kmer fraction similarity, defined
-   *  as Jaccard index between kmer spectra of sequences.
-   *  No thread safety guarantees.
+   *
+   *  Functor to compute the number of shared kmers between two sequences.
+   *  It can be used to compute e.g. kmer fraction similarity, defined as
+   *  the Jaccard index between kmer spectra of sequences.
    */
   class kmer_fraction : public sequence_compare<kmer_fraction> {
   public:
@@ -784,10 +1044,9 @@ namespace bio {
       explicit kmer_fraction(unsigned int k = 0, bool isdna = true) : k_(k), isdna_(isdna) { }
 
       /** Function: operator()
-       *  Compute kmer fraction score between s0 and s1.
        *
        *  Returns:
-       *  3-tuple (score, number of kmers in s0, number of kmers in s1).
+       *  3-tuple (number of common kmers, number of kmers in s0, number of kmers in s1).
        */
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
 	  if ((s0.size() < k_) || (s1.size() < k_)) return boost::make_tuple(-1, -1, -1);
@@ -812,11 +1071,12 @@ namespace bio {
       } // operator()
 
       /** Function: operator()
-       *  Compute kmer fraction score between s0 and s1, where s0 is the sequence
-       *  passed to the previous call of the binary version of this operator.
+       *
+       *  Compute kmer score between s0 and s1, where s0 is a sequence
+       *  from the previous call of the binary version of this operator.
        *
        *  Returns:
-       *  3-tuple (score, number of kmers in s0, number of kmers in s1).
+       *  3-tuple (number of common kmers, number of kmers in s0, number of kmers in s1).
        */
       boost::tuple<int, int, int> operator()(const std::string& s1) {
 	  if (s1.size() < k_) return boost::make_tuple(-1, -1, -1);

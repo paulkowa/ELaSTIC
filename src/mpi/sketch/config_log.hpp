@@ -117,7 +117,7 @@ struct AppConfig {
 
 	    if (jaz::check_option(ext_conf, "method", val) == true) {
 		method = boost::lexical_cast<unsigned short int>(val);
-		if (method > 4) {
+		if (method > 5) {
 		    return std::make_pair(false, "incorrect method");
 		}
 	    }
