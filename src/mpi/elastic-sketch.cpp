@@ -172,11 +172,14 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     unsigned long long int l = edges.size();
     MPI_Reduce(&l, &log.vedges, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, 0, comm);
 
+    double fa2a = (2.0 * log.cedges) / (SL.N * (SL.N - 1));
+
     report << info << "extracted " << log.cedges << " candidate edges" << std::endl;
     report << info << "generated " << log.vedges << " valid edges" << std::endl;
     report << info << "sketching phase: " << gst << std::endl;
     report << info << "validation phase: " << (gtv1 - gtv0) << std::endl;
     report << info << "edge throughput: " << static_cast<unsigned int>(num_cedges / (gtv1 - gtv0)) << std::endl;
+    report << info << "fraction processed: " << fa2a << std::endl;
 
     // write log
     if (rank == 0) {
