@@ -17,6 +17,7 @@
 
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include <jaz/string.hpp>
 
