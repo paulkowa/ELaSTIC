@@ -265,7 +265,7 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
     } // while wsq.get
 
     // we start stealing process
-    report << info << "almost done..." << std::endl;
+    report << info << "stealing work..." << std::endl;
 
     int vrank = -1;
     read_pair* sfirst = 0;
