@@ -48,7 +48,6 @@
 
 #include <boost/tuple/tuple.hpp>
 
-
 namespace bio {
 
   namespace detail {
@@ -116,7 +115,6 @@ namespace bio {
 	    S[std::string(s.begin() + i, s.begin() + i + k)]++;
 	}
     } // general_kmer_count
-
 
     class dna_digit {
     public:
@@ -228,7 +226,7 @@ namespace bio {
        *  sigma -  Map of the alphabet used by the matrix.
        *  matrix - Row-wise stored substitution matrix.
        */
-      scoring_matrix(unsigned char sigma[256], const std::vector<char>& matrix)
+      scoring_matrix(unsigned char sigma[256], const std::vector<signed char>& matrix)
 	  : sz_(static_cast<unsigned int>(std::sqrt(matrix.size()))), matrix_(matrix) { std::memcpy(sigma_, sigma, 256); }
 
       /** Function: operator()
@@ -242,7 +240,7 @@ namespace bio {
   private:
       unsigned int sz_;
       unsigned char sigma_[256];
-      std::vector<char> matrix_;
+      std::vector<signed char> matrix_;
 
   }; // scoring_matrix
 
@@ -260,7 +258,7 @@ namespace bio {
   scoring_matrix make_dummy_sm(int m, int s) {
       unsigned char sigma[256];
       for (unsigned int i = 0; i < 256; ++i) sigma[i] = i;
-      std::vector<char> matrix(256 * 256, s);
+      std::vector<signed char> matrix(256 * 256, s);
       for (unsigned int i = 0; i < 256; ++i) matrix[(i << 8) + i] = m;
       return scoring_matrix(sigma, matrix);
   } // make_dummy_sm
@@ -284,7 +282,7 @@ namespace bio {
       sigma['g'] = sigma['G'] = 2;
       sigma['t'] = sigma['T'] = 3;
 
-      std::vector<char> matrix(5 * 5, s);
+      std::vector<signed char> matrix(5 * 5, s);
       for (unsigned int i = 0; i < 5; ++i) matrix[(5 * i) + i] = m;
 
       return scoring_matrix(sigma, matrix);
@@ -324,9 +322,9 @@ namespace bio {
       head.erase(std::remove(head.begin(), head.end(), ' '), head.end());
 
       unsigned int len = head.size();
-      if (head[len -1] != '*') return false;
+      if (head[len - 1] != '*') return false;
 
-      std::vector<char> matrix(len * len, 0);
+      std::vector<signed char> matrix(len * len, 0);
 
       for (unsigned int i = 0; i < 256; ++i) sigma[i] = len - 1;
       for (unsigned int i = 0; i < len - 1; ++i) sigma[head[i]] = i;
@@ -547,7 +545,7 @@ namespace bio {
 
 
   private:
-      enum { NOPE, TOP, LEFT, DIAG };
+      enum { NOPE = 0, TOP = 1, LEFT = 2, DIAG = 3 };
 
       bool has_path_;
       std::string path_;
@@ -737,7 +735,7 @@ namespace bio {
 
 
   private:
-      enum { TOP, LEFT, DIAG };
+      enum { TOP = 0, LEFT = 1, DIAG = 2 };
 
       bool has_path_;
       std::string path_;
