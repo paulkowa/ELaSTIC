@@ -40,6 +40,8 @@
 #include <string>
 #include <utility>
 
+#include <boost/tuple/tuple.hpp>
+
 
 namespace bio {
 
@@ -50,9 +52,9 @@ namespace bio {
 
 
   struct fastq_sequence_type {
-      typedef std::pair<fasta_sequence_type::value_type, std::string> value_type;
+      typedef boost::tuple<std::string, std::string, std::string> value_type;
       value_type operator()(const std::string& s1, const std::string& s2, const std::string& s3) const {
-	  return std::make_pair(fasta_sequence_type::value_type(s1, s2), s3);
+	  return boost::make_tuple(s1, s2, s3);
       } // operator()
   }; // struct fastq_sequence_type
 
@@ -66,42 +68,39 @@ namespace bio {
 
       typedef typename T::value_type value_type;
 
-
       fasta_input_iterator() : state_(false), is_(0) { }
 
       fasta_input_iterator(istream_type& is) : is_(&is) {
 	  state_ = (is_ && *is_) ? true : false;
-	  if (state_ == true) {
+	  if (state_) {
 	      while (*is_) {
 		  buf_ = "";
 		  std::getline(*is_, buf_);
-		  if ((buf_.empty() == false) && (buf_[0] == '>')) break;
+		  if (!buf_.empty() && (buf_[0] == '>')) break;
 	      }
-	      prv_read__();
+	      m_read__();
 	  } // if
       } // fasta_input_iterator
-
 
       const value_type& operator*() const { return value_; }
 
       const value_type* operator->() const { return &(operator*()); }
 
       fasta_input_iterator& operator++() {
-	  prv_read__();
+	  m_read__();
 	  return *this;
       } // operator++
 
       fasta_input_iterator operator++(int) {
 	  fasta_input_iterator tmp = *this;
-	  prv_read__();
+	  m_read__();
 	  return tmp;
       } // operator++
 
-
   private:
-      void prv_read__() {
+      void m_read__() {
 	  state_ = (is_ && *is_) ? true : false;
-	  if (state_ == true) {
+	  if (state_) {
 	      // trim sequence name
 	      unsigned int l = buf_.size() - 1;
 	      if (buf_[l] == '\r') buf_.resize(l);
@@ -114,7 +113,7 @@ namespace bio {
 		  buf_ = "";
 		  std::getline(*is_, buf_);
 
-		  if (buf_.empty() == false) {
+		  if (!buf_.empty()) {
 		      if ((buf_[0] != ';') && (buf_[0] != '>')) {
 			  unsigned int l = buf_.size() - 1;
 			  if (buf_[l] == '\r') buf_.resize(l);
@@ -126,7 +125,7 @@ namespace bio {
 
 	      value_ = make_(s1_, s2_);
 	  } // if
-      } // prv_read__
+      } // m_read__
 
       bool state_;
       istream_type* is_;
@@ -158,44 +157,41 @@ namespace bio {
 
       typedef typename T::value_type value_type;
 
-
       fastq_input_iterator() : state_(false), is_(0) { }
 
       fastq_input_iterator(istream_type& is) : is_(&is) {
 	  state_ = (is_ && *is_) ? true : false;
-	  if (state_ == true) {
+	  if (state_) {
 	      while (*is_) {
 		  buf_ = "";
 		  std::getline(*is_, buf_);
-		  if ((buf_.empty() == false) && (buf_[0] == '@')) break;
+		  if (!buf_.empty() && (buf_[0] == '@')) break;
 	      }
-	      prv_read__();
+	      m_read__();
 	  } // if
       } // fastq_input_iterator
-
 
       const value_type& operator*() const { return value_; }
 
       const value_type* operator->() const { return &(operator*()); }
 
       fastq_input_iterator& operator++() {
-	  prv_read__();
+	  m_read__();
 	  return *this;
       } // operator++
 
       fastq_input_iterator operator++(int) {
 	  fastq_input_iterator tmp = *this;
-	  prv_read__();
+	  m_read__();
 	  return tmp;
       } // operator++
 
-
   private:
-      void prv_read__() {
+      void m_read__() {
 	  state_ = (is_ && *is_) ? true : false;
 	  if (state_ == true) {
 	      // trim sequence name
-	      if (buf_.empty() == false) {
+	      if (!buf_.empty()) {
 		  unsigned int l = buf_.size() - 1;
 		  if (buf_[l] == '\r') buf_.resize(l);
 	      }
@@ -209,7 +205,7 @@ namespace bio {
 		  buf_ = "";
 		  std::getline(*is_, buf_);
 
-		  if (buf_.empty() == false) {
+		  if (!buf_.empty()) {
 		      if (buf_[0] != '+') {
 			  unsigned int l = buf_.size() - 1;
 			  if (buf_[l] == '\r') buf_.resize(l);
@@ -224,7 +220,7 @@ namespace bio {
 		  buf_ = "";
 		  std::getline(*is_, buf_);
 
-		  if (buf_.empty() == false) {
+		  if (!buf_.empty()) {
 		      unsigned int l = buf_.size() - 1;
 		      if (buf_[l] == '\r') buf_.resize(l);
 		      if (s3_.size() + buf_.size() <= s2_.size()) s3_ += buf_;
@@ -237,7 +233,7 @@ namespace bio {
 			  }
 			  break;
 		      }
-		  }
+		  } // if
 	      }
 	      while (*is_);
 
@@ -249,7 +245,7 @@ namespace bio {
 	      } else value_ = make_(s1_, s2_, s3_);
 
 	  } // if
-      } // prv_read__
+      } // m_read__
 
       bool state_;
       istream_type* is_;

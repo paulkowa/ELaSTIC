@@ -48,6 +48,7 @@
 
 #include <boost/tuple/tuple.hpp>
 
+
 namespace bio {
 
   namespace detail {
@@ -115,6 +116,7 @@ namespace bio {
 	    S[std::string(s.begin() + i, s.begin() + i + k)]++;
 	}
     } // general_kmer_count
+
 
     class dna_digit {
     public:
@@ -236,7 +238,6 @@ namespace bio {
        */
       int operator()(char a, char b) const { return matrix_[sigma_[a] * sz_ + sigma_[b]]; }
 
-
   private:
       unsigned int sz_;
       unsigned char sigma_[256];
@@ -312,10 +313,10 @@ namespace bio {
       while (!f.eof()) {
 	  buf = "";
 	  std::getline(f, buf);
-	  if ((buf.empty() == true) || (buf[0] != '#')) break;
+	  if (buf.empty() || (buf[0] != '#')) break;
       } // while
 
-      if (buf.empty() == true) return false;
+      if (buf.empty()) return false;
 
       // parse column header
       std::string head = buf;
@@ -524,7 +525,7 @@ namespace bio {
        *  's' is substitution, and 'm' is match.
        */
       std::string path() {
-	  if (has_path_ == false) {
+	  if (!has_path_) {
 	      std::reverse(path_.begin(), path_.end());
 	      has_path_ = true;
 	  }
@@ -542,7 +543,6 @@ namespace bio {
       std::pair<unsigned int, unsigned int> position() const {
 	  return std::make_pair(ps0_, ps1_);
       } // position
-
 
   private:
       enum { NOPE = 0, TOP = 1, LEFT = 2, DIAG = 3 };
@@ -702,7 +702,7 @@ namespace bio {
 			path_.push_back('m');
 		    } else path_.push_back('s');
 
-		    if (has_gap == false) {
+		    if (!has_gap) {
 			has_gap = true;
 			egap = sgap;
 		    }
@@ -726,13 +726,12 @@ namespace bio {
        *  's' is substitution, and 'm' is match.
        */
       std::string path() {
-	  if (has_path_ == false) {
+	  if (!has_path_) {
 	      std::reverse(path_.begin(), path_.end());
 	      has_path_ = true;
 	  }
 	  return path_;
       } // path
-
 
   private:
       enum { TOP = 0, LEFT = 1, DIAG = 2 };
@@ -893,7 +892,7 @@ namespace bio {
 			path_.push_back('m');
 		    } else path_.push_back('s');
 
-		    if (has_gap == false) {
+		    if (!has_gap) {
 			has_gap = true;
 			egap = sgap;
 		    }
@@ -917,13 +916,12 @@ namespace bio {
        *  's' is substitution, and 'm' is match.
        */
       std::string path() {
-	  if (has_path_ == false) {
+	  if (!has_path_) {
 	      std::reverse(path_.begin(), path_.end());
 	      has_path_ = true;
 	  }
 	  return path_;
       } // path
-
 
   private:
       enum { TOP = 0, LEFT = 1, DIAG = 2 };
@@ -967,7 +965,7 @@ namespace bio {
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
 	  if ((s0.size() < k_) || (s1.size() < k_)) return boost::make_tuple(-1, -1, -1);
 
-	  if (isdna_ == true) {
+	  if (isdna_) {
 	      dC_(s0, k_, dcount0_);
 	      dC_(s1, k_, dcount1_);
 	      int S = detail::count_distance(dcount0_.begin(), dcount0_.end(),
@@ -995,7 +993,7 @@ namespace bio {
       boost::tuple<int, int, int> operator()(const std::string& s1) {
 	  if (s1.size() < k_) return boost::make_tuple(-1, -1, -1);
 
-	  if (isdna_ == true) {
+	  if (isdna_) {
 	      dC_(s1, k_, dcount1_);
 	      int S = detail::count_distance(dcount0_.begin(), dcount0_.end(),
 					     dcount1_.begin(), dcount1_.end());
@@ -1049,7 +1047,7 @@ namespace bio {
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
 	  if ((s0.size() < k_) || (s1.size() < k_)) return boost::make_tuple(-1, -1, -1);
 
-	  if (isdna_ == true) {
+	  if (isdna_) {
 	      dI_(s0, k_, dindex0_);
 	      dI_(s1, k_, dindex1_);
 	      int S = detail::intersection_size(dindex0_.begin(), dindex0_.end(),
@@ -1079,7 +1077,7 @@ namespace bio {
       boost::tuple<int, int, int> operator()(const std::string& s1) {
 	  if (s1.size() < k_) return boost::make_tuple(-1, -1, -1);
 
-	  if (isdna_ == true) {
+	  if (isdna_) {
 	      dI_(s1, k_, dindex1_);
 	      int S = detail::intersection_size(dindex0_.begin(), dindex0_.end(),
 						dindex1_.begin(), dindex1_.end(),
