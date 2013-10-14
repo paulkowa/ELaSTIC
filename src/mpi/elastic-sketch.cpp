@@ -16,6 +16,7 @@
 
 #include <iostream>
 #include <map>
+#include <new>
 #include <string>
 #include <sstream>
 
@@ -260,7 +261,12 @@ int main(int argc, char* argv[]) {
     log.cpus = size;
 
     // and here we go
-    run(opt, log, report, MPI_COMM_WORLD);
+    try {
+	run(opt, log, report, MPI_COMM_WORLD);
+    } catch (std::bad_alloc&) {
+	report.critical << error << "insufficient memory, use more nodes?" << std::endl;
+	MPI_Abort(MPI_COMM_WORLD, 9);
+    }
 
     return MPI_Finalize();
 } // main
