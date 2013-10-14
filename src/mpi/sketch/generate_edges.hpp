@@ -24,8 +24,8 @@
 #include <boost/lexical_cast.hpp>
 
 #include <jaz/algorithm.hpp>
-#include <mpix/partition_balance.hpp>
-#include <mpix/simple_partition.hpp>
+#include <mpix2/partition_balance.hpp>
+#include <mpix2/simple_partition.hpp>
 
 #include "SequenceDB.hpp"
 #include "config_log.hpp"
@@ -124,57 +124,50 @@ void aggregate_rem_list(MPI_Comm comm, std::vector<int>& rem_list) {
 
 template <typename Hash>
 inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
-						      sketch_id*& sr, sketch_id*& sr_end, Hash hash,
-						      std::vector<read_pair>& edges) {
+						      std::vector<sketch_id>& sketch_list, Hash hash, std::vector<read_pair>& edges) {
     int size, rank;
 
     MPI_Comm_size(comm, &size);
     MPI_Comm_rank(comm, &rank);
 
     // create rem_list
-    std::sort(sr, sr_end);
+    std::sort(sketch_list.begin(), sketch_list.end());
     std::vector<int> rem_list;
 
-    unsigned int pos = 0;
-    unsigned int n = (sr_end - sr);
+    typedef std::vector<sketch_id>::iterator si_iterator;
 
-    for (unsigned int i = 1; i < n; ++i) {
-	if ((sr[pos] != sr[i]) || (i == n - 1)) {
-	    unsigned int end = (i == (n - 1)) ? n : i;
+    si_iterator iter = sketch_list.begin();
+    si_iterator end = sketch_list.end();
 
-	    if ((end - pos) >= opt.cmax) {
-		// we store in the temporal list (-1 separates lists)
-		for (unsigned int j = pos; j < end; ++j) {
-		    if ((rem_list.empty() == true) || (rem_list.back() != sr[j].id)) {
-			rem_list.push_back(sr[j].id);
-		    }
+    while (iter != end) {
+	si_iterator temp = jaz::range(iter, end);
+	if (temp - iter >= opt.cmax) {
+	    // we store in the temporal list (-1 separates lists)
+	    for (si_iterator i = iter; i != temp; ++i) {
+		if (rem_list.empty() || (rem_list.back() != i->id)) {
+		    rem_list.push_back(i->id);
 		}
-		rem_list.push_back(-1);
+	    }
 
-		// and we remove from sr
-		std::copy(sr + i, sr + n, sr + pos);
-		n = (i == (n - 1)) ? pos + n - end : pos + n - i;
-		i = pos;
-	    } else pos = i;
-	} // if
-    } // for i
+	    rem_list.push_back(-1);
 
-    sr_end = sr + n;
+	    // and remove from sketch_list
+	    std::copy(temp, end, iter);
+	    end -= (temp - iter);
+	} else iter = temp;
+    } // while
+
+    sketch_list.resize(end - sketch_list.begin());
 
     // balance sketches
     MPI_Datatype MPI_SKETCH_ID;
     MPI_Type_contiguous(sizeof(sketch_id), MPI_BYTE, &MPI_SKETCH_ID);
     MPI_Type_commit(&MPI_SKETCH_ID);
 
-    sketch_id* sr_temp = 0;
-    boost::tie(sr_temp, sr_end) = mpix::partition_balance(sr, sr_end, sketch_compare, sqr<unsigned int>, MPI_SKETCH_ID, 0, comm);
+    sketch_list = mpix::partition_balance(sketch_list, std::equal_to<sketch_id>(), sqr<unsigned int>, MPI_SKETCH_ID, 0, comm);
+    std::sort(sketch_list.begin(), sketch_list.end());
 
     MPI_Type_free(&MPI_SKETCH_ID);
-
-    delete[] sr;
-    sr = sr_temp;
-
-    std::sort(sr, sr_end);
 
 #ifdef WITH_MPE
     int mpe_gc_start = MPE_Log_get_event_number();
@@ -185,19 +178,20 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 
     // get local counts
     std::vector<read_pair> counts;
-    sr_temp = sr;
 
-    while (sr_temp != sr_end) {
-	sketch_id* sr_iter = jaz::range(sr_temp, sr_end); // ???
+    iter = sketch_list.begin();
+
+    while (iter != sketch_list.end()) {
+	si_iterator temp = jaz::range(iter, sketch_list.end());
 
 	// enumerate all pairs with the same sketch
-	for (sketch_id* j = sr_temp; j != sr_iter - 1; ++j) {
-	    for (sketch_id* k = j + 1; k != sr_iter; ++k) {
+	for (si_iterator j = iter; j != temp - 1; ++j) {
+	    for (si_iterator k = j + 1; k != temp; ++k) {
 		if (j->id != k->id) counts.push_back(make_read_pair(*j, *k));
 	    } // for k
 	} // for j
 
-	sr_temp = sr_iter;
+	iter = temp;
     } // while
 
     // perform counts compaction
@@ -209,14 +203,9 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
     MPI_Type_commit(&MPI_READ_PAIR);
 
-    read_pair* first = 0;
-    read_pair* last = 0;
-
-    boost::tie(first, last) = mpix::simple_partition(counts.begin(), counts.end(), hash, MPI_READ_PAIR, 0, comm);
-    std::vector<read_pair>().swap(counts);
-
-    std::sort(first, last);
-    last = jaz::compact(first, last, std::plus<read_pair>());
+    counts = mpix::simple_partition(counts, hash, MPI_READ_PAIR, comm);
+    std::sort(counts.begin(), counts.end());
+    counts.erase(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()), counts.end());
 
     MPI_Type_free(&MPI_READ_PAIR);
 
@@ -228,7 +217,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     aggregate_rem_list(comm, rem_list);
 
     // update counts
-    update_counts(first, last, rem_list, opt.jmin);
+    update_counts(counts.begin(), counts.end(), rem_list, opt.jmin);
 
 #ifdef WITH_MPE
     int mpe_fce_start = MPE_Log_get_event_number();
@@ -239,14 +228,12 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 
     // approximate kmer fraction and filter edges
     // count is now approximated kmer fraction
-    std::transform(first, last, first, kmer_fraction);
-    last = std::remove_if(first, last, not_similar(opt.jmin));
+    std::transform(counts.begin(), counts.end(), counts.begin(), kmer_fraction);
+    counts.erase(std::remove_if(counts.begin(), counts.end(), not_similar(opt.jmin)), counts.end());
 
     // store filtered edges (replace with inplace_merge?)
-    std::copy(first, last, std::back_inserter(edges));
+    std::copy(counts.begin(), counts.end(), std::back_inserter(edges));
     std::sort(edges.begin(), edges.end());
-
-    delete[] first;
 
     edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
 
@@ -312,23 +299,16 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 	MPE_Log_event(mpe_stop, 0, "stop extract sketches");
 #endif // WITH_MPE
 
-	// sort globally sketch list (SR)
-	sketch_id* first = 0;
-	sketch_id* last = 0;
+	// group globally sketch list
+	sketch_list = mpix::simple_partition(sketch_list, hash_sketch_id, MPI_SKETCH_ID, comm);
 
-	boost::tie(first, last) = mpix::simple_partition(sketch_list.begin(), sketch_list.end(), hash_sketch_id,
-							 MPI_SKETCH_ID, 0, comm);
-
-	sketch_list.clear();
-
-	if (first == last) {
+	if (sketch_list.empty()) {
 	    report.critical << warning << "{" << rank << "}" << " empty list of sketches!" << std::endl;
 	}
 
 	// add to edges read pairs with common sketches
-	extract_seq_pairs(opt, log, report, comm, first, last, hash_read_pair2(SL.N, size), edges);
-
-	delete[] first;
+	extract_seq_pairs(opt, log, report, comm, sketch_list, hash_read_pair2(SL.N, size), edges);
+	sketch_list.clear();
     } // for i
 
     MPI_Type_free(&MPI_SKETCH_ID);

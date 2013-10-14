@@ -18,7 +18,7 @@
 #include <string>
 #include <vector>
 
-#include <mpix/simple_partition.hpp>
+#include <mpix2/simple_partition.hpp>
 
 #include "../StaticWSQueue.hpp"
 

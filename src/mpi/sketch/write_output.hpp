@@ -23,7 +23,7 @@
 #include "config_log.hpp"
 #include "iomanip.hpp"
 
-#include <mpix/write_cbuffer.hpp>
+#include <mpix2/write_cbuffer.hpp>
 
 
 inline std::pair<bool, std::string> write_output(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,

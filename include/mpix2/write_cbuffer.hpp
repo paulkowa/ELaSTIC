@@ -9,11 +9,11 @@
  *  Distributed under the Boost Software License.
  *  See accompanying LICENSE.
  *
- *  This file is part of mpix.
+ *  This file is part of mpix2.
  */
 
-#ifndef MPIX_WRITE_CBUFFER_HPP
-#define MPIX_WRITE_CBUFFER_HPP
+#ifndef MPIX2_WRITE_CBUFFER_HPP
+#define MPIX2_WRITE_CBUFFER_HPP
 
 #include <string>
 #include <mpi.h>
@@ -21,7 +21,10 @@
 
 namespace mpix {
 
-  inline bool write_cbuffer(const std::string& name, const char* buf, unsigned int bsz, MPI_Comm comm) {
+  inline bool write_cbuffer(const std::string& name,
+			    const char* buf,
+			    unsigned int bsz,
+			    MPI_Comm comm) {
       MPI_File fh;
       MPI_Status stat;
 
@@ -53,4 +56,4 @@ namespace mpix {
 
 } // namespace mpix
 
-#endif // MPIX_WRITE_CBUFFER_HPP
+#endif // MPIX2_WRITE_CBUFFER_HPP
