@@ -116,7 +116,12 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     // at the end processors are most likely out of sync
     std::vector<read_pair> edges;
 
-    boost::tie(res, err) = generate_edges(opt, log, report, comm, SL, shingles, edges);
+    try { boost::tie(res, err) = generate_edges(opt, log, report, comm, SL, shingles, edges); }
+    catch (std::bad_alloc&) {
+	report.critical << error << "insufficient memory, use more nodes?" << std::endl;
+	MPI_Abort(comm, MPI_ABRT_SIG);
+    }
+
     unsigned long long int etot = edges.size();
 
     if (res == false) {
@@ -261,12 +266,7 @@ int main(int argc, char* argv[]) {
     log.cpus = size;
 
     // and here we go
-    try {
-	run(opt, log, report, MPI_COMM_WORLD);
-    } catch (std::bad_alloc&) {
-	report.critical << error << "insufficient memory, use more nodes?" << std::endl;
-	MPI_Abort(MPI_COMM_WORLD, 9);
-    }
+    run(opt, log, report, MPI_COMM_WORLD);
 
     return MPI_Finalize();
 } // main

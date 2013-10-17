@@ -32,7 +32,7 @@
 #include "iomanip.hpp"
 
 #ifdef WITH_MPE
-#include <mpe.h>
+#include <mpix2/MPE_Log.hpp>
 #endif // WITH_MPE
 
 
@@ -42,10 +42,7 @@ template <typename T> inline T sqr(T x) { return x * x; }
 template <typename Iter>
 inline void update_counts(Iter first, Iter last, const std::vector<int>& rem_list, double jmin) {
 #ifdef WITH_MPE
-    int mpe_start = MPE_Log_get_event_number();
-    int mpe_stop = MPE_Log_get_event_number();
-    MPE_Describe_state(mpe_start, mpe_stop, "update_counts", "white");
-    MPE_Log_event(mpe_start, 0, "start update_counts");
+    mpix::MPE_Log mpe_log("update_counts", "white");
 #endif // WITH_MPE
 
     std::vector<std::vector<int>::const_iterator> rem_index;
@@ -69,19 +66,12 @@ inline void update_counts(Iter first, Iter last, const std::vector<int>& rem_lis
 	} // for i
 
     } // for first
-
-#ifdef WITH_MPE
-    MPE_Log_event(mpe_stop, 0, "stop update_counts");
-#endif // WITH_MPE
 } // update_counts
 
 
 void aggregate_rem_list(MPI_Comm comm, std::vector<int>& rem_list) {
 #ifdef WITH_MPE
-    int mpe_start = MPE_Log_get_event_number();
-    int mpe_stop = MPE_Log_get_event_number();
-    MPE_Describe_state(mpe_start, mpe_stop, "aggregate_rem_list", "white");
-    MPE_Log_event(mpe_start, 0, "start aggregate_rem_list");
+    mpix::MPE_Log mpe_log("aggregate_rem_list", "white");
 #endif // WITH_MPE
 
     int size, rank;
@@ -115,10 +105,6 @@ void aggregate_rem_list(MPI_Comm comm, std::vector<int>& rem_list) {
 
     MPI_Allgatherv(&rem_list[0], rl_sz, MPI_INT, &rem_list_global[0], &rem_list_sz[0], &rem_list_off[0], MPI_INT, comm);
     rem_list = rem_list_global;
-
-#ifdef WITH_MPE
-    MPE_Log_event(mpe_stop, 0, "stop aggregate_rem_list");
-#endif // WITH_MPE
 }; // aggregate_rem_list
 
 
@@ -164,16 +150,30 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     MPI_Type_contiguous(sizeof(sketch_id), MPI_BYTE, &MPI_SKETCH_ID);
     MPI_Type_commit(&MPI_SKETCH_ID);
 
+#ifdef WITH_MPE
+    mpix::MPE_Log mpe_log("decompose sketch_list", "white");
+#endif // WITH_MPE
+
+    decompose_sketch_list(sketch_list, opt.eps);
+
+#ifdef WITH_MPE
+    mpe_log.stop();
+#endif // WITH_MPE
+
+#ifdef WITH_MPE
+    mpe_log.start("balance sketch_list", "white");
+#endif // WITH_MPE
+
     sketch_list = mpix::partition_balance(sketch_list, std::equal_to<sketch_id>(), sqr<unsigned int>, MPI_SKETCH_ID, 0, comm);
-    std::sort(sketch_list.begin(), sketch_list.end());
+
+#ifdef WITH_MPE
+    mpe_log.stop();
+#endif // WITH_MPE
 
     MPI_Type_free(&MPI_SKETCH_ID);
 
 #ifdef WITH_MPE
-    int mpe_gc_start = MPE_Log_get_event_number();
-    int mpe_gc_stop = MPE_Log_get_event_number();
-    MPE_Describe_state(mpe_gc_start, mpe_gc_stop, "get_counts", "white");
-    MPE_Log_event(mpe_gc_start, 0, "start get counts");
+    mpe_log.start("get counts", "white");
 #endif // WITH_MPE
 
     // get local counts
@@ -184,12 +184,23 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     while (iter != sketch_list.end()) {
 	si_iterator temp = jaz::range(iter, sketch_list.end());
 
-	// enumerate all pairs with the same sketch
-	for (si_iterator j = iter; j != temp - 1; ++j) {
-	    for (si_iterator k = j + 1; k != temp; ++k) {
-		if (j->id != k->id) counts.push_back(make_read_pair(*j, *k));
-	    } // for k
-	} // for j
+	if (iter->sep == 0) {
+	    // enumerate all pairs with the same sketch (triangle)
+	    for (si_iterator j = iter; j != temp - 1; ++j) {
+		for (si_iterator k = j + 1; k != temp; ++k) {
+		    if (j->id != k->id) counts.push_back(make_read_pair(*j, *k));
+		} // for k
+	    } // for j
+	} else {
+	    // enumerate all pairs with the same sketch (rectangle)
+	    si_iterator pos = iter + iter->sep;
+	    if (iter->sep == (temp - iter)) pos = iter;
+	    for (si_iterator j = iter; j != iter + iter->sep; ++j) {
+		for (si_iterator k = pos; k != temp; ++k) {
+		    if (j->id != k->id) counts.push_back(make_read_pair(*j, *k));
+		} // for k
+	    } // for j
+	} // if
 
 	iter = temp;
     } // while
@@ -210,7 +221,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     MPI_Type_free(&MPI_READ_PAIR);
 
 #ifdef WITH_MPE
-    MPE_Log_event(mpe_gc_stop, 0, "stop get counts");
+    mpe_log.stop();
 #endif // WITH_MPE
 
     // aggregate rem_list
@@ -220,10 +231,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     update_counts(counts.begin(), counts.end(), rem_list, opt.jmin);
 
 #ifdef WITH_MPE
-    int mpe_fce_start = MPE_Log_get_event_number();
-    int mpe_fce_stop = MPE_Log_get_event_number();
-    MPE_Describe_state(mpe_fce_start, mpe_fce_stop, "filter candidate edges", "white");
-    MPE_Log_event(mpe_fce_start, 0, "start filter candidate edges");
+    mpe_log.start("filter candidate edges", "white");
 #endif // WITH_MPE
 
     // approximate kmer fraction and filter edges
@@ -238,7 +246,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
 
 #ifdef WITH_MPE
-    MPE_Log_event(mpe_fce_stop, 0, "stop filter candidate edges");
+    mpe_log.stop();
 #endif // WITH_MPE
 
     return std::make_pair(true, "");
@@ -272,10 +280,7 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 	report << "." << std::flush;
 
 #ifdef WITH_MPE
-	int mpe_start = MPE_Log_get_event_number();
-	int mpe_stop = MPE_Log_get_event_number();
-	MPE_Describe_state(mpe_start, mpe_stop, "extract sketches", "white");
-	MPE_Log_event(mpe_start, 0, "start extract sketches pairs");
+	mpix::MPE_Log mpe_log("generate sketch_list", "white");
 #endif // WITH_MPE
 
 	// get sketch-read pairs for given mod value
@@ -296,11 +301,19 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 	} // for j
 
 #ifdef WITH_MPE
-	MPE_Log_event(mpe_stop, 0, "stop extract sketches");
+	mpe_log.stop();
+#endif // WITH_MPE
+
+#ifdef WITH_MPE
+	mpe_log.start("group sketch_list", "white");
 #endif // WITH_MPE
 
 	// group globally sketch list
 	sketch_list = mpix::simple_partition(sketch_list, hash_sketch_id, MPI_SKETCH_ID, comm);
+
+#ifdef WITH_MPE
+	mpe_log.stop();
+#endif // WITH_MPE
 
 	if (sketch_list.empty()) {
 	    report.critical << warning << "{" << rank << "}" << " empty list of sketches!" << std::endl;

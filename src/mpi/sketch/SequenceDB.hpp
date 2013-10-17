@@ -24,9 +24,10 @@
 #include <bio/sequence_compare.hpp>
 #include <jaz/hash.hpp>
 
-#include <inttypes.h>
-
 #include <mpi.h>
+
+#include "sketch_id.hpp"
+
 
 #ifdef WITH_MPE
 #include <mpe.h>
@@ -284,48 +285,6 @@ private:
 
 
 typedef std::vector<uint64_t> shingle_list_type;
-
-
-
-struct sketch_id {
-    uint64_t sketch;
-    unsigned int id;
-    unsigned short int size;
-}; // struct sketch_read
-
-inline std::ostream& operator<<(std::ostream& os, const sketch_id& si) {
-    os << si.sketch << " " << si.id << " " << si.size;
-    return os;
-} // operator<<
-
-inline bool operator==(const sketch_id& lhs, const sketch_id& rhs) {
-    return lhs.sketch == rhs.sketch;
-} // operator==
-
-inline bool operator!=(const sketch_id& lhs, const sketch_id& rhs) {
-    return !(lhs == rhs);
-} // operator!=
-
-inline bool operator<(const sketch_id& lhs, const sketch_id& rhs) {
-    return ((lhs.sketch < rhs.sketch) || (!(rhs.sketch < lhs.sketch) && (lhs.id < rhs.id)));
-} // operator<
-
-inline bool sketch_compare(const sketch_id& lhs, const sketch_id& rhs) {
-    return (lhs.sketch < rhs.sketch);
-} // sketch_compare
-
-inline sketch_id make_sketch_id(uint64_t sketch, unsigned int id, unsigned short int size) {
-    sketch_id tmp;
-    tmp.sketch = sketch;
-    tmp.id = id;
-    tmp.size = size;
-    return tmp;
-} // make_sketch_id
-
-inline unsigned int hash_sketch_id(const sketch_id& si) {
-    const char* ptr = reinterpret_cast<const char*>(&si);
-    return *reinterpret_cast<const unsigned int*>(ptr + 2);
-} // hash_sketch_id
 
 
 

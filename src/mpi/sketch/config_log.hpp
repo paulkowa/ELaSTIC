@@ -46,7 +46,26 @@ struct AppConfig {
 	iter = 7;
 	cmax = 5000;
 	jmin = 50;
+	eps = 2000;
 	wsq = true;
+
+	params.push_back("input");
+	params.push_back("output");
+	params.push_back("config");
+	params.push_back("type");
+	params.push_back("sigma");
+	params.push_back("compress");
+	params.push_back("method");
+	params.push_back("kmer");
+	params.push_back("gaps");
+	params.push_back("level");
+	params.push_back("factor");
+	params.push_back("modulo");
+	params.push_back("iterate");
+	params.push_back("cmax");
+	params.push_back("jmin");
+	params.push_back("eps");
+	params.push_back("wsq");
     } // AppConfig
 
     static void usage() {
@@ -63,11 +82,12 @@ struct AppConfig {
 	std::cout << "  --kmer size        use kmers of this size (default 15)\n";
 	std::cout << "  --gaps type        use these alignment parameters (default [1,-2,-10,-1])\n";
 	std::cout << "  --level size       use this threshold during validation (default 75)\n";
-	std::cout << "  --factor {0|1}     include intermediate values of similarity score in output (default 0)\n";
-	std::cout << "  --mod size         use this mod value in sketching (default 25)\n";
-	std::cout << "  --iter size        limit the number of sketching iterations to this (default 7)\n";
+	std::cout << "  --factor {0|1}     output intermediate values of similarity score (default 0)\n";
+	std::cout << "  --modulo size      use this mod value in sketching (default 25)\n";
+	std::cout << "  --iterate size     limit the number of sketching iterations to this (default 7)\n";
 	std::cout << "  --cmax size        use this limit to mark frequent kmers (default 5000)\n";
 	std::cout << "  --jmin size        use this limit to extract candidate pairs (default 50)\n";
+	std::cout << "  --eps size         use this limit to partition sketches (default 2000)\n";
 	std::cout << "  --wsq {0|1}        enable work stealing during validation (default 1)\n";
 	std::cout << "\n";
     } // usage
@@ -171,17 +191,17 @@ struct AppConfig {
 		factor = boost::lexical_cast<bool>(val);
 	    }
 
-	    if (jaz::check_option(ext_conf, "mod", val) == true) {
+	    if (jaz::check_option(ext_conf, "modulo", val) == true) {
 		mod = boost::lexical_cast<short int>(val);
 		if ((mod < 1) || (mod > 100)) {
-		    return std::make_pair(false, "incorrect mod");
+		    return std::make_pair(false, "incorrect modulo");
 		}
 	    }
 
-	    if (jaz::check_option(ext_conf, "iter", val) == true) {
+	    if (jaz::check_option(ext_conf, "iterate", val) == true) {
 		iter = boost::lexical_cast<short int>(val);
 		if ((iter < 1) || (mod < iter)) {
-		    return std::make_pair(false, "incorrect iter");
+		    return std::make_pair(false, "incorrect iterate");
 		}
 	    }
 
@@ -199,12 +219,27 @@ struct AppConfig {
 		}
 	    }
 
+	    if (jaz::check_option(ext_conf, "eps", val) == true) {
+		eps = boost::lexical_cast<unsigned int>(val);
+		if ((eps > cmax) || (eps < 500)) {
+		    return std::make_pair(false, "incorrect eps");
+		}
+	    }
+
 	    if (jaz::check_option(ext_conf, "wsq", val) == true) {
 		wsq = boost::lexical_cast<bool>(val);
 	    }
-
 	} catch (boost::bad_lexical_cast& ex) {
 	    return std::make_pair(false, "incorrect argument(s)");
+	}
+
+	for (unsigned int i = 0; i < params.size(); ++i) {
+	    typename Container::iterator iter(ext_conf.find(params[i]));
+	    if (iter != ext_conf.end()) ext_conf.erase(iter);
+	}
+
+	if (ext_conf.empty() == false) {
+	    return std::make_pair(false, std::string("unknown parameter ") + ext_conf.begin()->first);
 	}
 
 	return std::make_pair(true, "");
@@ -224,7 +259,10 @@ struct AppConfig {
     short int iter;
     unsigned int cmax;
     unsigned short int jmin;
+    unsigned int eps;
     bool wsq;
+
+    std::vector<std::string> params;
 
     friend std::ostream& operator<<(std::ostream& os, const AppConfig& opt) {
 	os << "input = " << opt.input << "\n";
@@ -237,10 +275,11 @@ struct AppConfig {
 	os << "gaps = " << opt.gaps << "\n";
 	os << "level = " << opt.level << "\n";
 	os << "factor = " << opt.factor << "\n";
-	os << "mod = " << opt.mod << "\n";
-	os << "iter = " << opt.iter << "\n";
+	os << "modulo = " << opt.mod << "\n";
+	os << "iterate = " << opt.iter << "\n";
 	os << "cmax = " << opt.cmax << "\n";
 	os << "jmin = " << opt.jmin << "\n";
+	os << "eps = " << opt.eps << "\n";
 	os << "wsq = " << opt.wsq << "\n";
 	return os;
     } // operator<<

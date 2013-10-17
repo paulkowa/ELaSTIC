@@ -42,4 +42,5 @@ clean:
 distclean: clean
 	rm -rf bin/
 
-release: mpi-doc distclean
+release: all mpi-doc
+	$(MAKE) distclean

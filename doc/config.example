@@ -19,7 +19,7 @@
 ; compress = 0
 
 # Select the method to perform validation.
-# Currently, five methods are available:
+# Currently, six methods are available:
 # 0 = kmer fraction
 # 1 = CD-HIT identity from global alignment with cost-free end gaps
 # 2 = CD-HIT identity from global alignment
@@ -46,8 +46,7 @@
 # Default: 75
 ; level = 75
 
-# Enable reporting of intemediate values used to compute the similarity score
-# in the output file.
+# Enable reporting of intemediate values used to compute the similarity score.
 # For kmer fraction reported elements are:
 #  [shared kmers, kmers in first sequence, kmers in second sequence]
 # For alignment-based methods 1-2:
@@ -59,11 +58,11 @@
 
 # Set mod value for the sketching phase.
 # Default: 25
-; mod = 25
+; modulo = 25
 
 # Set the number of iterations in the sketching phase.
 # Default: 7
-; iter = 7
+; iterate = 7
 
 # Set the limit to mark frequent kmers.
 # Default: 5000
@@ -72,6 +71,10 @@
 # Set the threshold to extract candidate pairs.
 # Default: 50
 ; jmin = 50
+
+# Set the limit for partition size in the sketching phase.
+# Default 2000
+; eps = 2000
 
 # Enable work-stealing in the validation phase.
 # Default: 1

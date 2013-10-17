@@ -10,7 +10,7 @@ MPICXX=mpicxx
 # OpenMP switch
 OMPFLAGS=-fopenmp
 
-# Basic compiler flags
+# Basic compiler flags (add -std=c++0x if possible)
 CXXFLAGS=-O3
 
 # Boost library (if not in the standard location)
