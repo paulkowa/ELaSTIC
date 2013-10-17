@@ -154,6 +154,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     mpix::MPE_Log mpe_log("decompose sketch_list", "white");
 #endif // WITH_MPE
 
+    sketch_list = mpix::partition_balance(sketch_list, std::equal_to<sketch_id>(), sqr<unsigned int>, MPI_SKETCH_ID, 0, comm);
     decompose_sketch_list(sketch_list, opt.eps);
 
 #ifdef WITH_MPE
