@@ -65,16 +65,12 @@
 ; iterate = 7
 
 # Set the limit to mark frequent kmers.
-# Default: 5000
-; cmax = 5000
+# Default: 10000
+; cmax = 10000
 
 # Set the threshold to extract candidate pairs.
 # Default: 50
 ; jmin = 50
-
-# Set the limit for partition size in the sketching phase.
-# Default 2000
-; eps = 2000
 
 # Enable work-stealing in the validation phase.
 # Default: 1

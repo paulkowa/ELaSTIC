@@ -178,7 +178,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     unsigned long long int l = edges.size();
     MPI_Reduce(&l, &log.vedges, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, 0, comm);
 
-    double fa2a = (2.0 * log.cedges) / (SL.N * (SL.N - 1));
+    double fa2a = (2.0 * log.cedges) / ((1.0 * SL.N) * (SL.N - 1));
 
     report << info << "extracted " << log.cedges << " candidate edges" << std::endl;
     report << info << "generated " << log.vedges << " valid edges" << std::endl;

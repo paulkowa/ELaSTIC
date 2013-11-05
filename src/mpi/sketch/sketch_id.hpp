@@ -17,7 +17,6 @@
 
 #include <algorithm>
 #include <iostream>
-#include <limits>
 #include <vector>
 
 #include <jaz/algorithm.hpp>
@@ -29,13 +28,13 @@ struct sketch_id {
     uint64_t sketch;
     unsigned int id;
     unsigned short int size;
-    unsigned short int part;
     unsigned short int sep;
+    unsigned int part;
 }; // struct sketch_id
 
 
 inline std::ostream& operator<<(std::ostream& os, const sketch_id& si) {
-    os << si.sketch << " " << si.id << " " << si.size << " " << si.part << " " << si.sep;
+    os << si.sketch << " " << si.id << " " << si.size << " " << si.sep << " " << si.part;
     return os;
 } // operator<<
 
@@ -60,8 +59,8 @@ inline sketch_id make_sketch_id(uint64_t sketch, unsigned int id, unsigned short
     tmp.sketch = sketch;
     tmp.id = id;
     tmp.size = size;
-    tmp.part = 0;
     tmp.sep = 0;
+    tmp.part = 0;
     return tmp;
 } // make_sketch_id
 
@@ -71,7 +70,16 @@ inline unsigned int hash_sketch_id(const sketch_id& si) {
 } // hash_sketch_id
 
 
-inline void decompose_sketch_triangle(std::vector<sketch_id>& sketch_list, short unsigned int& part, int l) {
+template <typename Iter>
+inline int sketch_part_cost(Iter first, Iter last) {
+    int n = (last - first);
+    if (first->sep == 0) return (n * (n - 1)) >> 1;
+    if (first->sep == n) return n * n;
+    return first->sep * (n - first->sep);
+} // sketch_part_cost
+
+
+inline void decompose_sketch_triangle(std::vector<sketch_id>& sketch_list, unsigned int& part, int l) {
     int pos = sketch_list.size() - l;
     int p = l / 2;
 
@@ -90,7 +98,7 @@ inline void decompose_sketch_triangle(std::vector<sketch_id>& sketch_list, short
     part++;
 } // decompose_sketch_triangle
 
-inline void decompose_sketch_rectangle(std::vector<sketch_id>& sketch_list, short unsigned int& part, int l) {
+inline void decompose_sketch_rectangle(std::vector<sketch_id>& sketch_list, unsigned int& part, int l) {
     int pos = sketch_list.size() - l;
 
     int p = sketch_list[pos].sep;
@@ -151,8 +159,7 @@ inline void decompose_sketch_rectangle(std::vector<sketch_id>& sketch_list, shor
     sketch_list.resize(sketch_list.size() - l);
 } // decompose_sketch_rectangle
 
-inline unsigned short int decompose_sketch_list(std::vector<sketch_id>& sketch_list, int lim) {
-    unsigned short int part = 1;
+inline unsigned int decompose_sketch_list(std::vector<sketch_id>& sketch_list, int lim, unsigned int part) {
     int first = 0;
 
     while ((sketch_list.begin() + first) != sketch_list.end()) {
@@ -169,8 +176,6 @@ inline unsigned short int decompose_sketch_list(std::vector<sketch_id>& sketch_l
 	    else decompose_sketch_rectangle(sketch_list, part, l);
 
 	} else first = temp;
-
-	if (part > (std::numeric_limits<unsigned short int>::max() - 10)) break;
     } // while
 
     return part;

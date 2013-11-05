@@ -50,7 +50,7 @@ public:
 	active_ = true;
 
 	victims_.resize(size_);
-	for (unsigned int i = 0; i < size_; ++i) victims_[i] = i;
+	for (int i = 0; i < size_; ++i) victims_[i] = i;
 
 	victims_.erase(victims_.begin() + rank_);
 	ends_ = 1;
@@ -58,12 +58,12 @@ public:
 	MPI_Type_contiguous(sizeof(range_type), MPI_BYTE, &MPI_RANGE_TYPE);
 	MPI_Type_commit(&MPI_RANGE_TYPE);
 
-	unsigned int n = dlast - dfirst;
+	int n = dlast - dfirst;
 
 	data_.resize(n);
 	std::copy(dfirst, dlast, data_.begin());
 
-	unsigned int m = tlast - tfirst;
+	int m = tlast - tfirst;
 
 	task_.resize(m);
 	std::copy(tfirst, tlast, task_.begin());
@@ -150,7 +150,7 @@ public:
 
 	    if (task.first == task.last) victims_.erase(victims_.begin() + vpos);
 	    else {
-		unsigned int k = task.last - task.first;
+		int k = task.last - task.first;
 
 		first = new T[k];
 		last = first + k;
@@ -201,7 +201,7 @@ public:
 
 		t++;
 	    } // if
-	} while ((flag == true) && (t < 3));
+	} while ((flag == true) && (t < 1));
 
 	return (ends_ < size_);
     } // progress

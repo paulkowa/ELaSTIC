@@ -30,10 +30,11 @@ namespace mpix {
 	int rank;
 	int pos;
 	int S;
+	int cost;
     }; // struct part
 
     inline bool operator<(const part& p1, const part& p2) {
-	return (p1.S < p2.S);
+	return (p1.cost < p2.cost);
     } // operator<
 
     inline bool block_compare(const part& p1, const part& p2) {
@@ -47,19 +48,18 @@ namespace mpix {
     }; // struct local_part
 
     inline std::ostream& operator<<(std::ostream& os, const part& p) {
-	os << "(" << p.rank << "," << p.pos << "," << p.S << ")";
+	os << "(" << p.rank << "," << p.pos << "," << p.S << "," << p.cost << ")";
 	return os;
     } // operator<<
 
     struct balance_heap_node {
-	explicit balance_heap_node(int apos = 0, int aS = 0) : pos(apos), S(aS) { }
-	bool operator<(const balance_heap_node& node) const { return node.S < S; }
+	explicit balance_heap_node(int apos = 0, int acost = 0) : pos(apos), cost(acost) { }
+	bool operator<(const balance_heap_node& node) const { return node.cost < cost; }
 	int pos;
-	int S;
+	int cost;
     }; // balance_heap_node
 
-    template <typename Fun>
-    void balance(std::vector<part>& parts, std::vector<std::vector<part> >& sched, Fun fun) {
+    inline void balance(std::vector<part>& parts, std::vector<std::vector<part> >& sched) {
 	int size = sched.size();
 	int n = parts.size();
 
@@ -74,7 +74,7 @@ namespace mpix {
 	// initialize heap
 	for (int i = 0; i < lim; ++i) {
 	    sched[i].push_back(parts.back());
-	    Sh[i] = S.push(balance_heap_node(i, fun(parts.back().S)));
+	    Sh[i] = S.push(balance_heap_node(i, parts.back().cost));
 	    parts.pop_back();
 	}
 
@@ -82,7 +82,7 @@ namespace mpix {
 	for (int i = 0; i < n - lim; ++i) {
 	    balance_heap_node nd = S.top();
 	    sched[nd.pos].push_back(parts.back());
-	    nd.S += fun(parts.back().S);
+	    nd.cost += parts.back().cost;
 	    S.update(Sh[nd.pos], nd);
 	    parts.pop_back();
 	}
@@ -97,7 +97,7 @@ namespace mpix {
 	return iter;
     } // range
 
-    template <typename T> inline T linear(T x) { return x; }
+    template <typename Iter> inline int linear(Iter first, Iter last) { return last - first; }
 
   } // detail
 
@@ -128,6 +128,9 @@ namespace mpix {
       std::vector<int> parts;
       std::vector<int> parts_all;
 
+      std::vector<int> cost;
+      std::vector<int> cost_all;
+
       std::vector<int> parts_sz(size, 0);
       std::vector<int> parts_disp(size, 0);
 
@@ -137,6 +140,7 @@ namespace mpix {
       while (iter != end) {
 	  iterator temp = detail::range(iter, end, pred);
 	  parts.push_back(temp - iter);
+	  cost.push_back(fun(iter, temp));
 	  iter = temp;
       }
 
@@ -150,6 +154,10 @@ namespace mpix {
       }
 
       MPI_Gatherv(&parts[0], psz, MPI_INT, &parts_all[0], &parts_sz[0], &parts_disp[0], MPI_INT, root, Comm);
+
+      cost_all.resize(parts_all.size());
+
+      MPI_Gatherv(&cost[0], psz, MPI_INT, &cost_all[0], &parts_sz[0], &parts_disp[0], MPI_INT, root, Comm);
 
       // step 2: generate balancing moves
       std::vector<int> moves_sz(size, 0);
@@ -168,13 +176,15 @@ namespace mpix {
 		  parts_desc[pos].rank = i;
 		  parts_desc[pos].pos = j;
 		  parts_desc[pos].S = parts_all[pos];
+		  parts_desc[pos].cost = cost_all[pos];
 		  pos++;
 	      } // for j
 	  } // for i
 
 	  { std::vector<int>().swap(parts_all); }
+	  { std::vector<int>().swap(cost_all); }
 
-	  detail::balance(parts_desc, sched, fun);
+	  detail::balance(parts_desc, sched);
 
 	  { std::vector<detail::part>().swap(parts_desc); }
 
@@ -309,7 +319,8 @@ namespace mpix {
   std::vector<typename Sequence::value_type>
   partition_balance(Sequence& seq, MPI_Datatype Type, MPI_Comm Comm) {
       typedef typename Sequence::value_type value_type;
-      return partition_balance(seq, std::equal_to<value_type>(), detail::linear<int>, Type, 0, Comm);
+      typedef typename Sequence::iterator iterator;
+      return partition_balance(seq, std::equal_to<value_type>(), detail::linear<iterator>, Type, 0, Comm);
   } // partition_balance
 
 } // namespace mpix

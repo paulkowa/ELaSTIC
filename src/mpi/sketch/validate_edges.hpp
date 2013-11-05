@@ -29,6 +29,11 @@
 #include "iomanip.hpp"
 
 
+#ifdef WITH_MPE
+#include <mpix2/MPE_Log.hpp>
+#endif // WITH_MPE
+
+
 class compare_method {
 public:
     explicit compare_method(const AppConfig& opt) : method_(opt.method) {
@@ -184,6 +189,11 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
 
     report << info << "creating tasks..." << std::endl;
 
+#ifdef WITH_MPE
+    mpix::MPE_Log mpe_log("transform edges", "green");
+    mpe_log.start();
+#endif // WITH_MPE
+
     // divide into local and remote
     unsigned int mid =
 	std::partition(edges.begin(), edges.end(), local(SL.seqs.front().id, SL.seqs.back().id)) - edges.begin();
@@ -200,9 +210,18 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
 
     std::transform(edges.begin() + mid, edges.end(), rank_id.begin(), r2r);
 
+#ifdef WITH_MPE
+    mpe_log.stop();
+#endif // WITH_MPE
+
+#ifdef WITH_MPE
+    mpe_log.init("prepare task queue", "green");
+    mpe_log.start();
+#endif // WITH_MPE
+
     // get tasks list
     typedef StaticWSQueue<read_pair> ws_queue_type;
-    const unsigned int SBLOCK = 4096;
+    const unsigned int SBLOCK = 1024;
 
     std::vector<ws_queue_type::range_type> tasks;
     unsigned int pos = 0;
@@ -226,8 +245,17 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
 	return std::make_pair(false, "task queue failed to initialize");
     }
 
+#ifdef WITH_MPE
+    mpe_log.stop();
+#endif // WITH_MPE
+
     // process local edges
     report << info << "processing local edges..." << std::endl;
+
+#ifdef WITH_MPE
+    mpe_log.init("process local edges", "green");
+    mpe_log.start();
+#endif // WITH_MPE
 
     sequence_compare<compare_method> ident(SL, SL.seqs.front().id, compare_method(opt));
     edges.resize(mid);
@@ -235,8 +263,17 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
     std::transform(edges.begin(), edges.end(), edges.begin(), ident);
     edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar2(opt.method, opt.level)), edges.end());
 
+#ifdef WITH_MPE
+    mpe_log.stop();
+#endif // WITH_MPE
+
     // process tasks
     report << info << "processing remaining edges, be patient..." << std::endl;
+
+#ifdef WITH_MPE
+    mpe_log.init("process semi-local edges", "green");
+    mpe_log.start();
+#endif // WITH_MPE
 
     const read_pair* first = 0;
     const read_pair* last = 0;
@@ -254,6 +291,8 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
 	unsigned int start_id = rank_id[0].second;
 
 	for (unsigned int j = 0; j < l; ++j) {
+	    wsq.progress();
+
 	    const std::string& s = sv[rank_id[j].second - start_id];
 	    const read_pair& e = first[j];
 
@@ -264,8 +303,17 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
 	wsq.progress();
     } // while wsq.get
 
+#ifdef WITH_MPE
+    mpe_log.stop();
+#endif // WITH_MPE
+
     // we start stealing process
     report << info << "stealing work..." << std::endl;
+
+#ifdef WITH_MPE
+    mpe_log.init("process remote edges", "green");
+    mpe_log.start();
+#endif // WITH_MPE
 
     int vrank = -1;
     read_pair* sfirst = 0;
@@ -294,15 +342,30 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
 		s0 = rma_seq.get(e.id0);
 		edges.push_back(ident(e, s0, s));
 	    }
+
+	    wsq.progress();
 	} // for
 
 	delete[] sfirst;
     } // while wsq.steal
 
+#ifdef WITH_MPE
+    mpe_log.stop();
+#endif // WITH_MPE
+
+#ifdef WITH_MPE
+    mpe_log.init("final cleaning", "green");
+    mpe_log.start();
+#endif // WITH_MPE
+
     edges.erase(std::remove_if(edges.begin(), edges.end(), not_similar2(opt.method, opt.level)), edges.end());
     if (opt.factor == false) std::transform(edges.begin(), edges.end(), edges.begin(), read_pair_count(opt.method));
 
     wsq.finalize();
+
+#ifdef WITH_MPE
+    mpe_log.stop();
+#endif // WITH_MPE
 
     return std::make_pair(true, "");
 } // validate_edges_ws

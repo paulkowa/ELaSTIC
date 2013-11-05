@@ -21,34 +21,44 @@ namespace mpix {
 
   class MPE_Log {
   public:
-      explicit MPE_Log(const std::string& name, std::string color) : active_(false) {
-	  start(name, color);
+      MPE_Log() : active_(false), running_(false) { }
+
+      MPE_Log(const std::string& name, const std::string& color)
+	  : active_(false), running_(false) {
+	  init(name, color);
       } // MPE_Log
 
       ~MPE_Log() { stop(); }
 
-      bool start(const std::string& name, std::string color) {
-	  if (active_) return false;
-	  name_ = name;
+      bool init(const std::string& name, const std::string& color) {
+	  if (running_) return false;
 	  start_ = MPE_Log_get_event_number();
 	  stop_ = MPE_Log_get_event_number();
-	  MPE_Describe_state(start_, stop_, name_.c_str(), color.c_str());
-	  MPE_Log_event(start_, 0, (name_ + " start").c_str());
+	  MPE_Describe_state(start_, stop_, name.c_str(), color.c_str());
 	  active_ = true;
+      } // init
+
+      bool start() {
+	  if ((!active_) || (running_)) return false;
+	  MPE_Log_event(start_, 0, 0);
+	  running_ = true;
 	  return true;
       } // start
 
-      void stop() {
-	  if (active_) MPE_Log_event(stop_, 0, (name_ + " stop").c_str());
-	  active_ = false;
+      bool stop() {
+	  if (!running_) return false;
+	  MPE_Log_event(stop_, 0, 0);
+	  running_ = false;
+	  return true;
       } // stop
 
   private:
       MPE_Log(const MPE_Log&);
       void operator=(const MPE_Log&);
 
-      std::string name_;
       bool active_;
+      bool running_;
+
       int start_;
       int stop_;
 

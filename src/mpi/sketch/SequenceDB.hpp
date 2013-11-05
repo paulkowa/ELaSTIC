@@ -30,7 +30,7 @@
 
 
 #ifdef WITH_MPE
-#include <mpe.h>
+#include <mpix2/MPE_Log.hpp>
 #endif // WITH_MPE
 
 
@@ -101,8 +101,12 @@ public:
 	}
     } // ~SequenceRMA
 
-
     std::pair<bool, std::string> init(const SequenceList& SL) {
+#ifdef WITH_MPE
+	mpix::MPE_Log mpe_log("SequenceRMA init", "white");
+	mpe_log_.init("SequenceRMA get", "white");
+#endif // WITH_MPE
+
 	if (is_active_ == true) return std::make_pair(false, "SequenceRMA already activated");
 
 	int size;
@@ -137,12 +141,6 @@ public:
 
 	MPI_Win_create(seqs_, index_[nloc], 1, MPI_INFO_NULL, comm_, &seqs_win_);
 
-#ifdef WITH_MPE
-	mpe_start_ = MPE_Log_get_event_number();
-	mpe_stop_ = MPE_Log_get_event_number();
-	MPE_Describe_state(mpe_start_, mpe_stop_, "sequencedb_get", "white");
-#endif // WITH_MPE
-
 	is_active_ = true;
 	return std::make_pair(true, "");
     } // init
@@ -151,16 +149,16 @@ public:
     std::string get(unsigned int id) {
 	if (is_active_ == false) return "";
 
+#ifdef WITH_MPE
+	mpe_log_.start();
+#endif // WITH_MPE
+
 	unsigned int rank = 0;
 	unsigned int offset = 0;
 
 	boost::tie(rank, offset) = i2r_[id];
 
 	unsigned int len[2];
-
-#ifdef WITH_MPE
-	MPE_Log_event(mpe_start_, 0, "start sequencedb_get");
-#endif // WITH_MPE
 
 	MPI_Win_lock(MPI_LOCK_SHARED, rank, MPI_MODE_NOCHECK, index_win_);
 	MPI_Get(len, 2, MPI_UNSIGNED, rank, offset, 2, MPI_UNSIGNED, index_win_);
@@ -174,7 +172,7 @@ public:
 	MPI_Win_unlock(rank, seqs_win_);
 
 #ifdef WITH_MPE
-	MPE_Log_event(mpe_stop_, 0, "stop sequencedb_get");
+	mpe_log_.stop();
 #endif // WITH_MPE
 
 	return std::string(buf_.begin(), buf_.end());
@@ -184,11 +182,11 @@ public:
     std::string get(unsigned int rank, unsigned int offset) {
 	if (is_active_ == false) return "";
 
-	unsigned int len[2];
-
 #ifdef WITH_MPE
-	MPE_Log_event(mpe_start_, 0, "start sequencedb_get");
+	mpe_log_.start();
 #endif // WITH_MPE
+
+	unsigned int len[2];
 
 	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, index_win_);
 	MPI_Get(len, 2, MPI_UNSIGNED, rank, offset, 2, MPI_UNSIGNED, index_win_);
@@ -202,7 +200,7 @@ public:
 	MPI_Win_unlock(rank, seqs_win_);
 
 #ifdef WITH_MPE
-	MPE_Log_event(mpe_stop_, 0, "stop sequencedb_get");
+	mpe_log_.stop();
 #endif // WITH_MPE
 
 	return std::string(buf_.begin(), buf_.end());
@@ -216,6 +214,10 @@ public:
 	if (is_active_ == false) return;
 	if (first == last) return;
 
+#ifdef WITH_MPE
+	mpe_log_.start();
+#endif // WITH_MPE
+
 	unsigned int rank = first->first;
 	last--;
 
@@ -224,10 +226,6 @@ public:
 
 	// get index
 	soffset_.resize(l + 1);
-
-#ifdef WITH_MPE
-	MPE_Log_event(mpe_start_, 0, "start sequencedb_get_batch");
-#endif // WITH_MPE
 
 	MPI_Win_lock(MPI_LOCK_SHARED, rank, 0, index_win_);
 	MPI_Get(&soffset_[0], l + 1, MPI_UNSIGNED, rank, first->second, l + 1, MPI_UNSIGNED, index_win_);
@@ -241,10 +239,6 @@ public:
 	MPI_Get(&buf_[0], m, MPI_CHAR, rank, soffset_[0], m, MPI_CHAR, seqs_win_);
 	MPI_Win_unlock(rank, seqs_win_);
 
-#ifdef WITH_MPE
-	MPE_Log_event(mpe_stop_, 0, "stop sequencedb_get_batch");
-#endif // WITH_MPE
-
 	// extract sequences
 	unsigned int off = soffset_[0];
 	for (unsigned int i = 0; i < l + 1; ++i) soffset_[i] -= off;
@@ -254,6 +248,10 @@ public:
 	for (unsigned int i = 0; i < l; ++i) {
 	    sv[i] = std::string(buf_.begin() + soffset_[i], buf_.begin() + soffset_[i + 1]);
 	}
+
+#ifdef WITH_MPE
+	mpe_log_.stop();
+#endif // WITH_MPE
     } // get
 
 
@@ -276,16 +274,13 @@ private:
     std::vector<char> buf_;
 
 #ifdef WITH_MPE
-    int mpe_start_;
-    int mpe_stop_;
+    mpix::MPE_Log mpe_log_;
 #endif // WITH_MPE
 
 }; // SequenceRMA
 
 
-
 typedef std::vector<uint64_t> shingle_list_type;
-
 
 
 struct read_pair {
@@ -380,7 +375,7 @@ private:
 }; // class compare_rank
 
 
-inline unsigned int hash_read_pair0(const read_pair& rp) { return rp.id0; }
+inline unsigned int hash_read_pair0(const read_pair& rp) { return rp.id0 ^ rp.id1; }
 
 
 class hash_read_pair1 {
@@ -400,7 +395,7 @@ public:
     hash_read_pair2(unsigned int n, int size) : i2r_(n, size) { }
 
     unsigned int operator()(const read_pair& rp) const {
-	return ((rp.id0 % 2 == 1) ? i2r_(rp.id0) : i2r_(rp.id1));
+	return (rp.id0 + rp.id1) % 2 ? i2r_(rp.id0) : i2r_(rp.id1);
     } // operator()
 
 private:

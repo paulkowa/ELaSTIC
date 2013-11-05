@@ -44,9 +44,9 @@ struct AppConfig {
 	factor = false;
 	mod = 25;
 	iter = 7;
-	cmax = 5000;
+	cmax = 10000;
 	jmin = 50;
-	eps = 2000;
+	eps = 0;
 	wsq = true;
 
 	params.push_back("input");
@@ -85,9 +85,8 @@ struct AppConfig {
 	std::cout << "  --factor {0|1}     output intermediate values of similarity score (default 0)\n";
 	std::cout << "  --modulo size      use this mod value in sketching (default 25)\n";
 	std::cout << "  --iterate size     limit the number of sketching iterations to this (default 7)\n";
-	std::cout << "  --cmax size        use this limit to mark frequent kmers (default 5000)\n";
+	std::cout << "  --cmax size        use this limit to mark frequent kmers (default 10000)\n";
 	std::cout << "  --jmin size        use this limit to extract candidate pairs (default 50)\n";
-	std::cout << "  --eps size         use this limit to partition sketches (default 2000)\n";
 	std::cout << "  --wsq {0|1}        enable work stealing during validation (default 1)\n";
 	std::cout << "\n";
     } // usage
@@ -221,7 +220,7 @@ struct AppConfig {
 
 	    if (jaz::check_option(ext_conf, "eps", val) == true) {
 		eps = boost::lexical_cast<unsigned int>(val);
-		if ((eps > cmax) || (eps < 500)) {
+		if (eps > cmax) {
 		    return std::make_pair(false, "incorrect eps");
 		}
 	    }
@@ -239,7 +238,7 @@ struct AppConfig {
 	}
 
 	if (ext_conf.empty() == false) {
-	    return std::make_pair(false, std::string("unknown parameter ") + ext_conf.begin()->first);
+	    return std::make_pair(false, "unknown parameter " + ext_conf.begin()->first);
 	}
 
 	return std::make_pair(true, "");
@@ -259,7 +258,7 @@ struct AppConfig {
     short int iter;
     unsigned int cmax;
     unsigned short int jmin;
-    unsigned int eps;
+    unsigned int eps; // for internal use :-)
     bool wsq;
 
     std::vector<std::string> params;
@@ -279,7 +278,6 @@ struct AppConfig {
 	os << "iterate = " << opt.iter << "\n";
 	os << "cmax = " << opt.cmax << "\n";
 	os << "jmin = " << opt.jmin << "\n";
-	os << "eps = " << opt.eps << "\n";
 	os << "wsq = " << opt.wsq << "\n";
 	return os;
     } // operator<<
