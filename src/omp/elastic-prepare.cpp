@@ -26,6 +26,10 @@
 #include <arpa/inet.h>
 
 #include <boost/lexical_cast.hpp>
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/accumulators/statistics/mean.hpp>
+#include <boost/accumulators/statistics/median.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/bzip2.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
@@ -179,7 +183,8 @@ struct AppConfig {
 
 
 struct AppLog {
-    AppLog() : argv(), wtime(0), input(0), extracted(0), groups(0) {
+    AppLog() : argv(), wtime(0), input(0), extracted(0),
+	       mins(0), maxs(0), means(0), medians(0), groups(0) {
 	time_t t;
 	time(&t);
 	date = ctime(&t);
@@ -191,6 +196,10 @@ struct AppLog {
     unsigned int input;
     unsigned int extracted;
     unsigned int groups;
+    unsigned int mins;
+    unsigned int maxs;
+    unsigned int means;
+    unsigned int medians;
 
     friend std::ostream& operator<<(std::ostream& os, const AppLog& log) {
 	os << "execution date: " << log.date;
@@ -200,6 +209,10 @@ struct AppLog {
 	os << "input sequences: " << log.input << "\n";
 	os << "extracted sequences: " << log.extracted << "\n";
 	os << "output groups: " << log.groups << "\n";
+	os << "shortest sequence: " << log.mins << "\n";
+	os << "longest sequence: " << log.maxs << "\n";
+	os << "average sequence: " << log.means << "\n";
+	os << "median sequence: " << log.medians << "\n";
 	return os;
     } // operator<<
 }; // struct AppLog
@@ -557,6 +570,9 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     unsigned int pos = 0;
     std::vector<uint16_t> index(name2id.size(), 0);
 
+    using namespace boost::accumulators;
+    accumulator_set<unsigned int, stats<tag::min, tag::max, tag::mean, tag::median> > acc;
+
     for (unsigned int i = 0; i < cfiles.size(); ++i) {
 	std::ifstream fs;
 	boost::iostreams::filtering_istream cs;
@@ -573,6 +589,7 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
 		id = htonl(id);
 
 		std::string s = fi->second;
+		acc(s.size());
 
 		clean_sequence(s, opt.dna);
 		s = sc.code(s);
@@ -594,6 +611,16 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     fidx.close();
 
     log.wtime = get_time() - t0;
+
+    log.mins = min(acc);
+    log.maxs = max(acc);
+    log.means = mean(acc);
+    log.medians = median(acc);
+
+    report << info << "shortest sequence: " << log.mins << std::endl;
+    report << info << "longest sequence: " << log.maxs << std::endl;
+    report << info  << "average sequence: " << log.means << std::endl;
+    report << info << "median sequence: " << log.medians << std::endl;
 
     // write final log
     flog << log;

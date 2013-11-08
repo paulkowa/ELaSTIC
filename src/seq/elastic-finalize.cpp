@@ -100,6 +100,7 @@ struct AppLog {
     std::string argv;
     double wtime;
     unsigned int clusters;
+    unsigned int minc;
     unsigned int maxc;
     unsigned int meanc;
     unsigned int medianc;
@@ -109,7 +110,8 @@ struct AppLog {
 	os << "program version: " << ELASTIC_FINALIZE_SHORT << " " << ELASTIC_FINALIZE_VERSION << "\n";
 	os << "program options: " << log.argv << "\n";
 	os << "walltime used: " << log.wtime << "\n";
-	os << "processed clusters: " << log.clusters << "\n";
+	os << "extracted clusters: " << log.clusters << "\n";
+	os << "smallest cluster: " << log.minc << "\n";
 	os << "largest cluster: " << log.maxc << "\n";
 	os << "average cluster: " << log.meanc << "\n";
 	os << "median cluster: " << log.medianc << "\n";
@@ -178,7 +180,7 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     using namespace boost::accumulators;
 
     unsigned int nclust = 0;
-    accumulator_set<unsigned int, stats<tag::max, tag::mean, tag::median> > acc;
+    accumulator_set<unsigned int, stats<tag::min, tag::max, tag::mean, tag::median> > acc;
 
     for (; gi != end; ++gi) {
 	buf.clear();
@@ -207,11 +209,13 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
 
     log.wtime = get_time() - t0;
     log.clusters = nclust;
+    log.minc = min(acc);
     log.maxc = max(acc);
     log.meanc = mean(acc);
     log.medianc = median(acc);
 
     report << info << "extracted " << nclust << " clusters" << std::endl;
+    report << info << "smallest cluster: " << log.minc << std::endl;
     report << info << "largest cluster: " << log.maxc << std::endl;
     report << info << "average cluster: " << log.meanc << std::endl;
     report << info << "median cluster: " << log.medianc << std::endl;

@@ -10,12 +10,12 @@
 
 #define ELASTIC_FINALIZE_SHORT "elastic-finalize"
 #define ELASTIC_FINALIZE_FULL "ELaSTIC Postprocessor"
-#define ELASTIC_FINALIZE_VERSION "0.1:2013-04-12"
+#define ELASTIC_FINALIZE_VERSION "0.2:2013-11-08"
 #define ELASTIC_FINALIZE_COPYRIGHT "Copyright (c) 2013 Jaroslaw Zola"
 
 #define ELASTIC_PREPARE_SHORT "elastic-prepare"
 #define ELASTIC_PREPARE_FULL "ELaSTIC Preprocessor"
-#define ELASTIC_PREPARE_VERSION "1.02:2013-04-12"
+#define ELASTIC_PREPARE_VERSION "1.03:2013-11-08"
 #define ELASTIC_PREPARE_COPYRIGHT "Copyright (c) 2012-2013 Jaroslaw Zola"
 
 #define ELASTIC_SKETCH_SHORT "elastic-sketch"
