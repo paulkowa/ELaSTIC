@@ -354,9 +354,9 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 	mpe_log.stop();
 #endif // WITH_MPE
 
-	if (sketch_list.empty()) {
-	    report.critical << warning << "{" << rank << "}" << " empty list of sketches!" << std::endl;
-	}
+	// if (sketch_list.empty()) {
+	//     report.critical << warning << "{" << rank << "}" << " empty list of sketches!" << std::endl;
+	// }
 
 	// add to edges read pairs with common sketches
 	extract_seq_pairs(opt, log, report, comm, sketch_list, hash_read_pair0, edges);
