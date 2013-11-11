@@ -29,7 +29,7 @@ namespace mpix {
     struct part {
 	int rank;
 	int pos;
-	int S;
+	int size;
 	int cost;
     }; // struct part
 
@@ -48,7 +48,7 @@ namespace mpix {
     }; // struct local_part
 
     inline std::ostream& operator<<(std::ostream& os, const part& p) {
-	os << "(" << p.rank << "," << p.pos << "," << p.S << "," << p.cost << ")";
+	os << "(" << p.rank << "," << p.pos << "," << p.size << "," << p.cost << ")";
 	return os;
     } // operator<<
 
@@ -175,7 +175,7 @@ namespace mpix {
 	      for (int j = 0; j < parts_sz[i]; ++j) {
 		  parts_desc[pos].rank = i;
 		  parts_desc[pos].pos = j;
-		  parts_desc[pos].S = parts_all[pos];
+		  parts_desc[pos].size = parts_all[pos];
 		  parts_desc[pos].cost = cost_all[pos];
 		  pos++;
 	      } // for j
@@ -219,14 +219,14 @@ namespace mpix {
 		  if ((moves[i][j - 1].rank != moves[i][j].rank) ||
 		      (moves[i][j - 1].pos != moves[i][j].pos - 1)) {
 		      moves[i][res] = moves[i][pos];
-		      for (int k = pos + 1; k < j; ++k) moves[i][res].S += moves[i][k].S;
+		      for (int k = pos + 1; k < j; ++k) moves[i][res].size += moves[i][k].size;
 		      pos = j;
 		      res++;
 		  } // if
 	      } // for j
 
 	      moves[i][res] = moves[i][pos];
-	      for (int k = pos + 1; k < l; ++k) moves[i][res].S += moves[i][k].S;
+	      for (int k = pos + 1; k < l; ++k) moves[i][res].size += moves[i][k].size;
 	      res++;
 
 	      // clean
@@ -260,7 +260,7 @@ namespace mpix {
       int l = my_moves.size();
       int S = 0;
 
-      for (int i = 0; i < l; ++i) S += my_moves[i].S;
+      for (int i = 0; i < l; ++i) S += my_moves[i].size;
 
       parts_disp.resize(parts.size());
 
@@ -282,13 +282,13 @@ namespace mpix {
 
       for (int i = 0; i < l; ++i) {
 	  std::copy(seq.begin() + parts_disp[my_moves[i].pos],
-		    seq.begin() + parts_disp[my_moves[i].pos] + my_moves[i].S,
+		    seq.begin() + parts_disp[my_moves[i].pos] + my_moves[i].size,
 		    send_buf.begin() + pos);
-	  for (int j = parts_disp[my_moves[i].pos]; j < parts_disp[my_moves[i].pos] + my_moves[i].S; ++j) {
+	  for (int j = parts_disp[my_moves[i].pos]; j < parts_disp[my_moves[i].pos] + my_moves[i].size; ++j) {
 	      erase[j] = true;
 	  }
-	  send_sz[my_moves[i].rank] += my_moves[i].S;
-	  pos += my_moves[i].S;
+	  send_sz[my_moves[i].rank] += my_moves[i].size;
+	  pos += my_moves[i].size;
       }
 
       std::partial_sum(send_sz.begin(), send_sz.end() - 1, send_disp.begin() + 1);
