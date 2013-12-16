@@ -15,6 +15,7 @@
 #ifndef GENERATE_EDGES_HPP
 #define GENERATE_EDGES_HPP
 
+#include <algorithm>
 #include <limits>
 #include <numeric>
 #include <set>
@@ -45,6 +46,57 @@ inline int partition_level(int size) {
 } // partition_level
 
 
+template <typename T, typename U>
+inline bool less1st(const std::pair<T, U>& p1, const std::pair<T, U>& p2) {
+    return (p1.first < p2.first);
+} // less1st
+
+template <typename T, typename U>
+inline bool less2nd(const std::pair<T, U>& p1, const std::pair<T, U>& p2) {
+    return (p1.second < p2.second);
+} // less2nd
+
+
+template <typename Iter>
+inline void update_counts2(Iter first, Iter last, std::vector<int>& rem_list, double jmin) {
+#ifdef WITH_MPE
+    mpix::MPE_Log mpe_log("update_counts", "red");
+    mpe_log.start();
+#endif // WITH_MPE
+
+    std::vector<int> rem_index(1, 0);
+    for (int i = 0; i != rem_list.size(); ++i) if (rem_list[i] == -1) rem_index.push_back(i);
+
+    std::vector<std::pair<int, int> > lst;
+
+    int l = rem_index.size() - 1;
+    read_pair rp;
+
+    for (int i = l; i != 0; --i) {
+	int pos = rem_index[i - 1];
+	int end = rem_index[i];
+	for (int j = pos; j != end; ++j) if (rem_list[j] != -1) lst.push_back(std::make_pair(rem_list[j], i));
+	rem_list.resize(pos);
+    } // for i
+
+    std::sort(lst.begin(), lst.end());
+
+    typedef std::vector<std::pair<int, int> >::iterator vp_iterator;
+    std::pair<vp_iterator, vp_iterator> r0;
+    std::pair<vp_iterator, vp_iterator> r1;
+
+    for (; first != last; ++first) {
+	rp = kmer_fraction(*first);
+	if (rp.count > jmin) continue;
+
+	r0 = std::equal_range(lst.begin(), lst.end(), std::make_pair(first->id0, 0), less1st<int, int>);
+	r1 = std::equal_range(r0.second, lst.end(), std::make_pair(first->id1, 0), less1st<int, int>);
+
+	first->count += jaz::intersection_size(r0.first, r0.second, r1.first, r1.second, less2nd<int, int>);
+    }
+} // update_counts2
+
+
 template <typename Iter>
 inline void update_counts(Iter first, Iter last, const std::vector<int>& rem_list, double jmin) {
 #ifdef WITH_MPE
@@ -56,9 +108,13 @@ inline void update_counts(Iter first, Iter last, const std::vector<int>& rem_lis
     jaz::find_all(rem_list.begin(), rem_list.end(), std::back_inserter(rem_index), std::bind2nd(std::equal_to<int>(), -1));
 
     unsigned int l = rem_index.size();
+    read_pair rp;
 
     for (; first != last; ++first) {
 	std::vector<int>::const_iterator begin = rem_list.begin();
+
+	rp = kmer_fraction(*first);
+	if (rp.count > jmin) continue;
 
 	for (unsigned int i = 0; i < l; ++i) {
 	    if ((first->count + l - i) < (0.01 * jmin * first->size)) break;
@@ -264,7 +320,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     aggregate_rem_list(comm, rem_list);
 
     // update counts
-    update_counts(counts.begin(), counts.end(), rem_list, opt.jmin);
+    update_counts2(counts.begin(), counts.end(), rem_list, opt.jmin);
 
 #ifdef WITH_MPE
     mpe_log.init("filter candidate edges", "red");
