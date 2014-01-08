@@ -29,7 +29,7 @@ namespace mpix {
     struct part {
 	int rank;
 	int pos;
-	int size;
+	int S;
 	int cost;
     }; // struct part
 
@@ -48,7 +48,7 @@ namespace mpix {
     }; // struct local_part
 
     inline std::ostream& operator<<(std::ostream& os, const part& p) {
-	os << "(" << p.rank << "," << p.pos << "," << p.size << "," << p.cost << ")";
+	os << "(" << p.rank << "," << p.pos << "," << p.S << "," << p.cost << ")";
 	return os;
     } // operator<<
 
@@ -103,12 +103,12 @@ namespace mpix {
 
 
   template <typename Sequence, typename Pred, typename Fun>
-  std::vector<typename Sequence::value_type> partition_balance(Sequence& seq,
-							       Pred pred,
-							       Fun fun,
-							       MPI_Datatype Type,
-							       int root,
-							       MPI_Comm Comm) {
+  Sequence partition_balance(Sequence& seq,
+			     Pred pred,
+			     Fun fun,
+			     MPI_Datatype Type,
+			     int root,
+			     MPI_Comm Comm) {
       typedef typename Sequence::value_type value_type;
       typedef typename Sequence::iterator iterator;
 
@@ -119,7 +119,7 @@ namespace mpix {
       MPI_Comm_rank(Comm, &rank);
 
       if (size == 1) {
-	  std::vector<value_type> ndata(seq.begin(), seq.end());
+	  Sequence ndata(seq);
 	  { Sequence().swap(seq); }
 	  return ndata;
       }
@@ -175,14 +175,16 @@ namespace mpix {
 	      for (int j = 0; j < parts_sz[i]; ++j) {
 		  parts_desc[pos].rank = i;
 		  parts_desc[pos].pos = j;
-		  parts_desc[pos].size = parts_all[pos];
+		  parts_desc[pos].S = parts_all[pos];
 		  parts_desc[pos].cost = cost_all[pos];
 		  pos++;
 	      } // for j
 	  } // for i
 
-	  { std::vector<int>().swap(parts_all); }
-	  { std::vector<int>().swap(cost_all); }
+	  {
+	      std::vector<int>().swap(parts_all);
+	      std::vector<int>().swap(cost_all);
+	  }
 
 	  detail::balance(parts_desc, sched);
 
@@ -219,14 +221,14 @@ namespace mpix {
 		  if ((moves[i][j - 1].rank != moves[i][j].rank) ||
 		      (moves[i][j - 1].pos != moves[i][j].pos - 1)) {
 		      moves[i][res] = moves[i][pos];
-		      for (int k = pos + 1; k < j; ++k) moves[i][res].size += moves[i][k].size;
+		      for (int k = pos + 1; k < j; ++k) moves[i][res].S += moves[i][k].S;
 		      pos = j;
 		      res++;
 		  } // if
 	      } // for j
 
 	      moves[i][res] = moves[i][pos];
-	      for (int k = pos + 1; k < l; ++k) moves[i][res].size += moves[i][k].size;
+	      for (int k = pos + 1; k < l; ++k) moves[i][res].S += moves[i][k].S;
 	      res++;
 
 	      // clean
@@ -260,7 +262,7 @@ namespace mpix {
       int l = my_moves.size();
       int S = 0;
 
-      for (int i = 0; i < l; ++i) S += my_moves[i].size;
+      for (int i = 0; i < l; ++i) S += my_moves[i].S;
 
       parts_disp.resize(parts.size());
 
@@ -282,18 +284,18 @@ namespace mpix {
 
       for (int i = 0; i < l; ++i) {
 	  std::copy(seq.begin() + parts_disp[my_moves[i].pos],
-		    seq.begin() + parts_disp[my_moves[i].pos] + my_moves[i].size,
+		    seq.begin() + parts_disp[my_moves[i].pos] + my_moves[i].S,
 		    send_buf.begin() + pos);
-	  for (int j = parts_disp[my_moves[i].pos]; j < parts_disp[my_moves[i].pos] + my_moves[i].size; ++j) {
+	  for (int j = parts_disp[my_moves[i].pos]; j < parts_disp[my_moves[i].pos] + my_moves[i].S; ++j) {
 	      erase[j] = true;
 	  }
-	  send_sz[my_moves[i].rank] += my_moves[i].size;
-	  pos += my_moves[i].size;
+	  send_sz[my_moves[i].rank] += my_moves[i].S;
+	  pos += my_moves[i].S;
       }
 
       std::partial_sum(send_sz.begin(), send_sz.end() - 1, send_disp.begin() + 1);
 
-      std::vector<value_type> ndata(seq.size() - pos);
+      Sequence ndata(seq.size() - pos);
       pos = 0;
 
       for (int i = 0; i < seq.size(); ++i) if (!erase[i]) ndata[pos++] = seq[i];
@@ -316,8 +318,7 @@ namespace mpix {
   } // partition_balance
 
   template <typename Sequence>
-  std::vector<typename Sequence::value_type>
-  partition_balance(Sequence& seq, MPI_Datatype Type, MPI_Comm Comm) {
+  Sequence partition_balance(Sequence& seq, MPI_Datatype Type, MPI_Comm Comm) {
       typedef typename Sequence::value_type value_type;
       typedef typename Sequence::iterator iterator;
       return partition_balance(seq, std::equal_to<value_type>(), detail::linear<iterator>, Type, 0, Comm);

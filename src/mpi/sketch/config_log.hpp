@@ -19,6 +19,8 @@
 #include <iostream>
 #include <string>
 
+#include <unistd.h>
+
 #include <boost/lexical_cast.hpp>
 #include <boost/tuple/tuple.hpp>
 
@@ -28,6 +30,13 @@
 #include "create_smatrix.hpp"
 
 #include "config.hpp"
+
+
+inline std::size_t sysmem() {
+    long int pages = sysconf(_SC_PHYS_PAGES);
+    long int page_sz = sysconf(_SC_PAGE_SIZE);
+    return pages * page_sz;
+} // sysmem
 
 
 struct AppConfig {
@@ -48,6 +57,7 @@ struct AppConfig {
 	jmin = 50;
 	eps = 0;
 	wsq = true;
+	mem = 0.9 * sysmem();
 
 	params.push_back("input");
 	params.push_back("output");
@@ -66,6 +76,7 @@ struct AppConfig {
 	params.push_back("jmin");
 	params.push_back("eps");
 	params.push_back("wsq");
+	params.push_back("mem");
     } // AppConfig
 
     static void usage() {
@@ -88,6 +99,7 @@ struct AppConfig {
 	std::cout << "  --cmax size        use this limit to mark frequent kmers (default 10000)\n";
 	std::cout << "  --jmin size        use this limit to extract candidate pairs (default 50)\n";
 	std::cout << "  --wsq {0|1}        enable work stealing during validation (default 1)\n";
+	std::cout << "  --mem size         use that many MB of memory per process (default 90% main memory)\n";
 	std::cout << "\n";
     } // usage
 
@@ -228,6 +240,14 @@ struct AppConfig {
 	    if (jaz::check_option(ext_conf, "wsq", val) == true) {
 		wsq = boost::lexical_cast<bool>(val);
 	    }
+
+	    if (jaz::check_option(ext_conf, "mem", val) == true) {
+		mem = boost::lexical_cast<unsigned int>(val);
+		mem = mem * 1024 * 1024;
+		if (sysmem() < mem) {
+		    return std::make_pair(false, "incorrect mem");
+		}
+	    }
 	} catch (boost::bad_lexical_cast& ex) {
 	    return std::make_pair(false, "incorrect argument(s)");
 	}
@@ -260,6 +280,7 @@ struct AppConfig {
     unsigned short int jmin;
     unsigned int eps; // for internal use :-)
     bool wsq;
+    std::size_t mem;
 
     std::vector<std::string> params;
 
@@ -279,6 +300,7 @@ struct AppConfig {
 	os << "cmax = " << opt.cmax << "\n";
 	os << "jmin = " << opt.jmin << "\n";
 	os << "wsq = " << opt.wsq << "\n";
+	os << "mem = " << static_cast<int>(opt.mem / (1024 * 1024)) << "\n";
 	return os;
     } // operator<<
 

@@ -22,10 +22,10 @@
 namespace mpix {
 
   template <typename Sequence, typename Hash>
-  std::vector<typename Sequence::value_type> simple_partition(Sequence& seq,
-							      Hash hash,
-							      MPI_Datatype Type,
-							      MPI_Comm Comm) {
+  Sequence simple_partition(Sequence& seq,
+			    Hash hash,
+			    MPI_Datatype Type,
+			    MPI_Comm Comm) {
       typedef typename Sequence::value_type value_type;
 
       int n = seq.size();
@@ -39,7 +39,7 @@ namespace mpix {
       int p = size;
 
       if (p == 1) {
-	  std::vector<value_type> ndata(seq.begin(), seq.end());
+	  Sequence ndata(seq);
 	  { Sequence().swap(seq); }
 	  return ndata;
       }
@@ -74,7 +74,7 @@ namespace mpix {
 	  all_displ[i] = all_displ[i - 1] + all_bin_sz[i - 1];
       }
 
-      std::vector<value_type> ndata(S);
+      Sequence ndata(S);
 
       MPI_Alltoallv(&data[0], &bin_sz[0], &displ[0], Type,
 		    &ndata[0], &all_bin_sz[0], &all_displ[0], Type, Comm);

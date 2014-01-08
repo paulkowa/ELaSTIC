@@ -1,5 +1,5 @@
-ELaSTIC Similarity Graph Builder Version 1.52:2013-11-08
-Copyright (c) 2012-2013 Jaroslaw Zola
+ELaSTIC Similarity Graph Builder Version 1.58:2014-01-08
+Copyright (c) 2012-2014 Jaroslaw Zola
 
 Usage: elastic-sketch --input name --output name [options...]
 
@@ -20,4 +20,5 @@ Options:
   --cmax size        use this limit to mark frequent kmers (default 10000)
   --jmin size        use this limit to extract candidate pairs (default 50)
   --wsq {0|1}        enable work stealing during validation (default 1)
+  --mem size         use that many MB of memory per process (default 90% main memory)
 

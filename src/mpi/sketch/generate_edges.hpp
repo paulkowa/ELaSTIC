@@ -5,7 +5,7 @@
  *  Created: May 24, 2012
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
- *  Copyright (c) 2012-2013 Jaroslaw Zola
+ *  Copyright (c) 2012-2014 Jaroslaw Zola
  *  Distributed under the License.
  *  See accompanying LICENSE.
  *
@@ -33,9 +33,14 @@
 #include "config_log.hpp"
 #include "iomanip.hpp"
 
+#include "fast_vector.hpp"
+
 #ifdef WITH_MPE
 #include <mpix2/MPE_Log.hpp>
 #endif // WITH_MPE
+
+
+template <typename Int> inline Int nc2(Int n) { return (n * (n - 1)) >> 1; }
 
 
 inline int partition_level(int size) {
@@ -56,6 +61,40 @@ inline bool less2nd(const std::pair<T, U>& p1, const std::pair<T, U>& p2) {
     return (p1.second < p2.second);
 } // less2nd
 
+
+template <typename Iter>
+inline void update_counts(Iter first, Iter last, const std::vector<int>& rem_list, double jmin) {
+#ifdef WITH_MPE
+    mpix::MPE_Log mpe_log("update_counts", "red");
+    mpe_log.start();
+#endif // WITH_MPE
+
+    std::vector<std::vector<int>::const_iterator> rem_index;
+    jaz::find_all(rem_list.begin(), rem_list.end(), std::back_inserter(rem_index), std::bind2nd(std::equal_to<int>(), -1));
+
+    unsigned int l = rem_index.size();
+    read_pair rp;
+
+    for (; first != last; ++first) {
+	std::vector<int>::const_iterator begin = rem_list.begin();
+
+	rp = kmer_fraction(*first);
+	if (rp.count > jmin) continue;
+
+	for (unsigned int i = 0; i < l; ++i) {
+	    if ((first->count + l - i) < (0.01 * jmin * first->size)) break;
+
+	    std::vector<int>::const_iterator end = rem_index[i];
+
+	    if (std::binary_search(begin, end, first->id0) && std::binary_search(begin, end, first->id1)) {
+		first->count++;
+	    }
+
+	    begin = end + 1;
+	} // for i
+
+    } // for first
+} // update_counts
 
 template <typename Iter>
 inline void update_counts2(Iter first, Iter last, std::vector<int>& rem_list, double jmin) {
@@ -95,41 +134,6 @@ inline void update_counts2(Iter first, Iter last, std::vector<int>& rem_list, do
 	first->count += jaz::intersection_size(r0.first, r0.second, r1.first, r1.second, less2nd<int, int>);
     }
 } // update_counts2
-
-
-template <typename Iter>
-inline void update_counts(Iter first, Iter last, const std::vector<int>& rem_list, double jmin) {
-#ifdef WITH_MPE
-    mpix::MPE_Log mpe_log("update_counts", "red");
-    mpe_log.start();
-#endif // WITH_MPE
-
-    std::vector<std::vector<int>::const_iterator> rem_index;
-    jaz::find_all(rem_list.begin(), rem_list.end(), std::back_inserter(rem_index), std::bind2nd(std::equal_to<int>(), -1));
-
-    unsigned int l = rem_index.size();
-    read_pair rp;
-
-    for (; first != last; ++first) {
-	std::vector<int>::const_iterator begin = rem_list.begin();
-
-	rp = kmer_fraction(*first);
-	if (rp.count > jmin) continue;
-
-	for (unsigned int i = 0; i < l; ++i) {
-	    if ((first->count + l - i) < (0.01 * jmin * first->size)) break;
-
-	    std::vector<int>::const_iterator end = rem_index[i];
-
-	    if (std::binary_search(begin, end, first->id0) && std::binary_search(begin, end, first->id1)) {
-		first->count++;
-	    }
-
-	    begin = end + 1;
-	} // for i
-
-    } // for first
-} // update_counts
 
 
 void aggregate_rem_list(MPI_Comm comm, std::vector<int>& rem_list) {
@@ -268,12 +272,25 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 #endif // WITH_MPE
 
     // get local counts
-    std::vector<read_pair> counts;
+    fast_vector<read_pair> counts;
+    counts.reserve((opt.mem / sizeof(read_pair)) - edges.size());
 
     iter = sketch_list.begin();
+    unsigned int bsz = 0;
 
     while (iter != sketch_list.end()) {
 	si_iterator temp = jaz::range(iter, sketch_list.end());
+
+	if (iter->sep == 0) bsz = nc2(temp - iter);
+	else {
+	    if (iter->sep == (temp - iter)) bsz = (temp - iter) * (temp - iter);
+	    else bsz = iter->sep * ((temp - iter) - iter->sep);
+	}
+
+	if ((counts.size() + bsz) > counts.capacity()) {
+	    std::sort(counts.begin(), counts.end());
+	    counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
+	}
 
 	if (iter->sep == 0) {
 	    // enumerate all pairs with the same sketch (triangle)
@@ -298,7 +315,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 
     // perform counts compaction
     std::sort(counts.begin(), counts.end());
-    counts.erase(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()), counts.end());
+    counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
 
     // perform global reduction
     MPI_Datatype MPI_READ_PAIR;
@@ -308,7 +325,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     counts = mpix::simple_partition(counts, hash, MPI_READ_PAIR, comm);
 
     std::sort(counts.begin(), counts.end());
-    counts.erase(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()), counts.end());
+    counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
 
     MPI_Type_free(&MPI_READ_PAIR);
 
@@ -330,7 +347,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     // approximate kmer fraction and filter edges
     // count is now approximated kmer fraction
     std::transform(counts.begin(), counts.end(), counts.begin(), kmer_fraction);
-    counts.erase(std::remove_if(counts.begin(), counts.end(), not_similar(opt.jmin)), counts.end());
+    counts.resize(std::remove_if(counts.begin(), counts.end(), not_similar(opt.jmin)) - counts.begin());
 
     // store filtered edges (replace with inplace_merge?)
     std::copy(counts.begin(), counts.end(), std::back_inserter(edges));
