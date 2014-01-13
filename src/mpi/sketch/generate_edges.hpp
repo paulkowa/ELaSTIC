@@ -242,10 +242,10 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 
     unsigned int part_id = rank * (std::numeric_limits<unsigned int>::max() / size) + 1;
 
-    sketch_list = mpix::partition_balance(sketch_list, MPI_SKETCH_ID, comm);
+    mpix::partition_balance(sketch_list, MPI_SKETCH_ID, comm);
     part_id = decompose_sketch_list(sketch_list, part, part_id);
 
-    sketch_list = mpix::partition_balance(sketch_list, MPI_SKETCH_ID, comm);
+    mpix::partition_balance(sketch_list, MPI_SKETCH_ID, comm);
     part_id = decompose_sketch_list(sketch_list, std::max(part / 4, 500), part_id);
 
 #ifdef WITH_MPE
@@ -257,8 +257,8 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     mpe_log.start();
 #endif // WITH_MPE
 
-    sketch_list = mpix::partition_balance(sketch_list, std::equal_to<sketch_id>(),
-					  sketch_part_cost<si_iterator>, MPI_SKETCH_ID, 0, comm);
+    mpix::partition_balance(sketch_list, std::equal_to<sketch_id>(),
+			    sketch_part_cost<si_iterator>, MPI_SKETCH_ID, 0, comm);
 
 #ifdef WITH_MPE
     mpe_log.stop();
@@ -272,46 +272,59 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 #endif // WITH_MPE
 
     // get local counts
-    fast_vector<read_pair> counts;
-    counts.reserve((opt.mem / sizeof(read_pair)) - edges.size());
+    std::vector<read_pair> counts;
+
+    try {
+	counts.reserve((opt.mem / sizeof(read_pair)) - edges.size());
+    } catch (...) {
+	report.critical << error << "memory reservation failure, decrease --mem" << std::endl;
+	throw;
+    }
 
     iter = sketch_list.begin();
     unsigned int bsz = 0;
 
-    while (iter != sketch_list.end()) {
-	si_iterator temp = jaz::range(iter, sketch_list.end());
+    try {
+	while (iter != sketch_list.end()) {
+	    si_iterator temp = jaz::range(iter, sketch_list.end());
 
-	if (iter->sep == 0) bsz = nc2(temp - iter);
-	else {
-	    if (iter->sep == (temp - iter)) bsz = (temp - iter) * (temp - iter);
-	    else bsz = iter->sep * ((temp - iter) - iter->sep);
-	}
+	    if (iter->sep == 0) bsz = nc2(temp - iter);
+	    else {
+		if (iter->sep == (temp - iter)) bsz = (temp - iter) * (temp - iter);
+		else bsz = iter->sep * ((temp - iter) - iter->sep);
+	    }
 
-	if ((counts.size() + bsz) > counts.capacity()) {
-	    std::sort(counts.begin(), counts.end());
-	    counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
-	}
+	    if ((counts.size() + bsz) > counts.capacity()) {
+		std::sort(counts.begin(), counts.end());
+		counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
+	    }
 
-	if (iter->sep == 0) {
-	    // enumerate all pairs with the same sketch (triangle)
-	    for (si_iterator j = iter; j != temp - 1; ++j) {
-		for (si_iterator k = j + 1; k != temp; ++k) {
-		    if (j->id != k->id) counts.push_back(make_read_pair(*j, *k));
-		} // for k
-	    } // for j
-	} else {
-	    // enumerate all pairs with the same sketch (rectangle)
-	    si_iterator pos = iter + iter->sep;
-	    if (iter->sep == (temp - iter)) pos = iter;
-	    for (si_iterator j = iter; j != iter + iter->sep; ++j) {
-		for (si_iterator k = pos; k != temp; ++k) {
-		    if (j->id != k->id) counts.push_back(make_read_pair(*j, *k));
-		} // for k
-	    } // for j
-	} // if
+	    if (iter->sep == 0) {
+		// enumerate all pairs with the same sketch (triangle)
+		for (si_iterator j = iter; j != temp - 1; ++j) {
+		    for (si_iterator k = j + 1; k != temp; ++k) {
+			if (j->id != k->id) counts.push_back(make_read_pair(*j, *k));
+		    } // for k
+		} // for j
+	    } else {
+		// enumerate all pairs with the same sketch (rectangle)
+		si_iterator pos = iter + iter->sep;
+		if (iter->sep == (temp - iter)) pos = iter;
+		for (si_iterator j = iter; j != iter + iter->sep; ++j) {
+		    for (si_iterator k = pos; k != temp; ++k) {
+			if (j->id != k->id) counts.push_back(make_read_pair(*j, *k));
+		    } // for k
+		} // for j
+	    } // if
 
-	iter = temp;
-    } // while
+	    iter = temp;
+	} // while
+    } catch (...) {
+	report.critical << error << "size: " << sketch_list.size() << " remain: " << sketch_list.end() - iter
+			<< " counts.size: " << counts.size() << " counts.capacity: " << counts.capacity()
+			<< " bsz: " << bsz << std::endl;
+	throw;
+    }
 
     // perform counts compaction
     std::sort(counts.begin(), counts.end());
@@ -322,7 +335,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
     MPI_Type_commit(&MPI_READ_PAIR);
 
-    counts = mpix::simple_partition(counts, hash, MPI_READ_PAIR, comm);
+    mpix::simple_partition(counts, hash, MPI_READ_PAIR, comm);
 
     std::sort(counts.begin(), counts.end());
     counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
@@ -421,15 +434,15 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 #endif // WITH_MPE
 
 	// group globally sketch list
-	sketch_list = mpix::simple_partition(sketch_list, hash_sketch_id, MPI_SKETCH_ID, comm);
+	mpix::simple_partition(sketch_list, hash_sketch_id, MPI_SKETCH_ID, comm);
 
 #ifdef WITH_MPE
 	mpe_log.stop();
 #endif // WITH_MPE
 
-	// if (sketch_list.empty()) {
-	//     report.critical << warning << "{" << rank << "}" << " empty list of sketches!" << std::endl;
-	// }
+	if (sketch_list.empty()) {
+	    report.critical << warning << "{" << rank << "}" << " empty list of sketches!" << std::endl;
+	}
 
 	// add to edges read pairs with common sketches
 	extract_seq_pairs(opt, log, report, comm, sketch_list, hash_read_pair0, edges);
@@ -443,7 +456,7 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
     MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
     MPI_Type_commit(&MPI_READ_PAIR);
 
-    edges = mpix::simple_partition(edges, hash_read_pair2(SL.N, size), MPI_READ_PAIR, comm);
+    mpix::simple_partition(edges, hash_read_pair2(SL.N, size), MPI_READ_PAIR, comm);
 
     MPI_Type_free(&MPI_READ_PAIR);
 

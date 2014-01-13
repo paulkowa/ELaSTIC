@@ -57,7 +57,7 @@ struct AppConfig {
 	jmin = 50;
 	eps = 0;
 	wsq = true;
-	mem = 0.9 * sysmem();
+	mem = sysmem() / 2;
 
 	params.push_back("input");
 	params.push_back("output");
@@ -99,7 +99,7 @@ struct AppConfig {
 	std::cout << "  --cmax size        use this limit to mark frequent kmers (default 10000)\n";
 	std::cout << "  --jmin size        use this limit to extract candidate pairs (default 50)\n";
 	std::cout << "  --wsq {0|1}        enable work stealing during validation (default 1)\n";
-	std::cout << "  --mem size         use that many MB of memory per process (default 90% main memory)\n";
+	std::cout << "  --mem size         use that many MB of memory per process (default 50% main memory)\n";
 	std::cout << "\n";
     } // usage
 

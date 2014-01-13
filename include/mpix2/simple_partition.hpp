@@ -5,7 +5,7 @@
  *  Created: Mar 03, 2010
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
- *  Copyright (c) 2010-2013 Jaroslaw Zola
+ *  Copyright (c) 2010-2014 Jaroslaw Zola
  *  Distributed under the Boost Software License.
  *  See accompanying LICENSE.
  *
@@ -22,10 +22,7 @@
 namespace mpix {
 
   template <typename Sequence, typename Hash>
-  Sequence simple_partition(Sequence& seq,
-			    Hash hash,
-			    MPI_Datatype Type,
-			    MPI_Comm Comm) {
+  void simple_partition(Sequence& seq, Hash hash, MPI_Datatype Type, MPI_Comm Comm) {
       typedef typename Sequence::value_type value_type;
 
       int n = seq.size();
@@ -37,12 +34,7 @@ namespace mpix {
       MPI_Comm_rank(Comm, &rank);
 
       int p = size;
-
-      if (p == 1) {
-	  Sequence ndata(seq);
-	  { Sequence().swap(seq); }
-	  return ndata;
-      }
+      if (p == 1) return;
 
       // analyze local buffer
       std::vector<int> bin_sz(p, 0);
@@ -55,9 +47,9 @@ namespace mpix {
       std::vector<int> all_bin_sz(p, 0);
       std::vector<value_type> data(n);
 
-      for (typename Sequence::iterator iter(seq.begin()); iter != seq.end(); ++iter) {
-	  unsigned int pos = hash(*iter) % p;
-	  data[displ[pos] + all_bin_sz[pos]] = *iter;
+      for (int i = 0; i < n; ++i) {
+	  int pos = hash(seq[i]) % p;
+	  data[displ[pos] + all_bin_sz[pos]] = seq[i];
 	  all_bin_sz[pos]++;
       }
 
@@ -74,12 +66,10 @@ namespace mpix {
 	  all_displ[i] = all_displ[i - 1] + all_bin_sz[i - 1];
       }
 
-      Sequence ndata(S);
+      seq.resize(S);
 
       MPI_Alltoallv(&data[0], &bin_sz[0], &displ[0], Type,
-		    &ndata[0], &all_bin_sz[0], &all_displ[0], Type, Comm);
-
-      return ndata;
+		    &seq[0], &all_bin_sz[0], &all_displ[0], Type, Comm);
   } // simple_partition
 
 } // namespace mpix

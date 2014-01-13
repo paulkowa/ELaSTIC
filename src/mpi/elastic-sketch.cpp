@@ -102,9 +102,17 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     }
 
 
-    // initialize RMA
-    SequenceRMA rma_seq(comm);
-    boost::tie(res, err) = rma_seq.init(SL);
+    // generate candidate edges
+    // at the end processors are most likely out of sync
+    std::vector<read_pair> edges;
+
+    try { boost::tie(res, err) = generate_edges(opt, log, report, comm, SL, shingles, edges); }
+    catch (std::bad_alloc&) {
+	report.critical << error << "insufficient memory, use more nodes" << std::endl;
+	MPI_Abort(comm, MPI_ABRT_SIG);
+    }
+
+    unsigned long long int etot = edges.size();
 
     if (res == false) {
 	report.critical << error << err << std::endl;
@@ -112,17 +120,9 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     }
 
 
-    // generate candidate edges
-    // at the end processors are most likely out of sync
-    std::vector<read_pair> edges;
-
-    try { boost::tie(res, err) = generate_edges(opt, log, report, comm, SL, shingles, edges); }
-    catch (std::bad_alloc&) {
-	report.critical << error << "insufficient memory, use more nodes?" << std::endl;
-	MPI_Abort(comm, MPI_ABRT_SIG);
-    }
-
-    unsigned long long int etot = edges.size();
+    // initialize RMA
+    SequenceRMA rma_seq(comm);
+    boost::tie(res, err) = rma_seq.init(SL);
 
     if (res == false) {
 	report.critical << error << err << std::endl;

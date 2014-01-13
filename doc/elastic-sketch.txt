@@ -20,5 +20,5 @@ Options:
   --cmax size        use this limit to mark frequent kmers (default 10000)
   --jmin size        use this limit to extract candidate pairs (default 50)
   --wsq {0|1}        enable work stealing during validation (default 1)
-  --mem size         use that many MB of memory per process (default 90% main memory)
+  --mem size         use that many MB of memory per process (default 50% main memory)
 
