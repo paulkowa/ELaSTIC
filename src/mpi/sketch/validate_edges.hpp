@@ -5,7 +5,7 @@
  *  Created: May 29, 2012
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
- *  Copyright (c) 2012-2013 Jaroslaw Zola
+ *  Copyright (c) 2012-2014 Jaroslaw Zola
  *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
@@ -90,7 +90,6 @@ inline bool block_compare(const std::pair<unsigned int, unsigned int>& p1, const
 } // block_compare
 
 
-// generate_edges guarantees that at least one node is local for each edge!
 inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
 						   const SequenceList& SL, SequenceRMA& rma_seq,
 						   std::vector<read_pair>& edges) {
@@ -100,6 +99,15 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
 
     MPI_Comm_size(comm, &size);
     MPI_Comm_rank(comm, &rank);
+
+    // rebalance graph
+    MPI_Datatype MPI_READ_PAIR;
+    MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
+    MPI_Type_commit(&MPI_READ_PAIR);
+
+    mpix::simple_partition(edges, hash_read_pair2(SL.N, size), MPI_READ_PAIR, comm);
+
+    MPI_Type_free(&MPI_READ_PAIR);
 
     // divide into local and remote
     unsigned int mid =
@@ -186,6 +194,15 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
 
     MPI_Comm_size(comm, &size);
     MPI_Comm_rank(comm, &rank);
+
+    // rebalance graph
+    MPI_Datatype MPI_READ_PAIR;
+    MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
+    MPI_Type_commit(&MPI_READ_PAIR);
+
+    mpix::simple_partition(edges, hash_read_pair2(SL.N, size), MPI_READ_PAIR, comm);
+
+    MPI_Type_free(&MPI_READ_PAIR);
 
     report << info << "creating tasks..." << std::endl;
 

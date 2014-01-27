@@ -15,6 +15,7 @@
 #ifndef MPIX2_SIMPLE_PARTITION_HPP
 #define MPIX2_SIMPLE_PARTITION_HPP
 
+#include <numeric>
 #include <vector>
 #include <mpi.h>
 
@@ -25,8 +26,6 @@ namespace mpix {
   void simple_partition(Sequence& seq, Hash hash, MPI_Datatype Type, MPI_Comm Comm) {
       typedef typename Sequence::value_type value_type;
 
-      int n = seq.size();
-
       int size = 0;
       int rank = 0;
 
@@ -36,12 +35,14 @@ namespace mpix {
       int p = size;
       if (p == 1) return;
 
+      int n = seq.size();
+
       // analyze local buffer
       std::vector<int> bin_sz(p, 0);
       for (int i = 0; i < n; ++i) bin_sz[hash(seq[i]) % p]++;
 
       std::vector<int> displ(p, 0);
-      for (int i = 1; i < p; ++i) displ[i] = displ[i - 1] + bin_sz[i - 1];
+      std::partial_sum(bin_sz.begin(), bin_sz.end() - 1, displ.begin() + 1);
 
       // prepare send buffer
       std::vector<int> all_bin_sz(p, 0);
@@ -58,13 +59,10 @@ namespace mpix {
       // exchange data
       MPI_Alltoall(&bin_sz[0], 1, MPI_INT, &all_bin_sz[0], 1, MPI_INT, Comm);
 
-      int S = all_bin_sz[0];
-      std::vector<int> all_displ(p, 0);
+      int S = std::accumulate(all_bin_sz.begin(), all_bin_sz.end(), 0);
 
-      for (int i = 1; i < p; ++i) {
-	  S += all_bin_sz[i];
-	  all_displ[i] = all_displ[i - 1] + all_bin_sz[i - 1];
-      }
+      std::vector<int> all_displ(p, 0);
+      std::partial_sum(all_bin_sz.begin(), all_bin_sz.end() - 1, all_displ.begin() + 1);
 
       seq.resize(S);
 

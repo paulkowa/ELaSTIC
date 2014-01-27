@@ -21,9 +21,7 @@
 
 namespace mpix {
 
-  inline bool write_cbuffer(const std::string& name,
-			    const char* buf,
-			    unsigned int bsz,
+  inline bool write_cbuffer(const std::string& name, const char* buf, int bsz,
 			    MPI_Comm comm) {
       MPI_File fh;
       MPI_Status stat;

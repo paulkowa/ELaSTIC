@@ -32,7 +32,6 @@ struct sketch_id {
     unsigned int part;
 }; // struct sketch_id
 
-
 inline std::ostream& operator<<(std::ostream& os, const sketch_id& si) {
     os << si.sketch << " " << si.id << " " << si.size << " " << si.sep << " " << si.part;
     return os;
@@ -68,6 +67,31 @@ inline unsigned int hash_sketch_id(const sketch_id& si) {
     const char* ptr = reinterpret_cast<const char*>(&si);
     return *reinterpret_cast<const unsigned int*>(ptr + 2);
 } // hash_sketch_id
+
+
+struct id_sketch {
+    unsigned int id;
+    uint64_t sketch;
+}; // struct id_sketch
+
+inline bool operator<(const id_sketch& lhs, const id_sketch& rhs) {
+    return ((lhs.id < rhs.id) || (!(rhs.id < lhs.id) && (lhs.sketch < rhs.sketch)));
+} // operator<
+
+inline bool id_compare2(const id_sketch& lhs, const id_sketch& rhs) {
+    return (lhs.id < rhs.id);
+} // id_compare
+
+inline bool sketch_compare2(const id_sketch& lhs, const id_sketch& rhs) {
+    return (lhs.sketch < rhs.sketch);
+} // sketch_compare
+
+inline id_sketch make_id_sketch(unsigned int id, uint64_t sketch) {
+    id_sketch tmp;
+    tmp.id = id;
+    tmp.sketch = sketch;
+    return tmp;
+} // make_id_sketch
 
 
 template <typename Iter>

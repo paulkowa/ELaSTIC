@@ -185,7 +185,7 @@ namespace mpix {
       MPI_Gather(&tsz, 1, MPI_INT, &tasks_sz[0], 1, MPI_INT, root, Comm);
 
       if (rank == root) {
-	  for (int i = 1; i < size; ++i) tasks_disp[i] = tasks_disp[i - 1] + tasks_sz[i - 1];
+	  std::partial_sum(tasks_sz.begin(), tasks_sz.end() - 1, tasks_disp.begin() + 1);
 	  tasks_all.resize(std::accumulate(tasks_sz.begin(), tasks_sz.end(), 0) >> 1);
       }
 

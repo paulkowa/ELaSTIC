@@ -1,4 +1,4 @@
-ELaSTIC Similarity Graph Builder Version 1.59:2014-01-13
+ELaSTIC Similarity Graph Builder Version 1.61:2014-01-26
 Copyright (c) 2012-2014 Jaroslaw Zola
 
 Usage: elastic-sketch --input name --output name [options...]

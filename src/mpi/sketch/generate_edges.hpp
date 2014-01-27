@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012-2014 Jaroslaw Zola
- *  Distributed under the License.
+ *  Distributed under the MIT License.
  *  See accompanying LICENSE.
  *
  *  This file is part of ELaSTIC.
@@ -27,6 +27,7 @@
 
 #include <jaz/algorithm.hpp>
 #include <mpix2/partition_balance.hpp>
+#include <mpix2/sample_sort.hpp>
 #include <mpix2/simple_partition.hpp>
 
 #include "SequenceDB.hpp"
@@ -63,80 +64,32 @@ inline bool less2nd(const std::pair<T, U>& p1, const std::pair<T, U>& p2) {
 
 
 template <typename Iter>
-inline void update_counts(Iter first, Iter last, const std::vector<int>& rem_list, double jmin) {
+inline void update_counts(Iter first, Iter last, std::vector<id_sketch>& rem_list, double jmin) {
 #ifdef WITH_MPE
     mpix::MPE_Log mpe_log("update_counts", "red");
     mpe_log.start();
 #endif // WITH_MPE
 
-    std::vector<std::vector<int>::const_iterator> rem_index;
-    jaz::find_all(rem_list.begin(), rem_list.end(), std::back_inserter(rem_index), std::bind2nd(std::equal_to<int>(), -1));
+    typedef std::vector<id_sketch>::iterator vp_iterator;
 
-    unsigned int l = rem_index.size();
-    read_pair rp;
-
-    for (; first != last; ++first) {
-	std::vector<int>::const_iterator begin = rem_list.begin();
-
-	rp = kmer_fraction(*first);
-	if (rp.count > jmin) continue;
-
-	for (unsigned int i = 0; i < l; ++i) {
-	    if ((first->count + l - i) < (0.01 * jmin * first->size)) break;
-
-	    std::vector<int>::const_iterator end = rem_index[i];
-
-	    if (std::binary_search(begin, end, first->id0) && std::binary_search(begin, end, first->id1)) {
-		first->count++;
-	    }
-
-	    begin = end + 1;
-	} // for i
-
-    } // for first
-} // update_counts
-
-template <typename Iter>
-inline void update_counts2(Iter first, Iter last, std::vector<int>& rem_list, double jmin) {
-#ifdef WITH_MPE
-    mpix::MPE_Log mpe_log("update_counts", "red");
-    mpe_log.start();
-#endif // WITH_MPE
-
-    std::vector<int> rem_index(1, 0);
-    for (int i = 0; i != rem_list.size(); ++i) if (rem_list[i] == -1) rem_index.push_back(i);
-
-    std::vector<std::pair<int, int> > lst;
-
-    int l = rem_index.size() - 1;
-    read_pair rp;
-
-    for (int i = l; i != 0; --i) {
-	int pos = rem_index[i - 1];
-	int end = rem_index[i];
-	for (int j = pos; j != end; ++j) if (rem_list[j] != -1) lst.push_back(std::make_pair(rem_list[j], i));
-	rem_list.resize(pos);
-    } // for i
-
-    std::sort(lst.begin(), lst.end());
-
-    typedef std::vector<std::pair<int, int> >::iterator vp_iterator;
     std::pair<vp_iterator, vp_iterator> r0;
     std::pair<vp_iterator, vp_iterator> r1;
 
+    read_pair rp;
+
     for (; first != last; ++first) {
 	rp = kmer_fraction(*first);
 	if (rp.count > jmin) continue;
 
-	r0 = std::equal_range(lst.begin(), lst.end(), std::make_pair(first->id0, 0), less1st<int, int>);
-	r1 = std::equal_range(r0.second, lst.end(), std::make_pair(first->id1, 0), less1st<int, int>);
+	r0 = std::equal_range(rem_list.begin(), rem_list.end(), make_id_sketch(first->id0, 0), id_compare2);
+	r1 = std::equal_range(r0.second, rem_list.end(), make_id_sketch(first->id1, 0), id_compare2);
 
-	first->count += jaz::intersection_size(r0.first, r0.second, r1.first, r1.second, less2nd<int, int>);
+	first->count += jaz::intersection_size(r0.first, r0.second, r1.first, r1.second, sketch_compare2);
     }
-} // update_counts2
+} // update_counts
 
 
-void aggregate_rem_list(MPI_Comm comm, std::vector<int>& rem_list) {
+void aggregate_rem_list(MPI_Comm comm, std::vector<id_sketch>& rem_list) {
 #ifdef WITH_MPE
     mpix::MPE_Log mpe_log("aggregate_rem_list", "red");
     mpe_log.start();
@@ -148,15 +101,11 @@ void aggregate_rem_list(MPI_Comm comm, std::vector<int>& rem_list) {
     MPI_Comm_rank(comm, &rank);
 
     // sort rem_list for fast search
-    std::vector<std::vector<int>::iterator> rem_index;
-    jaz::find_all(rem_list.begin(), rem_list.end(), std::back_inserter(rem_index), std::bind2nd(std::equal_to<int>(), -1));
+    MPI_Datatype MPI_ID_SKETCH;
+    MPI_Type_contiguous(sizeof(id_sketch), MPI_BYTE, &MPI_ID_SKETCH);
+    MPI_Type_commit(&MPI_ID_SKETCH);
 
-    std::vector<int>::iterator it = rem_list.begin();
-
-    for (unsigned int i = 0; i < rem_index.size(); ++i) {
-	std::sort(it, rem_index[i]);
-	it = rem_index[i] + 1;
-    }
+    mpix::sample_sort(rem_list, MPI_ID_SKETCH, comm);
 
     // aggregate rem_list
     int rl_sz = rem_list.size();
@@ -167,12 +116,13 @@ void aggregate_rem_list(MPI_Comm comm, std::vector<int>& rem_list) {
     MPI_Allgather(&rl_sz, 1, MPI_INT, &rem_list_sz[0], 1, MPI_INT, comm);
 
     unsigned int g_rl_sz = std::accumulate(rem_list_sz.begin(), rem_list_sz.end(), 0);
-    std::vector<int> rem_list_global(g_rl_sz);
+    std::partial_sum(rem_list_sz.begin(), rem_list_sz.end() - 1, rem_list_off.begin());
 
-    for (unsigned int i = 1; i < size; ++i) rem_list_off[i] = rem_list_off[i - 1] + rem_list_sz[i - 1];
-
-    MPI_Allgatherv(&rem_list[0], rl_sz, MPI_INT, &rem_list_global[0], &rem_list_sz[0], &rem_list_off[0], MPI_INT, comm);
+    std::vector<id_sketch> rem_list_global(g_rl_sz);
+    MPI_Allgatherv(&rem_list[0], rl_sz, MPI_ID_SKETCH, &rem_list_global[0], &rem_list_sz[0], &rem_list_off[0], MPI_ID_SKETCH, comm);
     rem_list = rem_list_global;
+
+    MPI_Type_free(&MPI_ID_SKETCH);
 }; // aggregate_rem_list
 
 
@@ -186,7 +136,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 
     // create rem_list and remove singletons
     std::sort(sketch_list.begin(), sketch_list.end());
-    std::vector<int> rem_list;
+    std::vector<id_sketch> rem_list;
 
     typedef std::vector<sketch_id>::iterator si_iterator;
 
@@ -198,14 +148,12 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     while (iter != end) {
 	si_iterator temp = jaz::range(iter, end);
 	if (temp - iter >= opt.cmax) {
-	    // we store in the temporal list (-1 separates lists)
+	    // add to the rem_list
 	    for (si_iterator i = iter; i != temp; ++i) {
-		if (rem_list.empty() || (rem_list.back() != i->id)) {
-		    rem_list.push_back(i->id);
+		if (rem_list.empty() || (rem_list.back().id != i->id)) {
+		    rem_list.push_back(make_id_sketch(i->id, i->sketch));
 		}
 	    }
-
-	    rem_list.push_back(-1);
 
 	    // and remove from sketch_list
 	    std::copy(temp, end, iter);
@@ -350,7 +298,7 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
     aggregate_rem_list(comm, rem_list);
 
     // update counts
-    update_counts2(counts.begin(), counts.end(), rem_list, opt.jmin);
+    update_counts(counts.begin(), counts.end(), rem_list, opt.jmin);
 
 #ifdef WITH_MPE
     mpe_log.init("filter candidate edges", "red");
@@ -450,15 +398,6 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
     } // for i
 
     MPI_Type_free(&MPI_SKETCH_ID);
-
-    // rebalance graph for the next stage
-    MPI_Datatype MPI_READ_PAIR;
-    MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
-    MPI_Type_commit(&MPI_READ_PAIR);
-
-    mpix::simple_partition(edges, hash_read_pair2(SL.N, size), MPI_READ_PAIR, comm);
-
-    MPI_Type_free(&MPI_READ_PAIR);
 
     report << "" << std::endl;
 
