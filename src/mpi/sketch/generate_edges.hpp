@@ -52,19 +52,8 @@ inline int partition_level(int size) {
 } // partition_level
 
 
-template <typename T, typename U>
-inline bool less1st(const std::pair<T, U>& p1, const std::pair<T, U>& p2) {
-    return (p1.first < p2.first);
-} // less1st
-
-template <typename T, typename U>
-inline bool less2nd(const std::pair<T, U>& p1, const std::pair<T, U>& p2) {
-    return (p1.second < p2.second);
-} // less2nd
-
-
 template <typename Iter>
-inline void update_counts(Iter first, Iter last, std::vector<id_sketch>& rem_list, double jmin) {
+inline void update_counts(Iter first, Iter last, const std::vector<id_sketch>& rem_list, double jmin) {
 #ifdef WITH_MPE
     mpix::MPE_Log mpe_log("update_counts", "red");
     mpe_log.start();
@@ -116,7 +105,7 @@ void aggregate_rem_list(MPI_Comm comm, std::vector<id_sketch>& rem_list) {
     MPI_Allgather(&rl_sz, 1, MPI_INT, &rem_list_sz[0], 1, MPI_INT, comm);
 
     unsigned int g_rl_sz = std::accumulate(rem_list_sz.begin(), rem_list_sz.end(), 0);
-    std::partial_sum(rem_list_sz.begin(), rem_list_sz.end() - 1, rem_list_off.begin());
+    std::partial_sum(rem_list_sz.begin(), rem_list_sz.end() - 1, rem_list_off.begin() + 1);
 
     std::vector<id_sketch> rem_list_global(g_rl_sz);
     MPI_Allgatherv(&rem_list[0], rl_sz, MPI_ID_SKETCH, &rem_list_global[0], &rem_list_sz[0], &rem_list_off[0], MPI_ID_SKETCH, comm);
