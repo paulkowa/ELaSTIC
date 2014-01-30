@@ -59,7 +59,7 @@ inline void update_counts(Iter first, Iter last, const std::vector<id_sketch>& r
     mpe_log.start();
 #endif // WITH_MPE
 
-    typedef std::vector<id_sketch>::iterator vp_iterator;
+    typedef std::vector<id_sketch>::const_iterator vp_iterator;
 
     std::pair<vp_iterator, vp_iterator> r0;
     std::pair<vp_iterator, vp_iterator> r1;
