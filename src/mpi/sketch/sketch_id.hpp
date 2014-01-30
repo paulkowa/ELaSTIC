@@ -68,6 +68,11 @@ inline unsigned int hash_sketch_id(const sketch_id& si) {
     return *reinterpret_cast<const unsigned int*>(ptr + 2);
 } // hash_sketch_id
 
+inline unsigned int hash_sketch_id2(const sketch_id& si) {
+    uint64_t x = si.sketch;
+    x >>= 3;
+    return (x ^ (x >> 10) ^ (x >> 20));
+} // hash_sketch_id2
 
 struct id_sketch {
     unsigned int id;

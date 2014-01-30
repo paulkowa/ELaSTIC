@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <exception>
 #include <iterator>
 #include <numeric>
 #include <utility>
@@ -26,47 +27,105 @@
 
 namespace mpix {
 
+  class bad_sample : public virtual std::exception {
+      virtual const char* what() const throw() { return "mpix::bad_sample"; }
+  }; // class bad_sample
+
   namespace detail {
 
-    template <typename Sequence>
-    void skewed_sampling(const Sequence& seq, Sequence& out,
-			 int s, int p,
-			 MPI_Datatype Type, int root, MPI_Comm Comm) {
-	// p is always > 1
-	if (s == 0) s = (0.5 + std::sqrt(p));
-	int d = seq.size() / s;
+    template <typename Sequence, typename Pred>
+    void sampling(const Sequence& seq, Sequence& pivots, Pred pred, int C,
+		  MPI_Datatype Type, MPI_Comm Comm) {
+	typedef typename Sequence::value_type value_type;
+	typedef typename Sequence::const_iterator iterator;
 
-	Sequence sample;
-
-	if (d > 1) {
-	    int pos = d >> 1;
-	    sample.resize(s);
-	    for (int i = 0; i < s; ++i) sample[i] = seq[i * d + pos];
-	} else s = 0;
-
+	int size = 0;
 	int rank = 0;
+
+	MPI_Comm_size(Comm, &size);
 	MPI_Comm_rank(Comm, &rank);
 
-	std::vector<int> all_s(p);
+	int n = seq.size();
+	int p = size;
+
+	// get total size
+	int N = 0;
+	MPI_Allreduce(&n, &N, 1, MPI_INT, MPI_SUM, Comm);
+
+	// get sample
+	int d = std::max(N / (C * p), 2);
+	int s = n / d;
+
+	// we always sample smallest and largest element
+	Sequence sb(s + 1);
+
+	if (s > 0) {
+	    for (int i = 0; i < s; ++i) sb[i] = seq[i * d];
+	    sb.back() = seq.back();
+	    s++;
+	}
+
+	std::vector<int> all_s(p, 0);
 	std::vector<int> displ_s(p, 0);
 
-	MPI_Gather(&s, 1, MPI_INT, &all_s[0], 1, MPI_INT, root, Comm);
+	MPI_Allgather(&s, 1, MPI_INT, &all_s[0], 1, MPI_INT, Comm);
 
-	if (rank == root) {
-	    int S = std::accumulate(all_s.begin(), all_s.end(), 0);
-	    std::partial_sum(all_s.begin(), all_s.end() - 1, displ_s.begin() + 1);
-	    out.resize(S);
-	} // if rank == 0
+	int S = std::accumulate(all_s.begin(), all_s.end(), 0);
+	if (S < 2) throw bad_sample();
 
-	MPI_Gatherv(&sample[0], s, Type, &out[0], &all_s[0], &displ_s[0], Type, root, Comm);
-    } // skewed_sampling
+	std::partial_sum(all_s.begin(), all_s.end() - 1, displ_s.begin() + 1);
+
+	std::vector<value_type> sample(S);
+	MPI_Allgatherv(&sb[0], s, Type, &sample[0], &all_s[0], &displ_s[0], Type, Comm);
+
+	std::sort(sample.begin(), sample.end(), pred);
+
+	// get histogram
+	std::vector<int> hist(S, 0);
+	iterator iter = seq.begin();
+
+	for (int i = 0; i < S - 1; ++i) {
+	    iterator temp = std::upper_bound(iter, seq.end(), sample[i], pred);
+	    hist[i] = temp - iter;
+	    iter = temp;
+	}
+
+	hist.back() = seq.end() - iter;
+
+	std::vector<int> ghist(S, 0);
+	MPI_Allreduce(&hist[0], &ghist[0], S, MPI_INT, MPI_SUM, Comm);
+
+	// find pivots
+	pivots.resize(p - 1);
+
+	int sz = ghist[0];
+	int pos = 0;
+
+	d = std::max(N / p, 3);
+
+	// we use greedy approach here
+	for (int i = 1; (i < S - 1) && (pos < p - 1); ++i) {
+	    if (d < (sz + ghist[i])) {
+		if ((d - sz) < sz + ghist[i] - d) {
+		    pivots[pos] = sample[i - 1];
+		} else {
+		    pivots[pos] = sample[i];
+		    ++i;
+		}
+		sz = 0;
+		++pos;
+	    } // if d
+	    sz += ghist[i];
+	} // for i
+    } // sampling
 
   } // namespace detail
 
 
   template <typename Sequence, typename Pred>
-  void sample_sort(Sequence& seq, int s, Pred pred, MPI_Datatype Type, int root, MPI_Comm Comm) {
+  void sample_sort(Sequence& seq, Pred pred, int s, MPI_Datatype Type, MPI_Comm Comm) {
       typedef typename Sequence::value_type value_type;
+      typedef typename Sequence::iterator iterator;
 
       int size = 0;
       int rank = 0;
@@ -77,85 +136,56 @@ namespace mpix {
       int n = seq.size();
       int p = size;
 
-      // step 1: local sort
-      Sequence all_samples;
-
-      // step 2:
-      detail::skewed_sampling(seq, all_samples, s, p, Type, root, Comm);
-
+      // local sort
       std::sort(seq.begin(), seq.end(), pred);
       if (p == 1) return;
 
-      // step 3: find and distribute pivots
-      std::vector<value_type> sample(p - 1);
+      // pivots
+      if (s == 0) s = 16;
+      std::vector<value_type> pivots;
+      detail::sampling(seq, pivots, pred, s, Type, Comm);
 
-      if (rank == root) {
-	  std::sort(all_samples.begin(), all_samples.end(), pred);
+      // local buffers
+      std::vector<int> bin_sz(p, 0);
+      std::vector<int> bin_disp(p, 0);
 
-	  int ss = all_samples.size();
-	  if (ss < p - 1) all_samples.resize(p - 1, all_samples[ss - 1]);
+      iterator iter = seq.begin();
 
-	  int d = all_samples.size() / (p - 1);
-	  int pos = d >> 1;
-
-	  for (int i = 0; i < p - 1; ++i) sample[i] = all_samples[i * d + pos];
-      } // if rank == root
-
-      { Sequence().swap(all_samples); }
-
-      MPI_Bcast(&sample[0], p - 1, Type, root, Comm);
-
-      // step 4: reallocate data
-      // step 4a: find bins borders and distribute bins size
-      std::vector<int> bins(p, 0);
-
-      // bins stores displacement for local data (bins starting positions)
-      for (int i = 1; i < p; ++i) {
-	  bins[i] = std::upper_bound(seq.begin(), seq.end(), sample[i - 1], pred) - seq.begin();
+      for (int i = 0; i < p - 1; ++i) {
+	  iterator temp = std::upper_bound(iter, seq.end(), pivots[i], pred);
+	  bin_sz[i] = temp - iter;
+	  iter = temp;
       }
 
-      sample.clear();
-      std::vector<int> bins_sz(p, 0);
+      bin_sz.back() = seq.end() - iter;
 
-      // bins_sz stores size of each bin
-      for (int i = 1; i < p; ++i) {
-	  bins_sz[i - 1] = bins[i] - bins[i - 1];
-      }
-      bins_sz[p - 1] = n - bins[p - 1];
+      std::partial_sum(bin_sz.begin(), bin_sz.end() - 1, bin_disp.begin() + 1);
 
-      // all_bins_sz stores size of bins after data exchange
-      std::vector<int> all_bins_sz(p, 0);
-      MPI_Alltoall(&bins_sz[0], 1, MPI_INT, &all_bins_sz[0], 1, MPI_INT, Comm);
+      // exchange buffers
+      std::vector<int> all_bin_sz(p, 0);
+      std::vector<int> all_bin_disp(p, 0);
 
-      // step 4b: allocate memory and move data
-      int S = std::accumulate(all_bins_sz.begin(), all_bins_sz.end(), 0);
+      MPI_Alltoall(&bin_sz[0], 1, MPI_INT, &all_bin_sz[0], 1, MPI_INT, Comm);
 
-      std::vector<int> all_bins(p, 0);
-      std::partial_sum(all_bins_sz.begin(), all_bins_sz.end() - 1, all_bins.begin() + 1);
+      int S = std::accumulate(all_bin_sz.begin(), all_bin_sz.end(), 0);
+      std::partial_sum(all_bin_sz.begin(), all_bin_sz.end() - 1, all_bin_disp.begin() + 1);
 
+      // exchange
       Sequence data(S);
 
-      MPI_Alltoallv(&seq[0], &bins_sz[0], &bins[0], Type,
-		    &data[0], &all_bins_sz[0], &all_bins[0], Type, Comm);
+      MPI_Alltoallv(&seq[0], &bin_sz[0], &bin_disp[0], Type,
+		    &data[0], &all_bin_sz[0], &all_bin_disp[0], Type, Comm);
 
       seq = data;
 
-      // step 5: merge received data into final sorted range
-      // we use sorting instead of merge to save memory
-      // extra cost is negligible or can be actually better
-      // if we are short of memory
+      // sort (probably better than merge)
       std::sort(seq.begin(), seq.end(), pred);
-  } // sample_sort
-
-  template <typename Sequence, typename Pred>
-  void sample_sort(Sequence& seq, Pred pred, MPI_Datatype Type, MPI_Comm Comm) {
-      return sample_sort(seq, 0, pred, Type, 0, Comm);
   } // sample_sort
 
   template <typename Sequence>
   void sample_sort(Sequence& seq, MPI_Datatype Type, MPI_Comm Comm) {
       typedef typename Sequence::value_type value_type;
-      return sample_sort(seq, 0, std::less<value_type>(), Type, 0, Comm);
+      return sample_sort(seq, std::less<value_type>(), 16, Type, Comm);
   } // sample_sort
 
 } // namespace mpix

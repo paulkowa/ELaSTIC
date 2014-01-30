@@ -263,6 +263,12 @@ inline std::pair<bool, std::string> extract_seq_pairs(const AppConfig& opt, AppL
 	throw;
     }
 
+#ifdef WITH_MPE
+    mpe_log.stop();
+    mpe_log.init("compact counts", "red");
+    mpe_log.start();
+#endif // WITH_MPE
+
     // perform counts compaction
     std::sort(counts.begin(), counts.end());
     counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
@@ -371,7 +377,7 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 #endif // WITH_MPE
 
 	// group globally sketch list
-	mpix::simple_partition(sketch_list, hash_sketch_id, MPI_SKETCH_ID, comm);
+	mpix::simple_partition(sketch_list, hash_sketch_id2, MPI_SKETCH_ID, comm);
 
 #ifdef WITH_MPE
 	mpe_log.stop();
