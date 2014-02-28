@@ -11,16 +11,16 @@ compiler can be used to compile it.
 
 2. Requirements
 
-The main requirement are the Boost C++ Libraries, version 1.48 or newer.
-To compile elastic-prepare and elastic-cluster, three compiled libraries
-are necessary: Boost.Filesystem, Boost.IOstreams and Boost.System. Other
-tools depend on header-only libraries, e.g. Boost.Tuple. Note, that all major
-Linux distributions provide a Boost installation by default. If not, the Boost
-libraries can be obtained from http://www.boost.org/. To build elastic-sketch,
-which usually will be done on a cluster or other distributed memory resource,
-header-only libraries are sufficient. Finally, elastic-sketch requires an MPI
-implementation compatible with the MPI-2 standard, and with MPI I/O support
-enabled.
+The main requirement are the Boost C++ Libraries, version 1.48 or newer. To
+compile all tools except of elastic-sketch, three compiled Boost libraries are
+necessary: Boost.Filesystem, Boost.IOstreams and Boost.System. elastic-sketch
+depends on header-only libraries, e.g. Boost.Tuple. Note, that all major Linux
+distributions provide Boost by default. Otherwise, the Boost libraries can be
+obtained from http://www.boost.org/. Finally, to build elastic-sketch, which
+usually will be done on a cluster, MPI implementation compatible with the MPI-2
+standard and with MPI I/O support is required. Examples include MPICH
+(http://www.mpich.org/) and Open MPI (http://www.open-mpi.org/), and many
+hardware vendors provide MPI libraries derived from one of these implementations.
 
 
 3. What is in the package

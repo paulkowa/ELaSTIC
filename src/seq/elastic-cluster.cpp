@@ -16,16 +16,16 @@
 #include <iostream>
 #include <map>
 
-#include "config.hpp"
-#include "iomanip.hpp"
-#include "tools.hpp"
-
 #include <boost/lexical_cast.hpp>
 #include <boost/tuple/tuple.hpp>
 
 #include <jaz/parameters.hpp>
 #include <jaz/boost/files.hpp>
 #include <jaz/science/disjoint_set.hpp>
+
+#include "config.hpp"
+#include "iomanip.hpp"
+#include "tools.hpp"
 
 
 struct AppConfig {

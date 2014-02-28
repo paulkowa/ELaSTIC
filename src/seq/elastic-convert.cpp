@@ -17,6 +17,7 @@
 #include <map>
 
 #include <jaz/iterator.hpp>
+#include <jaz/boost/files.hpp>
 #include <jaz/parameters.hpp>
 
 #include <boost/lexical_cast.hpp>
@@ -39,7 +40,7 @@ struct AppConfig {
 	std::cout << "Usage: " << ELASTIC_CONVERT_SHORT << " --input name --output name --map name\n";
 	std::cout << "\n";
 	std::cout << "Options:\n";
-	std::cout << "  --input name          read input from this file\n";
+	std::cout << "  --input name          read input from this file/directory\n";
 	std::cout << "  --output name         write output to files with this prefix\n";
 	std::cout << "  --map name            read sequence map from this file\n";
 	std::cout << "\n";
@@ -116,9 +117,6 @@ void welcome() {
 std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& report) {
     double t0 = get_time();
 
-    std::ifstream fin(opt.input.c_str());
-    if (!fin) return std::make_pair(false, "unable to open " + opt.input);
-
     std::ofstream fout((opt.output + ".tsv").c_str());
     if (!fout) return std::make_pair(false, "unable to create " + opt.output + ".tsv");
 
@@ -127,32 +125,49 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     SequenceMap smap;
     if (smap.read(opt.map) == false) return std::make_pair(false, "unable to read " + opt.map);
 
+    // get files to process
+    report << step << "scanning " << opt.input << " for input files..." << std::endl;
+
+    std::vector<fs::path> files;
+
+    if (jaz::files(opt.input, std::back_inserter(files)) == false) {
+	return std::make_pair(false, "unable to scan " + opt.input);
+    }
+
+    if (files.empty() == true) return std::make_pair(false, "no files to process");
+
+    report << info << "found " << files.size() << " input file(s)" << std::endl;
     report << step << "converting graph, be patient..." << std::endl;
 
-    jaz::getline_iterator<> iter(fin), end;
+    for (unsigned int i = 0; i < files.size(); ++i) {
+	if (fs::is_regular_file(files[i]) == false) continue;
 
-    for (; iter != end; ++iter) {
-	std::istringstream is(*iter);
+	std::ifstream fs(files[i].string().c_str());
+	jaz::getline_iterator<> iter(fs), end;
 
-	unsigned int s;
-	is >> s;
-	if (!is) return std::make_pair(false, "unable to read " + opt.input);
+	for (; iter != end; ++iter) {
+	    std::istringstream is(*iter);
 
-	unsigned int t;
-	is >> t;
-	if (!is) return std::make_pair(false, "unable to read " + opt.input);
+	    unsigned int s;
+	    is >> s;
+	    if (!is) break;
 
-	std::string ln;
-	std::getline(is, ln);
-	std::replace(ln.begin(), ln.end(), ' ', '\t');
+	    unsigned int t;
+	    is >> t;
+	    if (!is) break;
 
-	SequenceMap::const_iterator siter0 = smap.find(s);
-	SequenceMap::const_iterator siter1 = smap.find(t);
+	    std::string ln;
+	    std::getline(is, ln);
+	    std::replace(ln.begin(), ln.end(), ' ', '\t');
 
-	if ((siter0 == smap.end()) || (siter1 == smap.end())) return std::make_pair(false, "incorrect index");
+	    SequenceMap::const_iterator siter0 = smap.find(s);
+	    SequenceMap::const_iterator siter1 = smap.find(t);
 
-	fout << siter0->name[0] << "\t" << siter1->name[0] << ln << std::endl;
-    } // for iter
+	    if ((siter0 == smap.end()) || (siter1 == smap.end())) return std::make_pair(false, "incorrect index");
+
+	    fout << siter0->name[0] << "\t" << siter1->name[0] << ln << std::endl;
+	} // for iter
+    } // for i
 
     fout.close();
     log.wtime = get_time() - t0;

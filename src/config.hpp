@@ -5,7 +5,7 @@
 
 #define ELASTIC_CONVERT_SHORT "elastic-convert"
 #define ELASTIC_CONVERT_FULL "ELaSTIC Similarity Graph Converter"
-#define ELASTIC_CONVERT_VERSION "0.1:2013-08-19"
+#define ELASTIC_CONVERT_VERSION "0.2:2014-02-28"
 #define ELASTIC_CONVERT_COPYRIGHT "Copyright (c) 2013 Jaroslaw Zola"
 
 #define ELASTIC_FINALIZE_SHORT "elastic-finalize"
