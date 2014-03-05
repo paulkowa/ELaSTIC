@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the Boost Software License.
+ *  Distributed under the Boost Software License, Version 1.0
  *
  *  Boost Software License - Version 1.0 - August 17th, 2003
  *

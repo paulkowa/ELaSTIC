@@ -7,7 +7,7 @@
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *          Xiao Yang <eks.yang@gmail.com>
  *  Distributed under the MIT License.
- *  See accompanying LICENSE.
+ *  See accompanying file LICENSE_MIT.txt.
  *
  *  This file is part of CLOSET.
  *  This file is part of ELaSTIC.

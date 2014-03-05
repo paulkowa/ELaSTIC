@@ -5,9 +5,9 @@
  *  Created: May 20, 2012
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
- *  Copyright (c) 2012-2013 Jaroslaw Zola
+ *  Copyright (c) 2012-2014 Jaroslaw Zola
  *  Distributed under the MIT License.
- *  See accompanying LICENSE.
+ *  See accompanying file LICENSE_MIT.txt.
  *
  *  This file is part of ELaSTIC.
  */
@@ -16,6 +16,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <set>
 #include <string>
 
 #include "SequenceCodec.hpp"
@@ -403,6 +404,7 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     std::vector<std::string> delseq; // removed sequences
 
     std::vector<SequenceDesc> sdesc;
+    std::set<std::string> snames;
 
     bool is_last = false;
 
@@ -427,6 +429,12 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
 	    if (is_last == false) {
 		seqs.push_back(*fi);
 		++fi;
+
+		bool res;
+		std::set<std::string>::iterator sniter;
+
+		boost::tie(sniter, res) = snames.insert(seqs.back().first);
+		if (res == false) return std::make_pair(false, "multiple sequences with the same name " + seqs.back().first);
 	    }
 
 	    // if buffer is full or we are done processing
@@ -533,16 +541,10 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     std::sort(cluster.begin(), cluster.end(), seq_compare);
 
     unsigned int sid = 0;
-
     std::map<std::string, unsigned int> name2id;
 
     for (iter = cluster.begin(); iter != cluster.end(); ++iter, ++sid) {
-	bool res;
-	std::map<std::string, unsigned int>::iterator niter;
-
-	boost::tie(niter, res) = name2id.insert(std::make_pair(sdesc[iter->seqs[0]].name, sid));
-
-	if (res == false) return std::make_pair(false, "sequence with this name " + niter->first + " exists");
+	name2id.insert(std::make_pair(sdesc[iter->seqs[0]].name, sid));
     } // for iter
 
     // WRITE OUTPUT

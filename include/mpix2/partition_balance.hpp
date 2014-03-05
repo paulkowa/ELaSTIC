@@ -6,8 +6,8 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2013-2014 Jaroslaw Zola
- *  Distributed under the Boost Software License.
- *  See accompanying LICENSE.
+ *  Distributed under the Boost Software License, Version 1.0.
+ *  See accompanying file LICENSE_BOOST.txt.
  *
  *  This file is part of mpix2.
  */
