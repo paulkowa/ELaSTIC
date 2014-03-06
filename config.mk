@@ -1,26 +1,37 @@
 # -----------------------------------------------------
 
-# Compiler
+# Change your preferred C++ compiler
 CXX=g++
-AR=ar
 
-# MPI Compiler
+# Change your preferred MPI compiler
+# Most likely no changes needed
 MPICXX=mpicxx
 
-# OpenMP switch
+# Change OpenMP switch for your C++ compiler
+# Typical values (http://openmp.org/wp/openmp-compilers/):
+# -fopenmp for GCC (g++) and Clang/LLVM (clang++)
+# -openmp for Intel (icpc)
+# -mp for Portland Group (pgCC)
 OMPFLAGS=-fopenmp
 
-# Basic compiler flags (keep -std=c++0x if possible)
+# Tune C++ compiler optimization flags
+# Most likely no changes needed
+# Remove -std=c++0x for older compilers
 CXXFLAGS=-std=c++0x -O3
 
-# Boost library (if not in the standard location)
+# Set the Boost C++ Libraries paths if different from standard
 #BOOST_INCLUDE=-I/opt/boost/include
 #BOOST_LIB=-L/opt/boost/lib
 
+# Most likely AR does not have to be changed
+AR=ar
+
 # -----------------------------------------------------
 
-# Use MPE (for profiling only!)
-# MPE library (if needed, and not in standard location)
+# This section is for developers
+# Enable MPE for profiling only
+
+# MPE library if required, and not in standard location
 #MPE_LIB=-L/opt/mpe2/lib
 #MPE_FLAGS=-llmpe -lmpe
 #MPE_INCLUDE=-I/opt/mpe2/include

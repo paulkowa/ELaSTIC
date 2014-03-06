@@ -69,12 +69,12 @@ installed, and MPI compiler is available. Then, follow the steps below.
       OMPFLAGS option.
 
       CXX=g++
-      AR=ar
       MPICXX=mpicxx
       OMPFLAGS=-fopenmp
       CXXFLAGS=-O3
       BOOST_INCLUDE=-I/opt/boost/include
       BOOST_LIB=-L/opt/boost/lib
+      AR=ar
 
 4.A.3 Run make install to build the package:
 
@@ -110,7 +110,7 @@ MPI installation.
 
 Unlike other tools, elastic-sketch is meant to run on large distributed memory
 machines, such as clusters and supercomputers. Therefore, it can be built
-separately of other tools:
+separately from other tools:
 
 4.C.1 Execute steps 4.A.1 and 4.A.2. Note, that when editing config.mk
       OMPFLAGS and BOOST_LIB options can be completely ignored (you still
@@ -119,12 +119,12 @@ separately of other tools:
       GNU C++ to generate faster code than IBM XLC):
 
       CXX=powerpc-bgp-linux-g++
-      AR=ar
       MPICXX=mpicxx
       #OMPFLAGS=-fopenmp
       CXXFLAGS=-static -std=c++0x -mcpu=450fp2 -mstrict-align -fno-strict-aliasing -O3
       BOOST_INCLUDE=-I/scratch/bgapps/boost/include
       #BOOST_LIB=-L/opt/boost/lib
+      AR=ar
 
 4.C.2 Run make sketch-install to build elastic-sketch:
 
