@@ -1,6 +1,10 @@
+include config.mk
+
 all:	basic seq omp mpi
 
 install:	seq-install omp-install mpi-install
+	mkdir -p $(PREFIX)/share/doc/elastic-`cat VERSION`
+	cp doc/* $(PREFIX)/share/doc/elastic-`cat VERSION`
 
 basic:
 	$(MAKE) -C src/

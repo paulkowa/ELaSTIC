@@ -27,17 +27,21 @@ hardware vendors provide MPI libraries derived from one of these implementations
 
 The following files and directories are included in the package:
 
+config.mk
 doc/
 include/
-src/
-LICENSE
+INSTALL
+LICENSE_BOOST.txt
+LICENSE_MIT.txt
 Makefile
 README
-config.mk
+src/
+tests/
+VERSION
 
-The doc/ directory contains installation instruction and example configuration
-file for elastic-sketch. The include/ and src/ directories contain the source code
-of ELaSTIC. Finally, the LICENSE file contains licensing information.
+The INSTALL file contains installation instruction, and the doc/ directory
+example configuration file for elastic-sketch. The include/ and src/ directories
+contain the source code of ELaSTIC.
 
 
 4. Building and installation
@@ -61,13 +65,14 @@ installed, and MPI compiler is available. Then, follow the steps below.
       $ tar xfj ELaSTIC-X.Y.tar.bz2
       $ cd ELaSTIC-X.Y
 
-4.A.2 Using your favorite text editor, edit config.mk file to set compiler and
-      library paths. If you are working with a standard Linux system most likely
-      no changes will be required. Below, one example config.mk with Boost
-      installed in /opt/boost is provided. If your compiler does not support
-      OpenMP, or you do not want to use OpenMP parallelism, you can comment out
-      OMPFLAGS option.
+4.A.2 Using your favorite text editor, edit config.mk file to set installation
+      directory compiler and library paths. If you are working with a standard
+      Linux system most likely no changes will be required. Below, one example
+      config.mk with Boost installed in /opt/boost is provided. If your compiler
+      does not support OpenMP, or you do not want to use OpenMP parallelism, you
+      can comment out OMPFLAGS option.
 
+      PREFIX=/usr/local
       CXX=g++
       MPICXX=mpicxx
       OMPFLAGS=-fopenmp

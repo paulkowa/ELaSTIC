@@ -16,10 +16,12 @@ PROGS=elastic-cluster \
       elastic-finalize
 
 all: $(PROGS)
-
-install: $(PROGS)
 	mkdir -p ../../bin/
 	cp $(PROGS) ../../bin/
+
+install: $(PROGS)
+	mkdir -p $(PREFIX)/bin
+	cp $(PROGS) $(PREFIX)/bin
 
 clean:
 	rm -rf $(PROGS) *.o *.a

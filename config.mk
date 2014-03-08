@@ -1,5 +1,8 @@
 # -----------------------------------------------------
 
+# Prefix of the directory where ELaSTIC should be installed
+PREFIX=/usr/local
+
 # Change your preferred C++ compiler
 CXX=g++
 
