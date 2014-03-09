@@ -320,9 +320,9 @@ void clean_sequence(std::string& s, bool dna = true) {
     for (unsigned int i = 0; i < l; ++i) {
 	s[i] = std::toupper(s[i]);
 	if (dna == true) {
-	    if (std::find(NT, NT + sizeof(NT), s[i]) == false) s[i] = 'T';
+	    if (std::find(NT, NT + sizeof(NT), s[i]) == (NT + sizeof(NT))) s[i] = 'T';
 	} else {
-	    if (std::find(AA, AA + sizeof(AA), s[i]) == false) s[i] = 'A';
+	    if (std::find(AA, AA + sizeof(AA), s[i]) == (NT + sizeof(NT))) s[i] = 'A';
 	}
     }
 } // clean_sequence

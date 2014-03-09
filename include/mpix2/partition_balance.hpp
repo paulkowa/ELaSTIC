@@ -189,7 +189,7 @@ namespace mpix {
 	  tasks_all.resize(std::accumulate(tasks_sz.begin(), tasks_sz.end(), 0) >> 1);
       }
 
-      MPI_Gatherv(&tasks[0], tsz, MPI_INT, &tasks_all[0], &tasks_sz[0], &tasks_disp[0], MPI_INT, root, Comm);
+      MPI_Gatherv(reinterpret_cast<int*>(&tasks[0]), tsz, MPI_INT, reinterpret_cast<int*>(&tasks_all[0]), &tasks_sz[0], &tasks_disp[0], MPI_INT, root, Comm);
 
       // step 2: generate balancing moves
       std::vector<std::vector<detail::ext_task> > moves(size);
@@ -340,7 +340,7 @@ namespace mpix {
   void partition_balance(Sequence& seq, MPI_Datatype Type, MPI_Comm Comm) {
       typedef typename Sequence::value_type value_type;
       typedef typename Sequence::iterator iterator;
-      partition_balance(seq, std::equal_to<value_type>(), detail::linear<iterator>, Type, 0, Comm);
+      return partition_balance(seq, std::equal_to<value_type>(), detail::linear<iterator>, Type, 0, Comm);
   } // partition_balance
 
 } // namespace mpix
