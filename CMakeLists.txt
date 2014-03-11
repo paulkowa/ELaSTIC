@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 PROJECT(ELaSTIC)
 
@@ -18,22 +18,24 @@ FIND_PACKAGE(Boost 1.48.0)
 IF (Boost_FOUND)
   INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 ELSE()
-  MESSAGE(FATAL_ERROR "Boost header libraries not found!\nUse -DBOOST_ROOT=path to specify alternative location.")
+  MESSAGE(FATAL_ERROR "Boost header libraries not found!\nUse -DBOOST_ROOT=path to specify alternative location")
 ENDIF()
 
 IF (WITH_TOOLS)
+  SET(Boost_USE_MULTITHREADED OFF)
   FIND_PACKAGE(Boost 1.48.0 COMPONENTS filesystem iostreams system)
   IF (Boost_FOUND)
   ELSE()
-    message(FATAL_ERROR "Boost binary libraries not found!\nMake sure Boost binary components are installed.")
+    MESSAGE(FATAL_ERROR "Boost binary libraries not found!\nMake sure Boost binary components are installed")
   ENDIF()
 ENDIF()
 
 IF (WITH_SKETCH)
   FIND_PACKAGE(MPI)
   IF (MPI_FOUND)
+    MESSAGE(STATUS "Set MPI_CXX_COMPILER: ${MPI_CXX_COMPILER}")
   ELSE()
-    message(FATAL_ERROR "MPI library not found!\nMake sure MPI compiler is in your PATH.")
+    MESSAGE(FATAL_ERROR "MPI library not found!\nMake sure MPI compiler is in your PATH")
   ENDIF()
 ENDIF()
 
