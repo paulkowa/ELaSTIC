@@ -39,6 +39,8 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
     MPI_Comm_rank(comm, &rank);
 
     // check index size
+    if (rank == opt.dbg) report.stream << debug << "checking index" << std::endl;
+
     unsigned long int fsz = file_size((opt.input + ".eidx").c_str());
     if (fsz == 0) return std::make_pair(false, "unable to open " + opt.input + ".eidx");
 
@@ -55,6 +57,8 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
     if (nloc < 1) return std::make_pair(false, "too many processors for this problem");
 
     // read chunk of the index
+    if (rank == opt.dbg) report.stream << debug << "reading index" << std::endl;
+
     MPI_File fh;
     MPI_Status stat;
 
@@ -69,11 +73,15 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
     std::transform(index.begin(), index.end(), index.begin(), ntohs);
 
     // get offset of the actual data to read
+    if (rank == opt.dbg) report.stream << debug << "getting offset" << std::endl;
+
     unsigned int goffset = 0;
     offset = std::accumulate(index.begin(), index.end(), 0);
     MPI_Exscan(&offset, &goffset, 1, MPI_UNSIGNED, MPI_SUM, comm);
 
-    // read actual data
+    // read actual sequences
+    if (rank == opt.dbg) report.stream << debug << "reading sequences" << std::endl;
+
     fsz = file_size((opt.input + ".eseq").c_str());
     if (fsz == 0) return std::make_pair(false, "unable to open " + opt.input + ".eseq");
 
@@ -85,6 +93,8 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
     MPI_File_close(&fh);
 
     // extract sequences
+    if (rank == opt.dbg) report.stream << debug << "extracting sequences" << std::endl;
+
     std::vector<Sequence>& seqs = SL.seqs;
 
     SequenceCodec sc(opt.is_dna);

@@ -1,4 +1,4 @@
-ELaSTIC Similarity Graph Builder Version 1.61:2014-01-26
+ELaSTIC Similarity Graph Builder Version 1.63:2014-04-25
 Copyright (c) 2012-2014 Jaroslaw Zola
 
 Usage: elastic-sketch --input name --output name [options...]
@@ -11,7 +11,7 @@ Options:
   --sigma type       use this compressed amino acid alphabet (default A20)
   --compress {0|1}   use compressed alphabet during validation (default 0)
   --method type      use this method for validation (default 0)
-  --kmer size        use kmers of this size (default 15)
+  --kmer size        use kmers of this size (default 16)
   --gaps type        use these alignment parameters (default [1,-2,-10,-1])
   --level size       use this threshold during validation (default 75)
   --factor {0|1}     output intermediate values of similarity score (default 0)
@@ -20,5 +20,4 @@ Options:
   --cmax size        use this limit to mark frequent kmers (default 10000)
   --jmin size        use this limit to extract candidate pairs (default 50)
   --wsq {0|1}        enable work stealing during validation (default 1)
-  --mem size         use that many MB of memory per process (default 50% main memory)
 

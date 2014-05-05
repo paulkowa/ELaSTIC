@@ -106,18 +106,14 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     // at the end processors are most likely out of sync
     std::vector<read_pair> edges;
 
-    try { boost::tie(res, err) = generate_edges(opt, log, report, comm, SL, shingles, edges); }
-    catch (std::bad_alloc&) {
-	report.critical << error << "insufficient memory, use more nodes" << std::endl;
-	MPI_Abort(comm, MPI_ABRT_SIG);
-    }
-
-    unsigned long long int etot = edges.size();
+    boost::tie(res, err) = generate_edges(opt, log, report, comm, SL, shingles, edges);
 
     if (res == false) {
 	report.critical << error << err << std::endl;
 	MPI_Abort(comm, MPI_ABRT_SIG);
     }
+
+    unsigned long long int etot = edges.size();
 
 
     // initialize RMA
@@ -186,6 +182,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     report << info << "validation phase: " << (gtv1 - gtv0) << std::endl;
     report << info << "edge throughput: " << static_cast<unsigned int>(num_cedges / (gtv1 - gtv0)) << std::endl;
     report << info << "fraction processed: " << fa2a << std::endl;
+    report << info << "fraction accepted: " << static_cast<double>(log.vedges) / log.cedges << std::endl;
 
     // write log
     if (rank == 0) {
@@ -248,7 +245,7 @@ int main(int argc, char* argv[]) {
     } // if res
 
     // set reporter
-    Reporter report = (rank == 0) ? Reporter(std::cout, std::cout) : Reporter(nout, std::cout);
+    Reporter report = (rank == 0) ? Reporter(std::cout, std::cout) : Reporter(std::cout, nout, std::cout);
 
     // create config and log
     AppConfig opt;

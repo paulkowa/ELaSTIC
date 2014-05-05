@@ -26,10 +26,12 @@ extern null_ostream nout;
 
 
 struct Reporter {
-    Reporter() : normal(std::cout), critical(std::cerr) { }
-    Reporter(std::ostream& out) : normal(out), critical(out) { }
-    Reporter(std::ostream& out, std::ostream& err) : normal(out), critical(err) { }
+    Reporter() : stream(std::cout), normal(std::cout), critical(std::cerr) { }
+    Reporter(std::ostream& out) : stream(out), normal(out), critical(out) { }
+    Reporter(std::ostream& out, std::ostream& err) : stream(out), normal(out), critical(err) { }
+    Reporter(std::ostream& str, std::ostream& out, std::ostream& err) : stream(str), normal(out), critical(err) { }
 
+    std::ostream& stream;
     std::ostream& normal;
     std::ostream& critical;
 }; // struct Reporter
@@ -72,6 +74,11 @@ inline std::ostream& clock(std::ostream& os) {
     os << "";
     return os;
 } // clock
+
+inline std::ostream& debug(std::ostream& os) {
+    os << "= ";
+    return os;
+} // debug
 
 class timer {
 public:

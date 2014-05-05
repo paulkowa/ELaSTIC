@@ -19,8 +19,6 @@
 #include <iostream>
 #include <string>
 
-#include <unistd.h>
-
 #include <boost/lexical_cast.hpp>
 #include <boost/tuple/tuple.hpp>
 
@@ -32,13 +30,6 @@
 #include "config.hpp"
 
 
-inline std::size_t sysmem() {
-    long int pages = sysconf(_SC_PHYS_PAGES);
-    long int page_sz = sysconf(_SC_PAGE_SIZE);
-    return pages * page_sz;
-} // sysmem
-
-
 struct AppConfig {
     AppConfig() {
 	input = "";
@@ -47,7 +38,7 @@ struct AppConfig {
 	sigma = "A20";
 	compress = 0;
 	method = 0;
-	kmer = 15;
+	kmer = 16;
 	gaps = "[1,-2,-10,-1]";
 	level = 75;
 	factor = false;
@@ -57,7 +48,7 @@ struct AppConfig {
 	jmin = 50;
 	eps = 0;
 	wsq = true;
-	mem = sysmem() / 2;
+	dbg = -1;
 
 	params.push_back("input");
 	params.push_back("output");
@@ -76,7 +67,7 @@ struct AppConfig {
 	params.push_back("jmin");
 	params.push_back("eps");
 	params.push_back("wsq");
-	params.push_back("mem");
+	params.push_back("dbg");
     } // AppConfig
 
     static void usage() {
@@ -90,7 +81,7 @@ struct AppConfig {
 	std::cout << "  --sigma type       use this compressed amino acid alphabet (default A20)\n";
 	std::cout << "  --compress {0|1}   use compressed alphabet during validation (default 0)\n";
 	std::cout << "  --method type      use this method for validation (default 0)\n";
-	std::cout << "  --kmer size        use kmers of this size (default 15)\n";
+	std::cout << "  --kmer size        use kmers of this size (default 16)\n";
 	std::cout << "  --gaps type        use these alignment parameters (default [1,-2,-10,-1])\n";
 	std::cout << "  --level size       use this threshold during validation (default 75)\n";
 	std::cout << "  --factor {0|1}     output intermediate values of similarity score (default 0)\n";
@@ -99,7 +90,6 @@ struct AppConfig {
 	std::cout << "  --cmax size        use this limit to mark frequent kmers (default 10000)\n";
 	std::cout << "  --jmin size        use this limit to extract candidate pairs (default 50)\n";
 	std::cout << "  --wsq {0|1}        enable work stealing during validation (default 1)\n";
-	std::cout << "  --mem size         use that many MB of memory per process (default 50% main memory)\n";
 	std::cout << "\n";
     } // usage
 
@@ -241,13 +231,13 @@ struct AppConfig {
 		wsq = boost::lexical_cast<bool>(val);
 	    }
 
-	    if (jaz::check_option(ext_conf, "mem", val) == true) {
-		mem = boost::lexical_cast<unsigned int>(val);
-		mem = mem * 1024 * 1024;
-		if (sysmem() < mem) {
-		    return std::make_pair(false, "incorrect mem");
+	    if (jaz::check_option(ext_conf, "dbg", val) == true) {
+		dbg = boost::lexical_cast<int>(val);
+		if (dbg < 0) {
+		    return std::make_pair(false, "incorrect dbg");
 		}
 	    }
+
 	} catch (boost::bad_lexical_cast& ex) {
 	    return std::make_pair(false, "incorrect argument(s)");
 	}
@@ -280,7 +270,7 @@ struct AppConfig {
     unsigned short int jmin;
     unsigned int eps; // for internal use :-)
     bool wsq;
-    std::size_t mem;
+    int dbg; // for internal use :-)
 
     std::vector<std::string> params;
 
@@ -300,7 +290,6 @@ struct AppConfig {
 	os << "cmax = " << opt.cmax << "\n";
 	os << "jmin = " << opt.jmin << "\n";
 	os << "wsq = " << opt.wsq << "\n";
-	os << "mem = " << static_cast<int>(opt.mem / (1024 * 1024)) << "\n";
 	return os;
     } // operator<<
 

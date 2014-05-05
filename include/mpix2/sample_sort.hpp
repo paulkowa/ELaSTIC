@@ -34,7 +34,7 @@ namespace mpix {
   namespace detail {
 
     template <typename Sequence, typename Pred>
-    void sampling(const Sequence& seq, Sequence& pivots, Pred pred, int C,
+    bool sampling(const Sequence& seq, Sequence& pivots, Pred pred, int C,
 		  MPI_Datatype Type, MPI_Comm Comm) {
 	typedef typename Sequence::value_type value_type;
 	typedef typename Sequence::const_iterator iterator;
@@ -52,6 +52,9 @@ namespace mpix {
 	int N = 0;
 	MPI_Allreduce(&n, &N, 1, MPI_INT, MPI_SUM, Comm);
 
+	// if N < 2 nothing to sort
+	if (N < 2) return false;
+
 	// get sample
 	int d = std::max(N / (C * p), 2);
 	int s = n / d;
@@ -59,8 +62,9 @@ namespace mpix {
 	// we always sample smallest and largest element
 	Sequence sb(s + 1);
 
-	if (s > 0) {
-	    for (int i = 0; i < s; ++i) sb[i] = seq[i * d];
+	if (s > 0) for (int i = 0; i < s; ++i) sb[i] = seq[i * d];
+
+	if (n > 0) {
 	    sb.back() = seq.back();
 	    s++;
 	}
@@ -117,6 +121,8 @@ namespace mpix {
 	    } // if d
 	    sz += ghist[i];
 	} // for i
+
+	return true;
     } // sampling
 
   } // namespace detail
@@ -143,7 +149,7 @@ namespace mpix {
       // pivots
       if (s == 0) s = 16;
       std::vector<value_type> pivots;
-      detail::sampling(seq, pivots, pred, s, Type, Comm);
+      if (detail::sampling(seq, pivots, pred, s, Type, Comm) == false) return;
 
       // local buffers
       std::vector<int> bin_sz(p, 0);

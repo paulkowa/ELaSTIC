@@ -31,8 +31,8 @@ method = 0
 
 # Set the kmer size used during the sketching phase, and during validation
 # if the kmer fraction method is selected.
-# Default: 15
-kmer = 15
+# Default: 16
+kmer = 16
 
 # Set affine gap alignment parameters (valid for alignment-based methods only).
 # Format used is [match,substitution,gap opening,gap extension],
@@ -75,7 +75,3 @@ jmin = 50
 # Enable work-stealing in the validation phase.
 # Default: 1
 wsq = 1
-
-# Set the total memory available to a process (in MB).
-# Default: 50% of the local main memory.
-#mem = ?
