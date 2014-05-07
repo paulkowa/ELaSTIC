@@ -22,6 +22,7 @@
 #include <boost/tuple/tuple.hpp>
 
 #include <bio/sequence_compare.hpp>
+#include <jaz/science/sffun.h>
 #include <jaz/hash.hpp>
 
 #include <mpi.h>
@@ -288,7 +289,7 @@ struct read_pair {
     unsigned int id1;
     unsigned short int size;
     unsigned short int count;
-    int score;
+    int score; // aux variable until validation stage
 }; // struct read_pair
 
 inline std::ostream& operator<<(std::ostream& os, const read_pair& rp) {
@@ -313,6 +314,22 @@ inline read_pair operator+(const read_pair& lhs, const read_pair& rhs) {
     tmp.count += rhs.count;
     return tmp;
 } // operator+
+
+class locality_compare {
+public:
+    locality_compare(unsigned int n, int size) :  i2r_(n, size) { }
+
+    bool operator()(const read_pair& lhs, const read_pair& rhs) const {
+	// here score should be a block id containing given pair
+	if (lhs.score < rhs.score) return true;
+	if (rhs.score < lhs.score) return false;
+	return ((lhs.id0 < rhs.id0) || (!(rhs.id0 < lhs.id0) && (lhs.id1 < rhs.id1)));
+    } // operator<
+
+private:
+    id2rank i2r_;
+
+}; // class locality_compare
 
 inline bool source_compare(const read_pair& lhs, const read_pair& rhs) {
     return (lhs.id0 < rhs.id0);
@@ -387,7 +404,7 @@ public:
 private:
     id2rank i2r_;
 
-}; // hash_read_pair1
+}; // class hash_read_pair1
 
 
 class hash_read_pair2 {
@@ -401,7 +418,7 @@ public:
 private:
     id2rank i2r_;
 
-}; // hash_read_pair2
+}; // class hash_read_pair2
 
 
 class local {
@@ -463,6 +480,25 @@ private:
     id2rank i2r_;
 
 }; // class not_collocated
+
+
+class matrix_block {
+public:
+    matrix_block(unsigned int n, int size) : i2r_(n, size) {
+	bits_ = std::ceil(log2(size));
+    } // matrix_block
+
+    read_pair operator()(read_pair rp) const {
+	// id1 before id0 to get lower triangular matrix
+	rp.score = zsf(bits_, i2r_(rp.id1), i2r_(rp.id0));
+	return rp;
+    } // operator()
+
+private:
+    unsigned int bits_;
+    id2rank i2r_;
+
+}; // class matrix_block
 
 
 inline read_pair kmer_fraction(read_pair rp) {

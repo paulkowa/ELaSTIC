@@ -78,9 +78,9 @@ inline void update_counts(Iter first, Iter last, const std::vector<id_sketch>& r
 } // update_counts
 
 
-void aggregate_list(MPI_Comm comm, std::vector<id_sketch>& rem_list) {
+void aggregate_list(MPI_Comm comm, const std::vector<read_pair>& counts, std::vector<id_sketch>& rem_list) {
 #ifdef WITH_MPE
-    mpix::MPE_Log mpe_log("aggregate_rem_list", "red");
+    mpix::MPE_Log mpe_log("aggregate_list", "red");
     mpe_log.start();
 #endif // WITH_MPE
 
@@ -89,35 +89,80 @@ void aggregate_list(MPI_Comm comm, std::vector<id_sketch>& rem_list) {
     MPI_Comm_size(comm, &size);
     MPI_Comm_rank(comm, &rank);
 
-    // sort rem_list for fast search
     MPI_Datatype MPI_ID_SKETCH;
     MPI_Type_contiguous(sizeof(id_sketch), MPI_BYTE, &MPI_ID_SKETCH);
     MPI_Type_commit(&MPI_ID_SKETCH);
 
+    // sort rem_list for fast search
     mpix::sample_sort(rem_list, MPI_ID_SKETCH, comm);
 
-    // aggregate rem_list
-    int rl_sz = rem_list.size();
+    // distribute bin size and boundaries
+    std::vector<unsigned int> ranges(size, 0);
+    std::vector<unsigned int> rsizes(size, 0);
 
-    std::vector<int> rem_list_sz(size, 0);
-    std::vector<int> rem_list_off(size, 0);
+    std::vector<unsigned int>::iterator iter;
 
-    MPI_Allgather(&rl_sz, 1, MPI_INT, &rem_list_sz[0], 1, MPI_INT, comm);
+    unsigned int lid = (rem_list.empty()) ? 0 : rem_list.back().id + 1;
+    MPI_Allgather(&lid, 1, MPI_UNSIGNED, &ranges[0], 1, MPI_UNSIGNED, comm);
 
-    unsigned int g_rl_sz = std::accumulate(rem_list_sz.begin(), rem_list_sz.end(), 0);
-    std::partial_sum(rem_list_sz.begin(), rem_list_sz.end() - 1, rem_list_off.begin() + 1);
+    lid = rem_list.size();
+    MPI_Allgather(&lid, 1, MPI_UNSIGNED, &rsizes[0], 1, MPI_UNSIGNED, comm);
 
-    std::vector<id_sketch> rem_list_global(g_rl_sz);
-    MPI_Allgatherv(&rem_list[0], rl_sz, MPI_ID_SKETCH, &rem_list_global[0], &rem_list_sz[0], &rem_list_off[0], MPI_ID_SKETCH, comm);
-    rem_list = rem_list_global;
+    // check if rem_list is non-empty, correct if needed
+    int check = ranges[0];
+
+    for (int i = 1; i < size; ++i) {
+	check += ranges[i];
+	if (ranges[i] == 0) ranges[i] = ranges[i - 1];
+    }
+
+    if (check == 0) return;
+
+    // find which bins we need and their size
+    std::vector<int> rbins(size, -1);
+    std::vector<int> dbins(size, -1);
+
+    for (int i = 0; i < counts.size(); ++i) {
+	iter = std::lower_bound(ranges.begin(), ranges.end(), counts[i].id0, std::less<unsigned int>());
+	rbins[iter - ranges.begin()] = rank;
+	iter = std::lower_bound(iter, ranges.end(), counts[i].id1, std::less<unsigned int>());
+	rbins[iter - ranges.begin()] = rank;
+    }
+
+    unsigned int S = 0;
+    for (int i = 0; i < size; ++i) if (rbins[i] == rank) S += rsizes[i];
+
+    // tell others
+    MPI_Alltoall(&rbins[0], 1, MPI_INT, &dbins[0], 1, MPI_INT, comm);
+
+    // we have to send our chunk to dbins[] != 0
+    std::vector<id_sketch> agg_rem_list(S);
+
+    std::vector<int> scounts(size, 0);
+    std::vector<int> sdispl(size, 0);
+
+    for (int i = 0; i < size; ++i) if (dbins[i] != -1) scounts[i] = rem_list.size();
+
+    std::vector<int> rcounts(size, 0);
+    std::vector<int> rdispl(size, 0);
+
+    for (int i = 0; i < size; ++i) if (rbins[i] == rank) rcounts[i] = rsizes[i];
+    std::partial_sum(rcounts.begin(), rcounts.end() - 1, rdispl.begin() + 1);
+
+    MPI_Alltoallv(&rem_list[0], &scounts[0], &sdispl[0], MPI_ID_SKETCH,
+		  &agg_rem_list[0], &rcounts[0], &rdispl[0], MPI_ID_SKETCH, comm);
 
     MPI_Type_free(&MPI_ID_SKETCH);
+
+    rem_list = agg_rem_list;
+    std::sort(rem_list.begin(), rem_list.end());
 }; // aggregate_list
 
 
 template <typename Hash>
 inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
-						  std::vector<sketch_id>& sketch_list, Hash hash, std::vector<read_pair>& edges) {
+						  std::vector<sketch_id>& sketch_list, Hash hash, unsigned int N,
+						  std::vector<read_pair>& edges) {
     int size, rank;
 
     MPI_Comm_size(comm, &size);
@@ -294,6 +339,14 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 	std::sort(counts.begin(), counts.end());
 	counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
 
+	// score in read pairs stores its block id
+	// localize data for update
+	if (rank == opt.dbg) report.stream << debug << "redistributing compacted pairs" << std::endl;
+
+	// we use 100 somehow arbitrarily
+	std::transform(counts.begin(), counts.end(), counts.begin(), matrix_block(N, size));
+	mpix::sample_sort(counts, locality_compare(N, size), 100, MPI_READ_PAIR, comm);
+
 	MPI_Type_free(&MPI_READ_PAIR);
     } catch (...) {
 	return std::make_pair(false, "compaction failure,...");
@@ -307,7 +360,7 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
     if (rank == opt.dbg) report.stream << debug << "aggregating auxiliary list" << std::endl;
 
     try {
-	aggregate_list(comm, rem_list);
+	aggregate_list(comm, counts, rem_list);
     } catch (...) {
 	return std::make_pair(false, "aggregation failure,...");
     }
@@ -419,7 +472,7 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 	}
 
 	// add to edges read pairs with common sketches
-	boost::tie(res, err) = extract_pairs(opt, log, report, comm, sketch_list, hash_read_pair0, edges);
+	boost::tie(res, err) = extract_pairs(opt, log, report, comm, sketch_list, hash_read_pair0, SL.N, edges);
 	if (res == false) return std::make_pair(false, err);
 
 	sketch_list.clear();
