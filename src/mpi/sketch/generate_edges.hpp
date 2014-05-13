@@ -78,6 +78,41 @@ inline void update_counts(Iter first, Iter last, const std::vector<id_sketch>& r
 } // update_counts
 
 
+inline void compact_counts(const AppConfig& opt, Reporter& report, MPI_Comm comm,
+			   unsigned int N, std::vector<read_pair>& counts) {
+#ifdef WITH_MPE
+    mpix::MPE_Log mpe_log("compact_counts", "red");
+    mpe_log.start();
+#endif // WITH_MPE
+
+    int size, rank;
+
+    MPI_Comm_size(comm, &size);
+    MPI_Comm_rank(comm, &rank);
+
+    std::sort(counts.begin(), counts.end());
+    counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
+
+    std::transform(counts.begin(), counts.end(), counts.begin(), matrix_block(N, size));
+
+    // perform global reduction
+    MPI_Datatype MPI_READ_PAIR;
+    MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
+    MPI_Type_commit(&MPI_READ_PAIR);
+
+    mpix::simple_partition(counts, hash_read_pair3, MPI_READ_PAIR, comm);
+
+    std::sort(counts.begin(), counts.end());
+    counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
+
+    MPI_Type_free(&MPI_READ_PAIR);
+
+#ifdef WITH_MPE
+    mpe_log.stop();
+#endif // WITH_MPE
+} // compact_counts
+
+
 void aggregate_list(MPI_Comm comm, const std::vector<read_pair>& counts, std::vector<id_sketch>& rem_list) {
 #ifdef WITH_MPE
     mpix::MPE_Log mpe_log("aggregate_list", "red");
@@ -194,9 +229,8 @@ void aggregate_list(MPI_Comm comm, const std::vector<read_pair>& counts, std::ve
 }; // aggregate_list
 
 
-template <typename Hash>
 inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
-						  std::vector<sketch_id>& sketch_list, Hash hash, unsigned int N,
+						  std::vector<sketch_id>& sketch_list, unsigned int N,
 						  std::vector<read_pair>& edges) {
     int size, rank;
 
@@ -353,49 +387,14 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 
 #ifdef WITH_MPE
     mpe_log.stop();
-    mpe_log.init("compact counts", "red");
-    mpe_log.start();
 #endif // WITH_MPE
 
+    // perform counts compaction
     try {
-	// perform counts compaction
-	if (rank == opt.dbg) report.stream << debug << "compacting enumerated pairs" << std::endl;
-
-	// local reduction
-	if (rank == opt.dbg) report.stream << debug << " local" << std::endl;
-
-	std::sort(counts.begin(), counts.end());
-	counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
-
-	// perform global reduction
-	MPI_Datatype MPI_READ_PAIR;
-	MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
-	MPI_Type_commit(&MPI_READ_PAIR);
-
-	// compaction again
-	if (rank == opt.dbg) report.stream << debug << " global" << std::endl;
-
-        mpix::simple_partition(counts, hash_read_pair0, MPI_READ_PAIR, comm);
-
-	std::sort(counts.begin(), counts.end());
-	counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
-
-	// now score stores z-order block id
-	std::transform(counts.begin(), counts.end(), counts.begin(), matrix_block(N, size));
-
-	// we use 128 somehow arbitrary
-	if (rank == opt.dbg) report.stream << debug << " sort" << std::endl;
-
-	mpix::sample_sort(counts, locality_compare, 128, MPI_READ_PAIR, comm);
-
-	MPI_Type_free(&MPI_READ_PAIR);
+	compact_counts(opt, report, comm, N, counts);
     } catch (...) {
 	return std::make_pair(false, "compaction failure,...");
     }
-
-#ifdef WITH_MPE
-    mpe_log.stop();
-#endif // WITH_MPE
 
     // aggregate rem_list
     if (rank == opt.dbg) report.stream << debug << "aggregating auxiliary list" << std::endl;
@@ -434,7 +433,6 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 	    edges.push_back(*iter);
 	}
     }
-
 
 #ifdef WITH_MPE
     mpe_log.stop();
@@ -520,7 +518,7 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 	}
 
 	// add to edges read pairs with common sketches
-	boost::tie(res, err) = extract_pairs(opt, log, report, comm, sketch_list, hash_read_pair0, SL.N, edges);
+	boost::tie(res, err) = extract_pairs(opt, log, report, comm, sketch_list, SL.N, edges);
 	if (res == false) return std::make_pair(false, err);
 
 	sketch_list.clear();

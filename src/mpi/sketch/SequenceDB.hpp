@@ -412,18 +412,7 @@ private:
 }; // class hash_read_pair2
 
 
-class hash_read_pair3 {
-public:
-    hash_read_pair3(int size) {
-        rem_ = ((size + 1) >> 1) + 0.5;
-    } // hash_read_pair3
-
-    unsigned int operator()(const read_pair& rp) const { return rp.score / rem_; }
-
-private:
-    unsigned int rem_;
-
-}; // class hash_read_pair3
+inline unsigned int hash_read_pair3(const read_pair& rp) { return rp.score; }
 
 
 class local {
@@ -490,16 +479,18 @@ private:
 class matrix_block {
 public:
     matrix_block(unsigned int n, int size) : i2r_(n, size) {
-	bits_ = (sizeof(unsigned int) * CHAR_BIT) >> 1;
+	bsz_ = std::sqrt(0.5 * (size + 1)) + 0.5;
     } // matrix_block
 
     read_pair operator()(read_pair rp) const {
-	rp.score = zsf(bits_, i2r_(rp.id1), i2r_(rp.id0));
+	unsigned int row = i2r_(rp.id1);
+	unsigned int col = i2r_(rp.id0);
+	rp.score = ltsf2(row / bsz_, col / bsz_);
 	return rp;
     } // operator()
 
 private:
-    unsigned int bits_;
+    unsigned int bsz_;
     id2rank i2r_;
 
 }; // class matrix_block
