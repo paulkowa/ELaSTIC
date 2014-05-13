@@ -96,36 +96,72 @@ void aggregate_list(MPI_Comm comm, const std::vector<read_pair>& counts, std::ve
     // sort rem_list for fast search
     mpix::sample_sort(rem_list, MPI_ID_SKETCH, comm);
 
-    // distribute bin size and boundaries
+    // distribute current bin boundaries
     std::vector<unsigned int> ranges(size, 0);
+
+    int lid = rem_list.empty() ? 0 : rem_list.back().id;
+    MPI_Allgather(&lid, 1, MPI_UNSIGNED, &ranges[0], 1, MPI_UNSIGNED, comm);
+
+    // check if global rem_list is not empty
+    if (std::accumulate(ranges.begin(), ranges.end(), 0) == 0) return;
+
+    // rebalance by id overlapping lists
+    unsigned int sexchange = 0;
+    unsigned int rexchange = 0;
+
+    id_sketch is = make_id_sketch(rem_list.front().id, 0);
+
+    if ((rank > 0) && (!rem_list.empty())) {
+	if (ranges[rank - 1] == rem_list.front().id) {
+	    sexchange = std::upper_bound(rem_list.begin(), rem_list.end(), is, id_compare2) - rem_list.begin();
+	}
+    }
+
+    const int EXCHANGE_TAG = 111;
+    MPI_Status stat;
+
+    unsigned int rl_sz = rem_list.size();
+
+    if (rank == 0) {
+	MPI_Recv(&rexchange, 1, MPI_UNSIGNED, rank + 1, EXCHANGE_TAG, comm, &stat);
+	rem_list.resize(rl_sz + rexchange);
+	MPI_Recv(&rem_list[rl_sz], rexchange, MPI_ID_SKETCH, rank + 1, EXCHANGE_TAG, comm, &stat);
+    } else if (rank == size - 1) {
+	MPI_Send(&sexchange, 1, MPI_UNSIGNED, rank - 1, EXCHANGE_TAG, comm);
+	MPI_Send(&rem_list[0], sexchange, MPI_ID_SKETCH, rank - 1, EXCHANGE_TAG, comm);
+	rem_list.erase(rem_list.begin(), rem_list.begin() + sexchange);
+    } else {
+	MPI_Sendrecv(&sexchange, 1, MPI_UNSIGNED, rank - 1, EXCHANGE_TAG,
+		     &rexchange, 1, MPI_UNSIGNED, rank + 1, EXCHANGE_TAG, comm, &stat);
+	rem_list.resize(rl_sz + rexchange);
+	MPI_Sendrecv(&rem_list[0], sexchange, MPI_ID_SKETCH, rank - 1, EXCHANGE_TAG,
+		     &rem_list[rl_sz], rexchange, MPI_ID_SKETCH, rank + 1, EXCHANGE_TAG, comm, &stat);
+	rem_list.erase(rem_list.begin(), rem_list.begin() + sexchange);
+    }
+
+    // now we can send info about new limits and sizes
+    // we add 1 to get one-past-end element
     std::vector<unsigned int> rsizes(size, 0);
 
-    std::vector<unsigned int>::iterator iter;
-
-    unsigned int lid = (rem_list.empty()) ? 0 : rem_list.back().id + 1;
+    lid = rem_list.empty() ? 0 : rem_list.back().id + 1;
     MPI_Allgather(&lid, 1, MPI_UNSIGNED, &ranges[0], 1, MPI_UNSIGNED, comm);
 
     lid = rem_list.size();
     MPI_Allgather(&lid, 1, MPI_UNSIGNED, &rsizes[0], 1, MPI_UNSIGNED, comm);
 
-    // check if rem_list is non-empty, correct if needed
-    int check = ranges[0];
-
-    for (int i = 1; i < size; ++i) {
-	check += ranges[i];
-	if (ranges[i] == 0) ranges[i] = ranges[i - 1];
-    }
-
-    if (check == 0) return;
+    // correct for empty range
+    for (int i = 1; i < size; ++i) if (ranges[i] == 0) ranges[i] = ranges[i - 1];
 
     // find which bins we need and their size
+    std::vector<unsigned int>::iterator iter;
+
     std::vector<int> rbins(size, -1);
     std::vector<int> dbins(size, -1);
 
     for (int i = 0; i < counts.size(); ++i) {
-	iter = std::lower_bound(ranges.begin(), ranges.end(), counts[i].id0, std::less<unsigned int>());
+	iter = std::lower_bound(ranges.begin(), ranges.end(), counts[i].id0);
 	rbins[iter - ranges.begin()] = rank;
-	iter = std::lower_bound(iter, ranges.end(), counts[i].id1, std::less<unsigned int>());
+	iter = std::lower_bound(iter, ranges.end(), counts[i].id1);
 	rbins[iter - ranges.begin()] = rank;
     }
 
@@ -135,7 +171,7 @@ void aggregate_list(MPI_Comm comm, const std::vector<read_pair>& counts, std::ve
     // tell others
     MPI_Alltoall(&rbins[0], 1, MPI_INT, &dbins[0], 1, MPI_INT, comm);
 
-    // we have to send our chunk to dbins[] != 0
+    // we have to send our chunk to dbins[] != -1
     std::vector<id_sketch> agg_rem_list(S);
 
     std::vector<int> scounts(size, 0);
@@ -155,7 +191,6 @@ void aggregate_list(MPI_Comm comm, const std::vector<read_pair>& counts, std::ve
     MPI_Type_free(&MPI_ID_SKETCH);
 
     rem_list = agg_rem_list;
-    std::sort(rem_list.begin(), rem_list.end());
 }; // aggregate_list
 
 
@@ -326,6 +361,9 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 	// perform counts compaction
 	if (rank == opt.dbg) report.stream << debug << "compacting enumerated pairs" << std::endl;
 
+	// local reduction
+	if (rank == opt.dbg) report.stream << debug << " local" << std::endl;
+
 	std::sort(counts.begin(), counts.end());
 	counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
 
@@ -334,18 +372,21 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 	MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
 	MPI_Type_commit(&MPI_READ_PAIR);
 
-	mpix::simple_partition(counts, hash, MPI_READ_PAIR, comm);
+	// compaction again
+	if (rank == opt.dbg) report.stream << debug << " global" << std::endl;
+
+        mpix::simple_partition(counts, hash_read_pair0, MPI_READ_PAIR, comm);
 
 	std::sort(counts.begin(), counts.end());
 	counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
 
-	// score in read pairs stores its block id
-	// localize data for update
-	if (rank == opt.dbg) report.stream << debug << "redistributing compacted pairs" << std::endl;
-
-	// we use 100 somehow arbitrarily
+	// now score stores z-order block id
 	std::transform(counts.begin(), counts.end(), counts.begin(), matrix_block(N, size));
-	mpix::sample_sort(counts, locality_compare(N, size), 100, MPI_READ_PAIR, comm);
+
+	// we use 128 somehow arbitrary
+	if (rank == opt.dbg) report.stream << debug << " sort" << std::endl;
+
+	mpix::sample_sort(counts, locality_compare, 128, MPI_READ_PAIR, comm);
 
 	MPI_Type_free(&MPI_READ_PAIR);
     } catch (...) {
@@ -382,11 +423,18 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
     std::transform(counts.begin(), counts.end(), counts.begin(), kmer_fraction);
     counts.resize(std::remove_if(counts.begin(), counts.end(), not_similar(opt.jmin)) - counts.begin());
 
-    // store filtered edges (replace with inplace_merge?)
-    std::copy(counts.begin(), counts.end(), std::back_inserter(edges));
+    // add new edges
     std::sort(edges.begin(), edges.end());
 
-    edges.erase(std::unique(edges.begin(), edges.end()), edges.end());
+    unsigned int elim = edges.size();
+    typedef std::vector<read_pair>::iterator rp_iterator;
+
+    for (rp_iterator iter = counts.begin(); iter != counts.end(); ++iter) {
+	if (!std::binary_search(edges.begin(), edges.begin() + elim, *iter)) {
+	    edges.push_back(*iter);
+	}
+    }
+
 
 #ifdef WITH_MPE
     mpe_log.stop();

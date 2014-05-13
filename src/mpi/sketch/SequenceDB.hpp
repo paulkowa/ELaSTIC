@@ -315,21 +315,12 @@ inline read_pair operator+(const read_pair& lhs, const read_pair& rhs) {
     return tmp;
 } // operator+
 
-class locality_compare {
-public:
-    locality_compare(unsigned int n, int size) :  i2r_(n, size) { }
-
-    bool operator()(const read_pair& lhs, const read_pair& rhs) const {
-	// here score should be a block id containing given pair
-	if (lhs.score < rhs.score) return true;
-	if (rhs.score < lhs.score) return false;
-	return ((lhs.id0 < rhs.id0) || (!(rhs.id0 < lhs.id0) && (lhs.id1 < rhs.id1)));
-    } // operator<
-
-private:
-    id2rank i2r_;
-
-}; // class locality_compare
+inline bool locality_compare(const read_pair& lhs, const read_pair& rhs) {
+    // here score should be a block id containing given pair
+    if (lhs.score < rhs.score) return true;
+    if (rhs.score < lhs.score) return false;
+    return (lhs < rhs);
+} // locality_compare
 
 inline bool source_compare(const read_pair& lhs, const read_pair& rhs) {
     return (lhs.id0 < rhs.id0);
@@ -421,6 +412,20 @@ private:
 }; // class hash_read_pair2
 
 
+class hash_read_pair3 {
+public:
+    hash_read_pair3(int size) {
+        rem_ = ((size + 1) >> 1) + 0.5;
+    } // hash_read_pair3
+
+    unsigned int operator()(const read_pair& rp) const { return rp.score / rem_; }
+
+private:
+    unsigned int rem_;
+
+}; // class hash_read_pair3
+
+
 class local {
 public:
     local(unsigned int lo, unsigned int hi) : lo_(lo), hi_(hi) { }
@@ -485,11 +490,10 @@ private:
 class matrix_block {
 public:
     matrix_block(unsigned int n, int size) : i2r_(n, size) {
-	bits_ = std::ceil(log2(size));
+	bits_ = (sizeof(unsigned int) * CHAR_BIT) >> 1;
     } // matrix_block
 
     read_pair operator()(read_pair rp) const {
-	// id1 before id0 to get lower triangular matrix
 	rp.score = zsf(bits_, i2r_(rp.id1), i2r_(rp.id0));
 	return rp;
     } // operator()

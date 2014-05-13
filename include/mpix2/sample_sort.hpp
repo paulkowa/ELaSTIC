@@ -45,18 +45,19 @@ namespace mpix {
 	MPI_Comm_size(Comm, &size);
 	MPI_Comm_rank(Comm, &rank);
 
-	int n = seq.size();
+	long long int n = seq.size();
 	int p = size;
 
 	// get total size
-	int N = 0;
-	MPI_Allreduce(&n, &N, 1, MPI_INT, MPI_SUM, Comm);
+	long long int N = 0;
+	MPI_Allreduce(&n, &N, 1, MPI_LONG_LONG, MPI_SUM, Comm);
 
 	// if N < 2 nothing to sort
+	if (N < 0) throw bad_sample();
 	if (N < 2) return false;
 
 	// get sample
-	int d = std::max(N / (C * p), 2);
+	int d = std::max(N / (C * p), 2LL);
 	int s = n / d;
 
 	// we always sample smallest and largest element
@@ -105,7 +106,7 @@ namespace mpix {
 	int sz = ghist[0];
 	int pos = 0;
 
-	d = std::max(N / p, 3);
+	d = std::max(N / p, 3LL);
 
 	// we use greedy approach here
 	for (int i = 1; (i < S - 1) && (pos < p - 1); ++i) {

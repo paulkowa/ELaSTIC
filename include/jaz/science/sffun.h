@@ -134,8 +134,8 @@ inline unsigned int zsf(unsigned int z, unsigned int i, unsigned int j) {
     unsigned int r = 0;
     int b = 0;
 
-    bool b0;
-    bool b1;
+    unsigned int b0;
+    unsigned int b1;
 
     for (; b < z; ++b) {
 	b0 = (i & 1);
