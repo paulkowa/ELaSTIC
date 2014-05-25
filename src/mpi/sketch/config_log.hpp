@@ -46,9 +46,9 @@ struct AppConfig {
 	iter = 7;
 	cmax = 10000;
 	jmin = 50;
-	eps = 0;
 	wsq = true;
 	dbg = -1;
+	eps = 0;
 
 	params.push_back("input");
 	params.push_back("output");
@@ -65,9 +65,9 @@ struct AppConfig {
 	params.push_back("iterate");
 	params.push_back("cmax");
 	params.push_back("jmin");
+	params.push_back("steal");
+	params.push_back("debug");
 	params.push_back("eps");
-	params.push_back("wsq");
-	params.push_back("dbg");
     } // AppConfig
 
     static void usage() {
@@ -89,7 +89,7 @@ struct AppConfig {
 	std::cout << "  --iterate size     limit the number of sketching iterations to this (default 7)\n";
 	std::cout << "  --cmax size        use this limit to mark frequent kmers (default 10000)\n";
 	std::cout << "  --jmin size        use this limit to extract candidate pairs (default 50)\n";
-	std::cout << "  --wsq {0|1}        enable work stealing during validation (default 1)\n";
+	std::cout << "  --steal {0|1}      enable work stealing during validation (default 1)\n";
 	std::cout << "\n";
     } // usage
 
@@ -220,26 +220,25 @@ struct AppConfig {
 		}
 	    }
 
+	    if (jaz::check_option(ext_conf, "steal", val) == true) {
+		wsq = boost::lexical_cast<bool>(val);
+	    }
+
+	    if (jaz::check_option(ext_conf, "debug", val) == true) {
+		dbg = boost::lexical_cast<int>(val);
+		if (dbg < 0) {
+		    return std::make_pair(false, "incorrect debug");
+		}
+	    }
+
 	    if (jaz::check_option(ext_conf, "eps", val) == true) {
 		eps = boost::lexical_cast<unsigned int>(val);
 		if (eps > cmax) {
 		    return std::make_pair(false, "incorrect eps");
 		}
 	    }
-
-	    if (jaz::check_option(ext_conf, "wsq", val) == true) {
-		wsq = boost::lexical_cast<bool>(val);
-	    }
-
-	    if (jaz::check_option(ext_conf, "dbg", val) == true) {
-		dbg = boost::lexical_cast<int>(val);
-		if (dbg < 0) {
-		    return std::make_pair(false, "incorrect dbg");
-		}
-	    }
-
 	} catch (boost::bad_lexical_cast& ex) {
-	    return std::make_pair(false, "incorrect argument(s)");
+	    return std::make_pair(false, "incorrect type of argument(s)");
 	}
 
 	for (unsigned int i = 0; i < params.size(); ++i) {
@@ -268,9 +267,9 @@ struct AppConfig {
     short int iter;
     unsigned int cmax;
     unsigned short int jmin;
-    unsigned int eps; // for internal use :-)
     bool wsq;
-    int dbg; // for internal use :-)
+    int dbg; // internal: print debug information
+    unsigned int eps; // internal: partition size in sketching balance
 
     std::vector<std::string> params;
 
@@ -289,7 +288,7 @@ struct AppConfig {
 	os << "iterate = " << opt.iter << "\n";
 	os << "cmax = " << opt.cmax << "\n";
 	os << "jmin = " << opt.jmin << "\n";
-	os << "wsq = " << opt.wsq << "\n";
+	os << "steal = " << opt.wsq << "\n";
 	return os;
     } // operator<<
 

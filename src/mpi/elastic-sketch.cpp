@@ -31,6 +31,11 @@
 #include "sketch/validate_edges.hpp"
 #include "sketch/write_output.hpp"
 
+#include <boost/accumulators/accumulators.hpp>
+#include <boost/accumulators/statistics/stats.hpp>
+#include <boost/accumulators/statistics/min.hpp>
+#include <boost/accumulators/statistics/max.hpp>
+#include <boost/accumulators/statistics/mean.hpp>
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/tuple/tuple.hpp>
@@ -79,6 +84,19 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 	MPI_Abort(comm, MPI_ABRT_SIG);
     }
 
+    // generate profiling report
+    if (rank == opt.dbg) {
+	using namespace boost::accumulators;
+	accumulator_set<unsigned int, stats<tag::min, tag::max, tag::mean, tag::sum> > acc;
+
+	for (unsigned int i = 0; i < SL.seqs.size(); ++i) acc(SL.seqs[i].s.size());
+	unsigned int mem = SL.seqs.size() * sizeof(Sequence) + sum(acc);
+
+	report.stream << debug << "SL.seqs: " << SL.seqs.size()
+		      << ", min/avg/max: " << min(acc) << "/" << mean(acc) << "/" << max(acc)
+		      << " memory: " << mem << std::endl;
+    } // if dbg
+
 
     // generate shingles
     jaz::murmur264 hash;
@@ -90,6 +108,16 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 	report.critical << error << err << std::endl;
 	MPI_Abort(comm, MPI_ABRT_SIG);
     }
+
+    // generate profiling report
+    if (rank == opt.dbg) {
+	unsigned int S = 0;
+
+	for (unsigned int i = 0; i < shingles.size(); ++i) S += shingles[i].size();
+	unsigned int mem = sizeof(shingles) + S * sizeof(shingle_list_type::value_type);
+
+	report.stream << debug << "shingles, memory: " << mem << std::endl;
+    } // if dbg
 
 
     // compress sequences

@@ -478,20 +478,21 @@ private:
 
 class matrix_block {
 public:
-    matrix_block(unsigned int n, int size) : i2r_(n, size) {
+    matrix_block(unsigned int n, int size) : i2r_(n, size), size_(size) {
 	bsz_ = std::sqrt(0.5 * (size + 1)) + 0.5;
     } // matrix_block
 
     read_pair operator()(read_pair rp) const {
 	unsigned int row = i2r_(rp.id1);
 	unsigned int col = i2r_(rp.id0);
-	rp.score = ltsf2(row / bsz_, col / bsz_);
+	rp.score = ltsf2(row / bsz_, col / bsz_) % size_;
 	return rp;
     } // operator()
 
 private:
     unsigned int bsz_;
     id2rank i2r_;
+    int size_;
 
 }; // class matrix_block
 

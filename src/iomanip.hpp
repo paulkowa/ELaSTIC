@@ -76,7 +76,7 @@ inline std::ostream& clock(std::ostream& os) {
 } // clock
 
 inline std::ostream& debug(std::ostream& os) {
-    os << "= ";
+    os << "...";
     return os;
 } // debug
 

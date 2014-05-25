@@ -1,4 +1,4 @@
-ELaSTIC Similarity Graph Builder Version 1.65:2014-05-07
+ELaSTIC Similarity Graph Builder Version 1.67:2014-05-14
 Copyright (c) 2012-2014 Jaroslaw Zola
 
 Usage: elastic-sketch --input name --output name [options...]
@@ -19,5 +19,5 @@ Options:
   --iterate size     limit the number of sketching iterations to this (default 7)
   --cmax size        use this limit to mark frequent kmers (default 10000)
   --jmin size        use this limit to extract candidate pairs (default 50)
-  --wsq {0|1}        enable work stealing during validation (default 1)
+  --steal {0|1}      enable work stealing during validation (default 1)
 

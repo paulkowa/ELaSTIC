@@ -74,4 +74,4 @@ jmin = 50
 
 # Enable work-stealing in the validation phase.
 # Default: 1
-wsq = 1
+steal = 1

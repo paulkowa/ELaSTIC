@@ -3,10 +3,11 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 PROJECT(ELaSTIC)
 
 SET(ELASTIC_VERSION_MAJOR 1)
-SET(ELASTIC_VERSION_MINOR 65)
+SET(ELASTIC_VERSION_MINOR 67)
 
-OPTION(WITH_SKETCH "Build elastic-sketch component" ON)
+OPTION(WITH_SKETCH "Build only elastic-sketch component" ON)
 OPTION(WITH_TOOLS "Build all tools except of elastic-sketch" ON)
+OPTION(WITH_MPE "Build with MPE profiler" OFF)
 
 IF (CMAKE_CXX_FLAGS)
 ELSE()

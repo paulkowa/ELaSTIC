@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include <boost/container/vector.hpp>
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 
@@ -34,7 +35,6 @@
 #include "config_log.hpp"
 #include "iomanip.hpp"
 
-#include "fast_vector.hpp"
 
 #ifdef WITH_MPE
 #include <mpix2/MPE_Log.hpp>
@@ -53,7 +53,7 @@ inline int partition_level(int size) {
 
 
 template <typename Iter>
-inline void update_counts(Iter first, Iter last, const std::vector<id_sketch>& rem_list, double jmin) {
+void update_counts(Iter first, Iter last, const std::vector<id_sketch>& rem_list, double jmin) {
 #ifdef WITH_MPE
     mpix::MPE_Log mpe_log("update_counts", "red");
     mpe_log.start();
@@ -78,8 +78,23 @@ inline void update_counts(Iter first, Iter last, const std::vector<id_sketch>& r
 } // update_counts
 
 
-inline void compact_counts(const AppConfig& opt, Reporter& report, MPI_Comm comm,
-			   unsigned int N, std::vector<read_pair>& counts) {
+class in_edges {
+public:
+    in_edges(const std::vector<read_pair>& edges) : edges_(edges) { }
+
+    bool operator()(const read_pair& rp) const {
+	return std::binary_search(edges_.begin(), edges_.end(), rp);
+    } // operator()
+
+private:
+    const std::vector<read_pair>& edges_;
+}; // class in_edges
+
+
+// if compact_counts changes the edge merging step must be updated!!!
+template <typename Sequence>
+void compact_counts(const AppConfig& opt, Reporter& report, MPI_Comm comm,
+		    unsigned int N, const std::vector<read_pair>& edges, Sequence& counts) {
 #ifdef WITH_MPE
     mpix::MPE_Log mpe_log("compact_counts", "red");
     mpe_log.start();
@@ -90,20 +105,62 @@ inline void compact_counts(const AppConfig& opt, Reporter& report, MPI_Comm comm
     MPI_Comm_size(comm, &size);
     MPI_Comm_rank(comm, &rank);
 
-    std::sort(counts.begin(), counts.end());
-    counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
-
-    std::transform(counts.begin(), counts.end(), counts.begin(), matrix_block(N, size));
-
-    // perform global reduction
     MPI_Datatype MPI_READ_PAIR;
     MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
     MPI_Type_commit(&MPI_READ_PAIR);
 
-    mpix::simple_partition(counts, hash_read_pair3, MPI_READ_PAIR, comm);
+    std::transform(counts.begin(), counts.end(), counts.begin(), matrix_block(N, size));
+
+    Sequence data;
+    data.reserve(counts.size() + (counts.size() >> 2));
+
+    const int DS = 10;
+    unsigned int bsz = std::ceil(1.0 * counts.size() / DS);
+
+    std::vector<read_pair> buf;
+    typename Sequence::iterator iter;
+
+    if (rank == opt.dbg) {
+	report.stream << debug << "DS: " << DS << " bsz: " << bsz << std::endl;
+    }
+
+    // this will work as long as counts are fairly randomly distributed
+    for (int i = 0; i < DS; ++i) {
+	iter = std::max(counts.begin(), counts.end() - bsz);
+	buf.resize(counts.end() - iter);
+
+	std::copy(iter, counts.end(), buf.begin());
+	counts.resize(iter - counts.begin());
+
+	mpix::simple_partition(buf, hash_read_pair3, MPI_READ_PAIR, comm);
+	buf.resize(std::remove_if(buf.begin(), buf.end(), in_edges(edges)) - buf.begin());
+	std::copy(buf.begin(), buf.end(), std::back_inserter(data));
+
+	if (rank == opt.dbg) {
+	    unsigned int mem = (buf.size() + counts.size() + data.size()) * sizeof(read_pair);
+	    unsigned int mem_res = (buf.capacity() + counts.capacity() + data.capacity()) * sizeof(read_pair);
+
+	    report.stream << debug << i
+			  << " counts: " << counts.size() << "/" << counts.capacity()
+			  << "\tbuf: " << buf.size() << "/" << buf.capacity()
+			  << "\tdata: " << data.size() << "/" << data.capacity()
+			  << "\tmemory: " << mem << "/" << mem_res << std::endl;
+	}
+    } // for i
+
+    counts = boost::move(data);
+
+    // run actual compaction
+    if (rank == opt.dbg) report.stream << debug << "compact" << std::endl;
 
     std::sort(counts.begin(), counts.end());
     counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
+
+    if (rank == opt.dbg) {
+	report.stream << debug << "counts: " << counts.size()
+		      << ", memory: " << counts.size() * sizeof(read_pair)
+		      << "/" << counts.capacity() * sizeof(read_pair) << std::endl;
+    }
 
     MPI_Type_free(&MPI_READ_PAIR);
 
@@ -113,7 +170,9 @@ inline void compact_counts(const AppConfig& opt, Reporter& report, MPI_Comm comm
 } // compact_counts
 
 
-void aggregate_list(MPI_Comm comm, const std::vector<read_pair>& counts, std::vector<id_sketch>& rem_list) {
+template <typename Sequence>
+void aggregate_list(const AppConfig& opt, Reporter& report, MPI_Comm comm,
+		    const Sequence& counts, std::vector<id_sketch>& rem_list) {
 #ifdef WITH_MPE
     mpix::MPE_Log mpe_log("aggregate_list", "red");
     mpe_log.start();
@@ -129,6 +188,8 @@ void aggregate_list(MPI_Comm comm, const std::vector<read_pair>& counts, std::ve
     MPI_Type_commit(&MPI_ID_SKETCH);
 
     // sort rem_list for fast search
+    if (rank == opt.dbg) report.stream << debug << "boundaries" << std::endl;
+
     mpix::sample_sort(rem_list, MPI_ID_SKETCH, comm);
 
     // distribute current bin boundaries
@@ -144,9 +205,9 @@ void aggregate_list(MPI_Comm comm, const std::vector<read_pair>& counts, std::ve
     unsigned int sexchange = 0;
     unsigned int rexchange = 0;
 
-    id_sketch is = make_id_sketch(rem_list.front().id, 0);
-
     if ((rank > 0) && (!rem_list.empty())) {
+	id_sketch is = make_id_sketch(rem_list.front().id, 0);
+
 	if (ranges[rank - 1] == rem_list.front().id) {
 	    sexchange = std::upper_bound(rem_list.begin(), rem_list.end(), is, id_compare2) - rem_list.begin();
 	}
@@ -200,14 +261,25 @@ void aggregate_list(MPI_Comm comm, const std::vector<read_pair>& counts, std::ve
 	rbins[iter - ranges.begin()] = rank;
     }
 
+    if (rank == opt.dbg) report.stream << debug << "aggregation" << std::endl;
+
+    unsigned int rb = 0;
     unsigned int S = 0;
-    for (int i = 0; i < size; ++i) if (rbins[i] == rank) S += rsizes[i];
+
+    for (int i = 0; i < size; ++i) if (rbins[i] == rank) { S += rsizes[i]; rb++; }
 
     // tell others
     MPI_Alltoall(&rbins[0], 1, MPI_INT, &dbins[0], 1, MPI_INT, comm);
 
     // we have to send our chunk to dbins[] != -1
     std::vector<id_sketch> agg_rem_list(S);
+
+    if (rank == opt.dbg) {
+	report.stream << debug << "agg_rem_list: " << S
+		      << ", memory: " << S * sizeof(id_sketch)
+		      << "/" << agg_rem_list.capacity() * sizeof(id_sketch)
+		      << " parts: " << rb << std::endl;
+    }
 
     std::vector<int> scounts(size, 0);
     std::vector<int> sdispl(size, 0);
@@ -238,7 +310,7 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
     MPI_Comm_rank(comm, &rank);
 
     // create rem_list and remove singletons
-    if (rank == opt.dbg) report.stream << debug << "building auxiliary list" << std::endl;
+    if (rank == opt.dbg) report.stream << debug << "creating rem_list" << std::endl;
 
     std::sort(sketch_list.begin(), sketch_list.end());
     std::vector<id_sketch> rem_list;
@@ -274,6 +346,16 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 
     sketch_list.resize(end - sketch_list.begin());
 
+    if (rank == opt.dbg) {
+	report.stream << debug << "rem_list: " << rem_list.size()
+		      << ", memory: " << rem_list.size() * sizeof(id_sketch)
+		      << "/" << rem_list.capacity() * sizeof(id_sketch) << std::endl;
+
+	report.stream << debug << "sketch_list: " << sketch_list.size()
+		      << ", memory: " << sketch_list.size() * sizeof(sketch_id)
+		      << "/" << sketch_list.capacity() * sizeof(sketch_id) << std::endl;
+    }
+
     // balance sketches
     if (rank == opt.dbg) report.stream << debug << "balancing sketches" << std::endl;
 
@@ -290,6 +372,7 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 
     if (opt.eps == 0) {
 	// find optimal size of partitioning
+	// sizes based on empirical data
 	unsigned int gmax_part = 0;
 	MPI_Allreduce(&max_part, &gmax_part, 1, MPI_UNSIGNED, MPI_MAX, comm);
 	part = gmax_part / partition_level(size);
@@ -315,6 +398,12 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
     mpix::partition_balance(sketch_list, std::equal_to<sketch_id>(),
 			    sketch_part_cost<si_iterator>, MPI_SKETCH_ID, 0, comm);
 
+    if (rank == opt.dbg) {
+	report.stream << debug << "sketch_list: " << sketch_list.size()
+		      << ", memory: " << sketch_list.size() * sizeof(sketch_id)
+		      << "/" << sketch_list.capacity() * sizeof(sketch_id) << std::endl;
+    }
+
 #ifdef WITH_MPE
     mpe_log.stop();
 #endif // WITH_MPE
@@ -327,9 +416,7 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 #endif // WITH_MPE
 
     // get local counts
-    if (rank == opt.dbg) report.stream << debug << "preparing to enumerate pairs" << std::endl;
-
-    std::vector<read_pair> counts;
+    boost::container::vector<read_pair> counts;
 
     // count required memory
     unsigned int count_alloc = 0;
@@ -356,8 +443,14 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 	return std::make_pair(false, "allocation failure,...");
     }
 
-    // generate
-    if (rank == opt.dbg) report.stream << debug << "enumerating candidate pairs" << std::endl;
+    if (rank == opt.dbg) {
+	report.stream << debug << "counts, reserved: " << counts.capacity() * sizeof(read_pair) << std::endl;
+    }
+
+    // generate counts
+    if (rank == opt.dbg) {
+	report.stream << debug << "generating counts" << std::endl;
+    }
 
     iter = sketch_list.begin();
 
@@ -385,28 +478,32 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 	iter = temp;
     } // while
 
+    sketch_list.clear();
+
 #ifdef WITH_MPE
     mpe_log.stop();
 #endif // WITH_MPE
 
     // perform counts compaction
+    if (rank == opt.dbg) report.stream << debug << "compacting counts" << std::endl;
+
     try {
-	compact_counts(opt, report, comm, N, counts);
+	compact_counts(opt, report, comm, N, edges, counts);
     } catch (...) {
 	return std::make_pair(false, "compaction failure,...");
     }
 
     // aggregate rem_list
-    if (rank == opt.dbg) report.stream << debug << "aggregating auxiliary list" << std::endl;
+    if (rank == opt.dbg) report.stream << debug << "aggregating rem_list" << std::endl;
 
     try {
-	aggregate_list(comm, counts, rem_list);
+	aggregate_list(opt, report, comm, counts, rem_list);
     } catch (...) {
 	return std::make_pair(false, "aggregation failure,...");
     }
 
     // update counts
-    if (rank == opt.dbg) report.stream << debug << "updating candidate pairs" << std::endl;
+    if (rank == opt.dbg) report.stream << debug << "updating counts" << std::endl;
 
     update_counts(counts.begin(), counts.end(), rem_list, opt.jmin);
 
@@ -417,21 +514,29 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 
     // approximate kmer fraction and filter edges
     // count is now approximated kmer fraction
-    if (rank == opt.dbg) report.stream << debug << "filtering candidate pairs" << std::endl;
+    if (rank == opt.dbg) report.stream << debug << "filtering edges" << std::endl;
 
     std::transform(counts.begin(), counts.end(), counts.begin(), kmer_fraction);
     counts.resize(std::remove_if(counts.begin(), counts.end(), not_similar(opt.jmin)) - counts.begin());
 
+    if (rank == opt.dbg) {
+	report.stream << debug << "counts: " << counts.size()
+		      << ", memory: " << counts.size() * sizeof(read_pair)
+		      << "/" << counts.capacity() * sizeof(read_pair) << std::endl;
+    }
+
     // add new edges
+    if (rank == opt.dbg) report.stream << debug << "merging edges" << std::endl;
+
+    // if compact_counts changes this has to be updated!!!
+    std::copy(counts.begin(), counts.end(), std::back_inserter(edges));
     std::sort(edges.begin(), edges.end());
 
-    unsigned int elim = edges.size();
-    typedef std::vector<read_pair>::iterator rp_iterator;
-
-    for (rp_iterator iter = counts.begin(); iter != counts.end(); ++iter) {
-	if (!std::binary_search(edges.begin(), edges.begin() + elim, *iter)) {
-	    edges.push_back(*iter);
-	}
+    if (rank == opt.dbg) {
+	report.stream << debug << "edges: " << edges.size()
+		      << ", +" << counts.size()
+		      << " memory: " << edges.size() * sizeof(read_pair)
+		      << "/" << edges.capacity() * sizeof(read_pair) << std::endl;
     }
 
 #ifdef WITH_MPE
@@ -467,9 +572,13 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
     bool res = false;
     std::string err = "";
 
+    // number of edge improvements
+    unsigned int tries = 0;
+
     // main loop (we look for several evidences to get edge)
     for (unsigned int i = 0; i < end; ++i) {
-	if (rank == opt.dbg) report.stream << debug << "iteration " << i << std::endl;
+	if (opt.dbg < 0) report << "." << std::flush;
+	if (rank == opt.dbg) report.stream << debug << "iteration: " << i << std::endl;
 
 #ifdef WITH_MPE
 	mpix::MPE_Log mpe_log("generate sketch_list", "red");
@@ -477,8 +586,6 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 #endif // WITH_MPE
 
 	// get sketch-read pairs for given mod value
-	if (rank == opt.dbg) report.stream << debug << "getting sketch-read pairs" << std::endl;
-
 	for (unsigned int j = 0; j < n; ++j) {
 	    unsigned int id = SL.seqs[j].id;
 
@@ -495,6 +602,12 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 	    for (unsigned int k = pos; k < l; ++k) sketch_list[k].size = (l - pos);
 	} // for j
 
+	if (rank == opt.dbg) {
+	    report.stream << debug << "sketch_list: " << sketch_list.size()
+			  << ", memory: " << sketch_list.size() * sizeof(sketch_id)
+			  << "/" << sketch_list.capacity() * sizeof(sketch_id) << std::endl;
+	}
+
 #ifdef WITH_MPE
 	mpe_log.stop();
 #endif // WITH_MPE
@@ -505,9 +618,15 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 #endif // WITH_MPE
 
 	// group globally sketch list
-	if (rank == opt.dbg) report.stream << debug << "grouping sketch list" << std::endl;
+	if (rank == opt.dbg) report.stream << debug << "grouping sketches" << std::endl;
 
 	mpix::simple_partition(sketch_list, hash_sketch_id2, MPI_SKETCH_ID, comm);
+
+	if (rank == opt.dbg) {
+	    report.stream << debug << "sketch_list: " << sketch_list.size()
+			  << ", memory: " << sketch_list.size() * sizeof(sketch_id)
+			  << "/" << sketch_list.capacity() * sizeof(sketch_id) << std::endl;
+	}
 
 #ifdef WITH_MPE
 	mpe_log.stop();
@@ -518,12 +637,19 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 	}
 
 	// add to edges read pairs with common sketches
+	unsigned int edges_sz = edges.size();
+
 	boost::tie(res, err) = extract_pairs(opt, log, report, comm, sketch_list, SL.N, edges);
 	if (res == false) return std::make_pair(false, err);
 
-	sketch_list.clear();
+	if (opt.dbg < 0) report << ":" << std::flush;
 
-	if (opt.dbg < 0) report << "." << std::flush;
+	// check if we are getting new edges
+	unsigned int ed = edges.size() - edges_sz;
+	MPI_Allreduce(&ed, &edges_sz, 1, MPI_UNSIGNED, MPI_SUM, comm);
+
+	if (edges_sz == 0) tries++; else tries = 0;
+	if (tries == 2) break;
     } // for i
 
     MPI_Type_free(&MPI_SKETCH_ID);
