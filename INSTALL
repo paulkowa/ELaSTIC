@@ -131,9 +131,9 @@ directory must be cleaned before calling `cmake' again:
 $ cd build/
 $ rm -rf *
 
-Another problem is caused by old C++ compilers. Unfortunately, `cmake' does
-not check weather the compiler supports the C++11 standard. If after calling
-`make' you see error similar to this:
+Another problem is caused by old C++ compilers. Unfortunately, currently
+we do not check weather the compiler supports the C++11 standard. If after 
+calling `make' you see error similar to this:
 
 cc1plus: error: unrecognized command line option "-std=c++0x"
 
