@@ -46,7 +46,7 @@ public:
 	    create_smatrix(opt.gaps, opt.is_dna, sm, g, h);
 
 	    if ((opt.method == 1) || (opt.method == 3)) {
-		cfe_align_ = bio::cfe_global_alignment(sm, g, h);
+		cfe_align_ = bio::free_global_alignment(sm, g, h);
 	    } else if ((opt.method == 2) || (opt.method == 4)) {
 		align_ = bio::global_alignment(sm, g, h);
 	    } else {
@@ -77,7 +77,7 @@ public:
 private:
     bio::kmer_fraction kf_;
     bio::global_alignment align_;
-    bio::cfe_global_alignment cfe_align_;
+    bio::free_global_alignment cfe_align_;
     bio::local_alignment loc_align_;
 
     unsigned int method_;

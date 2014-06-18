@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
  *  Copyright (c) 2012-2013 Jaroslaw Zola
- *  Distributed under the Boost Software License, Version 1.0
+ *  Distributed under the Boost Software License, Version 1.0.
  *
  *  Boost Software License - Version 1.0 - August 17th, 2003
  *
@@ -97,22 +97,22 @@ namespace bio {
     } // count_distance
 
 
-    template <typename Sequence> void general_kmer_index(const std::string& s, unsigned int k, Sequence& S) {
-	unsigned int l = s.size();
-	unsigned int end = l - k + 1;
+    template <typename Sequence> void general_kmer_index(const std::string& s, int k, Sequence& S) {
+	int l = s.size();
+	int end = l - k + 1;
 	S.resize(end);
-	for (unsigned int i = 0; i < end; ++i) {
+	for (int i = 0; i < end; ++i) {
 	    S[i] = std::string(s.begin() + i, s.begin() + i + k);
 	}
 	std::sort(S.begin(), S.end());
     } // general_kmer_index
 
 
-    template <typename Map> void general_kmer_count(const std::string& s, unsigned int k, Map& S) {
+    template <typename Map> void general_kmer_count(const std::string& s, int k, Map& S) {
 	S.clear();
-	unsigned int l = s.size();
-	unsigned int end = l - k + 1;
-	for (unsigned int i = 0; i < end; ++i) {
+	int l = s.size();
+	int end = l - k + 1;
+	for (int i = 0; i < end; ++i) {
 	    S[std::string(s.begin() + i, s.begin() + i + k)]++;
 	}
     } // general_kmer_count
@@ -139,15 +139,15 @@ namespace bio {
 	dna_kmer_index() : dna_digit() { }
 
 	template <typename Sequence>
-	void operator()(const std::string& s, unsigned int k, Sequence& S) {
-	    unsigned int l = s.size();
-	    unsigned int end = l - k + 1;
+	void operator()(const std::string& s, int k, Sequence& S) {
+	    int l = s.size();
+	    int end = l - k + 1;
 
 	    S.resize(end);
 
 	    // first kmer
 	    unsigned long long int v = digit_[s[k - 1]];
-	    for (unsigned int i = 0; i < k - 1; ++i) {
+	    for (int i = 0; i < k - 1; ++i) {
 		v += digit_[s[i]] * (1ULL << ((k - i - 1) << 1));
 	    }
 
@@ -156,7 +156,7 @@ namespace bio {
 	    // and then all other
 	    unsigned long long int b = 1ULL << ((k - 1) << 1);
 
-	    for (unsigned int i = 1; i < end; ++i) {
+	    for (int i = 1; i < end; ++i) {
 		v = (v - b * digit_[s[i - 1]]) * 4 + digit_[s[i + k - 1]];
 		S[i] = v;
 	    }
@@ -172,14 +172,14 @@ namespace bio {
 	dna_kmer_count() : dna_digit() { }
 
 	template <typename Map>
-	void operator()(const std::string& s, unsigned int k, Map& S) {
-	    unsigned int l = s.size();
-	    unsigned int end = l - k + 1;
+	void operator()(const std::string& s, int k, Map& S) {
+	    int l = s.size();
+	    int end = l - k + 1;
 
 	    // first kmer
 	    unsigned long long int v = digit_[s[k - 1]];
 
-	    for (unsigned int i = 0; i < k - 1; ++i) {
+	    for (int i = 0; i < k - 1; ++i) {
 		v += digit_[s[i]] * (1ULL << ((k - i - 1) << 1));
 	    }
 
@@ -188,7 +188,7 @@ namespace bio {
 	    // and then all other
 	    unsigned long long int b = 1ULL << ((k - 1) << 1);
 
-	    for (unsigned int i = 1; i < end; ++i) {
+	    for (int i = 1; i < end; ++i) {
 		v = (v - b * digit_[s[i - 1]]) * 4 + digit_[s[i + k - 1]];
 		S[v]++;
 	    }
@@ -229,7 +229,9 @@ namespace bio {
        *  matrix - Row-wise stored substitution matrix.
        */
       scoring_matrix(unsigned char sigma[256], const std::vector<signed char>& matrix)
-	  : sz_(static_cast<unsigned int>(std::sqrt(matrix.size()))), matrix_(matrix) { std::memcpy(sigma_, sigma, 256); }
+	  : sz_(static_cast<int>(std::sqrt(matrix.size()))), matrix_(matrix) {
+	  std::memcpy(sigma_, sigma, 256);
+      } // scoring_matrix
 
       /** Function: operator()
        *
@@ -239,7 +241,7 @@ namespace bio {
       int operator()(char a, char b) const { return matrix_[sigma_[a] * sz_ + sigma_[b]]; }
 
   private:
-      unsigned int sz_;
+      int sz_;
       unsigned char sigma_[256];
       std::vector<signed char> matrix_;
 
@@ -256,11 +258,11 @@ namespace bio {
    *  A scoring matrix only with match and substitution scores,
    *  for any alphabet.
    */
-  scoring_matrix make_dummy_sm(int m, int s) {
+  inline scoring_matrix make_dummy_sm(int m, int s) {
       unsigned char sigma[256];
-      for (unsigned int i = 0; i < 256; ++i) sigma[i] = i;
+      for (int i = 0; i < 256; ++i) sigma[i] = i;
       std::vector<signed char> matrix(256 * 256, s);
-      for (unsigned int i = 0; i < 256; ++i) matrix[(i << 8) + i] = m;
+      for (int i = 0; i < 256; ++i) matrix[(i << 8) + i] = m;
       return scoring_matrix(sigma, matrix);
   } // make_dummy_sm
 
@@ -274,9 +276,9 @@ namespace bio {
    *  A scoring matrix only with match and substitution scores,
    *  for the DNA 4-letter alphabet.
    */
-  scoring_matrix make_dna_sm(int m, int s) {
+  inline scoring_matrix make_dna_sm(int m, int s) {
       unsigned char sigma[256];
-      for (unsigned int i = 0; i < 256; ++i) sigma[i] = 4;
+      for (int i = 0; i < 256; ++i) sigma[i] = 4;
 
       sigma['a'] = sigma['A'] = 0;
       sigma['c'] = sigma['C'] = 1;
@@ -284,7 +286,7 @@ namespace bio {
       sigma['t'] = sigma['T'] = 3;
 
       std::vector<signed char> matrix(5 * 5, s);
-      for (unsigned int i = 0; i < 5; ++i) matrix[(5 * i) + i] = m;
+      for (int i = 0; i < 5; ++i) matrix[(5 * i) + i] = m;
 
       return scoring_matrix(sigma, matrix);
   }; // make_dna_sm
@@ -302,7 +304,7 @@ namespace bio {
    *  Returns:
    *  true on success, false otherwise.
    */
-  bool read_file_sm(const std::string& name, scoring_matrix& sub) {
+  inline bool read_file_sm(const std::string& name, scoring_matrix& sub) {
       std::ifstream f(name.c_str());
       if (!f) return false;
 
@@ -322,27 +324,27 @@ namespace bio {
       std::string head = buf;
       head.erase(std::remove(head.begin(), head.end(), ' '), head.end());
 
-      unsigned int len = head.size();
-      if (head[len - 1] != '*') return false;
+      int len = head.size();
+      if (head.back() != '*') return false;
 
       std::vector<signed char> matrix(len * len, 0);
 
-      for (unsigned int i = 0; i < 256; ++i) sigma[i] = len - 1;
-      for (unsigned int i = 0; i < len - 1; ++i) sigma[head[i]] = i;
+      for (int i = 0; i < 256; ++i) sigma[i] = len - 1;
+      for (int i = 0; i < len - 1; ++i) sigma[head[i]] = i;
 
       // read matrix
-      for (unsigned int i = 0; i < len; ++i) {
+      for (int i = 0; i < len; ++i) {
 	  char id = 0;
 	  int val;
 
 	  f >> id;
 	  if (!f || (id != head[i])) return false;
 
-	  for (unsigned int j = 0; j < len; ++j) {
+	  for (int j = 0; j < len; ++j) {
 	      f >> val;
 	      if (!f) return false;
-	      unsigned int pos0 = sigma[head[i]];
-	      unsigned int pos1 = sigma[head[j]];
+	      int pos0 = sigma[head[i]];
+	      int pos1 = sigma[head[j]];
 	      matrix[pos0 * len + pos1] = val;
 	  } // for j
       } // for i
@@ -352,6 +354,7 @@ namespace bio {
       sub = scoring_matrix(sigma, matrix);
       return true;
   } // read_scoring_matrix
+
 
 
   /** Class: local_alignment
@@ -391,8 +394,8 @@ namespace bio {
        *  3-tuple (alignment score, alignment length, number of matches).
        */
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
-	  unsigned int n = s0.size() + 1;
-	  unsigned int m = s1.size() + 1;
+	  int n = s0.size() + 1;
+	  int m = s1.size() + 1;
 
 	  // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j), 0 }
 	  // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
@@ -405,30 +408,24 @@ namespace bio {
 	  std::fill(I_.begin(), I_.end(), 0);
 
 	  track_.resize(n * m);
-	  std::fill(track_.begin(), track_.end(), 0);
+	  std::fill(track_.begin(), track_.end(), NOPE);
 
-	  for (unsigned int j = 1; j < m; ++j) {
-	      track_[j] = LEFT;
-	      S_[j] = I_[j] = g_ + j * h_;
-	  }
-
-	  unsigned int pos = 0;
+	  int pos = 0;
 	  int Sij = 0;
 
 	  // we keep track of max
 	  // the first highest value is kept
-	  unsigned int mi = 0;
-	  unsigned int mj = 0;
-	  unsigned int me = 0;
+	  int mi = 0;
+	  int mj = 0;
+	  int me = 0;
 
-	  for (unsigned int i = 1; i < n; ++i) {
-	      int Si = g_ + i * h_;
-	      int Di = g_ + i * h_;
+	  for (int i = 1; i < n; ++i) {
+	      int Si = 0;
+	      int Di = 0;
 
 	      pos = i * m;
-	      track_[pos] = TOP;
 
-	      for (unsigned int j = 1; j < m; ++j) {
+	      for (int j = 1; j < m; ++j) {
 		  pos++;
 
 		  Di = std::max(Di, Si + g_) + h_;
@@ -470,15 +467,15 @@ namespace bio {
 
 	      } // for j
 
-	      Sij = g_ + i * h_;
+	      Sij = 0;
 	  } // for i
 
 	  // backtrack
-	  unsigned int i = mi;
-	  unsigned int j = mj;
+	  int i = mi;
+	  int j = mj;
 
-	  unsigned int match = 0;
-	  unsigned int length = 0;
+	  int match = 0;
+	  int length = 0;
 
 	  has_path_ = false;
 	  path_.clear();
@@ -540,7 +537,7 @@ namespace bio {
        *  A pair where the first element is a position in s0,
        *  and the second is a position in s1.
        */
-      std::pair<unsigned int, unsigned int> position() const {
+      std::pair<int, int> position() const {
 	  return std::make_pair(ps0_, ps1_);
       } // position
 
@@ -551,8 +548,8 @@ namespace bio {
       std::string path_;
       std::vector<unsigned char> track_;
 
-      unsigned int ps0_;
-      unsigned int ps1_;
+      int ps0_;
+      int ps1_;
 
       std::vector<int> S_;
       std::vector<int> I_;
@@ -601,8 +598,8 @@ namespace bio {
        *  3-tuple (alignment score, alignment length without terminal gaps, number of matches).
        */
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
-	  unsigned int n = s0.size() + 1;
-	  unsigned int m = s1.size() + 1;
+	  int n = s0.size() + 1;
+	  int m = s1.size() + 1;
 
 	  // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j) }
 	  // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
@@ -617,22 +614,22 @@ namespace bio {
 	  track_.resize(n * m);
 	  std::fill(track_.begin(), track_.end(), 0);
 
-	  for (unsigned int j = 1; j < m; ++j) {
+	  for (int j = 1; j < m; ++j) {
 	      track_[j] = LEFT;
 	      S_[j] = I_[j] = g_ + j * h_;
 	  }
 
-	  unsigned int pos = 0;
+	  int pos = 0;
 	  int Sij = 0;
 
-	  for (unsigned int i = 1; i < n; ++i) {
+	  for (int i = 1; i < n; ++i) {
 	      int Si = g_ + i * h_;
 	      int Di = g_ + i * h_;
 
 	      pos = i * m;
 	      track_[pos] = TOP;
 
-	      for (unsigned int j = 1; j < m; ++j) {
+	      for (int j = 1; j < m; ++j) {
 		  pos++;
 
 		  Di = std::max(Di, Si + g_) + h_;
@@ -663,18 +660,19 @@ namespace bio {
 	      } // for j
 
 	      Sij = g_ + i * h_;
+
 	  } // for i
 
 	  // backtrack
-	  unsigned int i = n - 1;
-	  unsigned int j = m - 1;
+	  int i = n - 1;
+	  int j = m - 1;
 
-	  unsigned int match = 0;
-	  unsigned int length = 0;
+	  int match = 0;
+	  int length = 0;
 
 	  bool has_gap = false;
-	  unsigned int sgap = 0;
-	  unsigned int egap = 0;
+	  int sgap = 0;
+	  int egap = 0;
 
 	  has_path_ = false;
 	  path_.clear();
@@ -751,15 +749,15 @@ namespace bio {
   }; // class global_alignment
 
 
-  /** Class: cfe_global_alignment
+  /** Class: free_global_alignment
    *
    *  Functor implementing memory-efficient global pairwise sequence alignment
    *  with cost-free end gaps affine gap penalty. Cost-free end gaps are
    *  allowed only in one sequence.
    */
-  class cfe_global_alignment : public sequence_compare<global_alignment> {
+  class free_global_alignment : public sequence_compare<free_global_alignment> {
   public:
-      /** Constructor: cfe_global_alignment
+      /** Constructor: free_global_alignment
        *
        *  Parameter:
        *  m - Match score (some positive number).
@@ -767,17 +765,17 @@ namespace bio {
        *  g - Gap opening penalty (negative number).
        *  h - Gap extension penalty (negative number).
        */
-      explicit cfe_global_alignment(int m = 0, int s = 0, int g = 0, int h = 0)
+      explicit free_global_alignment(int m = 0, int s = 0, int g = 0, int h = 0)
 	  : sub_(make_dummy_sm(m, s)), g_(g), h_(h) { }
 
-      /** Constructor: cfe_global_alignment
+      /** Constructor: free_global_alignment
        *
        *  Parameter:
        *  sm - Substitution matrix.
        *  g -  Gap opening penalty (negative number).
        *  h -  Gap extension penalty (negative number).
        */
-      cfe_global_alignment(const scoring_matrix& sm, int g, int h)
+      free_global_alignment(const scoring_matrix& sm, int g, int h)
 	  : sub_(sm), g_(g), h_(h) { }
 
       /** Function: operator()
@@ -789,8 +787,8 @@ namespace bio {
        *  3-tuple (alignment score, alignment length without terminal gaps, number of matches).
        */
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
-	  unsigned int n = s0.size() + 1;
-	  unsigned int m = s1.size() + 1;
+	  int n = s0.size() + 1;
+	  int m = s1.size() + 1;
 
 	  // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j) }
 	  // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
@@ -805,22 +803,22 @@ namespace bio {
 	  track_.resize(n * m);
 	  std::fill(track_.begin(), track_.end(), 0);
 
-	  for (unsigned int j = 1; j < m; ++j) {
+	  for (int j = 1; j < m; ++j) {
 	      I_[j] = g_ + j * h_;
 	      track_[j] = LEFT;
 	  }
 
-	  unsigned int pos = 0;
+	  int pos = 0;
 	  int Sij = 0;
 
-	  for (unsigned int i = 1; i < n; ++i) {
+	  for (int i = 1; i < n; ++i) {
 	      int Si = g_ + i * h_;
 	      int Di = g_ + i * h_;
 
 	      pos = i * m;
 	      track_[pos] = TOP;
 
-	      for (unsigned int j = 1; j < m; ++j) {
+	      for (int j = 1; j < m; ++j) {
 		  pos++;
 
 		  Di = std::max(Di, Si + g_) + h_;
@@ -854,17 +852,17 @@ namespace bio {
 	  } // for i
 
 	  // backtrack
-	  unsigned int i = n - 1;
-	  unsigned int j = std::max_element(S_.begin() + 1, S_.end()) - S_.begin();
+	  int i = n - 1;
+	  int j = std::max_element(S_.begin() + 1, S_.end()) - S_.begin();
 
 	  int score = S_[j];
 
-	  unsigned int match = 0;
-	  unsigned int length = (m - 1) - j;
+	  int match = 0;
+	  int length = (m - 1) - j;
 
 	  bool has_gap = true;
-	  unsigned int sgap = 0;
-	  unsigned int egap = length;
+	  int sgap = 0;
+	  int egap = length;
 
 	  has_path_ = false;
 	  path_ = std::string(length, 'i');
@@ -938,7 +936,7 @@ namespace bio {
       int g_;
       int h_;
 
-  }; // class cfe_global_alignment
+  }; // class free_global_alignment
 
 
   /** Class: d2
@@ -953,7 +951,7 @@ namespace bio {
        *  k - kmer length.
        *  isdna - assume that input sequences are DNA/RNA.
        */
-      explicit d2(unsigned int k = 0, bool isdna = true) : k_(k), isdna_(isdna) { }
+      explicit d2(int k = 0, bool isdna = true) : k_(k), isdna_(isdna) { }
 
       /** Function: operator()
        *
@@ -1009,14 +1007,14 @@ namespace bio {
       } // operator()
 
   private:
-      unsigned int k_;
+      int k_;
       bool isdna_;
 
-      std::map<unsigned long long int, unsigned int> dcount0_;
-      std::map<unsigned long long int, unsigned int> dcount1_;
+      std::map<unsigned long long int, int> dcount0_;
+      std::map<unsigned long long int, int> dcount1_;
 
-      std::map<std::string, unsigned int> count0_;
-      std::map<std::string, unsigned int> count1_;
+      std::map<std::string, int> count0_;
+      std::map<std::string, int> count1_;
 
       detail::dna_kmer_count dC_;
 
@@ -1037,7 +1035,7 @@ namespace bio {
        *  k - kmer length.
        *  isdna - assume that input sequences are DNA/RNA.
        */
-      explicit kmer_fraction(unsigned int k = 0, bool isdna = true) : k_(k), isdna_(isdna) { }
+      explicit kmer_fraction(int k = 0, bool isdna = true) : k_(k), isdna_(isdna) { }
 
       /** Function: operator()
        *
@@ -1107,6 +1105,75 @@ namespace bio {
       detail::dna_kmer_index dI_;
 
   }; // class kmer_fraction
+
+
+  class spaced_seeds_fraction : public sequence_compare<spaced_seeds_fraction> {
+  public:
+      explicit spaced_seeds_fraction(const std::string& sseed) : sseed_(sseed) { }
+
+      boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
+	  int k = sseed_.size();
+
+	  detail::general_kmer_index(s0, k, index0_);
+	  detail::general_kmer_index(s1, k, index1_);
+
+	  for (int i = 0; i < index0_.size(); ++i) {
+	      for (int j = 0; j < k; ++j) if (sseed_[j] == '0') index0_[i][j] = '*';
+	  }
+
+	  for (int i = 0; i < index1_.size(); ++i) {
+	      for (int j = 0; j < k; ++j) if (sseed_[j] == '0') index1_[i][j] = '*';
+	  }
+
+	  std::sort(index0_.begin(), index0_.end());
+	  std::sort(index1_.begin(), index1_.end());
+
+	  int S = detail::intersection_size(index0_.begin(), index0_.end(),
+					    index1_.begin(), index1_.end(),
+					    std::less<std::string>());
+
+	  return boost::make_tuple(S, index0_.size(), index1_.size());
+      } // operator()
+
+  private:
+      std::string sseed_;
+
+      std::vector<std::string> index0_;
+      std::vector<std::string> index1_;
+
+  }; // spaced_seeds_fraction
+
+
+
+  inline std::ostream& print_alignment(std::ostream& os,
+				       const std::string& s0,
+				       const std::string& s1,
+				       const std::string& path) {
+      int l = path.size();
+      int pos = 0;
+
+      for (int i = 0; i < l; ++i) {
+	  if (path[i] == 'i') os << '-';
+	  else os << s0[pos++];
+      }
+
+      os << "\n";
+
+      for (int i = 0; i < l; ++i) {
+	  if (path[i] == 'm') os << '|';
+	  else os << ' ';
+      }
+
+      os << "\n";
+      pos = 0;
+
+      for (int i = 0; i < l; ++i) {
+	  if (path[i] == 'd') os << '-';
+	  else os << s1[pos++];
+      }
+
+      return os;
+  } // print_alignment
 
 } // namespace bio
 
