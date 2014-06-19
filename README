@@ -5,8 +5,8 @@ ELaSTIC is designed to work with data sets consisting of millions of DNA/RNA or
 amino acid strings, using various similarity criteria.
 
 ELaSTIC is extremely efficient and scalable while maintaining sensitivity
-thanks to the clever use of the sketching technique, and the application of
-carefully engineered parallel algorithms.
+thanks to the clever use of the MinHash and sketching technique, and the 
+application of carefully engineered parallel algorithms.
 
 ELaSTIC follows a modular design, and it can be easily combined with other
 tools, like MCL or pClust, for the downstream analysis.
