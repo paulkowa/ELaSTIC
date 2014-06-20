@@ -143,6 +143,10 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
     unsigned long long int etot = edges.size();
 
+#ifdef WITH_MPE
+    // profiling of validation is disabled by default
+    return;
+#endif
 
     // initialize RMA
     SequenceRMA rma_seq(comm);
