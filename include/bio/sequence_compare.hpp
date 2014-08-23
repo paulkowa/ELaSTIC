@@ -325,7 +325,7 @@ namespace bio {
       head.erase(std::remove(head.begin(), head.end(), ' '), head.end());
 
       int len = head.size();
-      if (head.back() != '*') return false;
+      if (head[len - 1] != '*') return false;
 
       std::vector<signed char> matrix(len * len, 0);
 
@@ -480,8 +480,11 @@ namespace bio {
 	  has_path_ = false;
 	  path_.clear();
 
-	  while (track_[i * m + j] != 0) {
+	  while (track_[i * m + j] != NOPE) {
 	      switch (track_[i * m + j]) {
+		case NOPE:
+		    break;
+
 		case TOP:
 		    --i;
 		    path_.push_back('d');
@@ -542,11 +545,11 @@ namespace bio {
       } // position
 
   private:
-      enum { NOPE = 0, TOP = 1, LEFT = 2, DIAG = 3 };
+      enum Move { NOPE = 0, TOP = 1, LEFT = 2, DIAG = 3 };
 
       bool has_path_;
       std::string path_;
-      std::vector<unsigned char> track_;
+      std::vector<Move> track_;
 
       int ps0_;
       int ps1_;
@@ -612,7 +615,7 @@ namespace bio {
 	  std::fill(I_.begin(), I_.end(), 0);
 
 	  track_.resize(n * m);
-	  std::fill(track_.begin(), track_.end(), 0);
+	  std::fill(track_.begin(), track_.end(), TOP);
 
 	  for (int j = 1; j < m; ++j) {
 	      track_[j] = LEFT;
@@ -732,11 +735,11 @@ namespace bio {
       } // path
 
   private:
-      enum { TOP = 0, LEFT = 1, DIAG = 2 };
+      enum Move { TOP = 0, LEFT = 1, DIAG = 2 };
 
       bool has_path_;
       std::string path_;
-      std::vector<unsigned char> track_;
+      std::vector<Move> track_;
 
       std::vector<int> S_;
       std::vector<int> I_;
@@ -801,7 +804,7 @@ namespace bio {
 	  std::fill(I_.begin(), I_.end(), 0);
 
 	  track_.resize(n * m);
-	  std::fill(track_.begin(), track_.end(), 0);
+	  std::fill(track_.begin(), track_.end(), TOP);
 
 	  for (int j = 1; j < m; ++j) {
 	      I_[j] = g_ + j * h_;
@@ -922,11 +925,11 @@ namespace bio {
       } // path
 
   private:
-      enum { TOP = 0, LEFT = 1, DIAG = 2 };
+      enum Move { TOP = 0, LEFT = 1, DIAG = 2 };
 
       bool has_path_;
       std::string path_;
-      std::vector<unsigned char> track_;
+      std::vector<Move> track_;
 
       std::vector<int> S_;
       std::vector<int> I_;
