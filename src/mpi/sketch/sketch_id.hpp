@@ -4,7 +4,7 @@
  *  File: sketch_id.hpp
  *  Created: Oct 15, 2013
  *
- *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
+ *  Author: Jaroslaw Zola <jaroslaw.zola@hush.com>
  *  Copyright (c) 2013 Jaroslaw Zola
  *  Distributed under the MIT License.
  *  See accompanying file LICENSE_MIT.txt.

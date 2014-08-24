@@ -4,8 +4,8 @@
  *  File: SequenceCodec.hpp
  *  Created: Sep 22, 2010
  *
- *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
- *          Xiao Yang <eks.yang@gmail.com>
+ *  Author: Jaroslaw Zola <jaroslaw.zola@hush.com>
+ *          Xiao Yang <eks.yang@hush.com>
  *  Distributed under the MIT License.
  *  See accompanying file LICENSE_MIT.txt.
  *

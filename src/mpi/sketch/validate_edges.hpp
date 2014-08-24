@@ -4,7 +4,7 @@
  *  File: validate_edges.hpp
  *  Created: May 29, 2012
  *
- *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
+ *  Author: Jaroslaw Zola <jaroslaw.zola@hush.com>
  *  Copyright (c) 2012-2014 Jaroslaw Zola
  *  Distributed under the MIT License.
  *  See accompanying file LICENSE_MIT.txt.

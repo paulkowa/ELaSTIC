@@ -4,7 +4,7 @@
  *  File: fast_vector.hpp
  *  Created: Jan 07, 2014
  *
- *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
+ *  Author: Jaroslaw Zola <jaroslaw.zola@hush.com>
  *  Copyright (c) 2014 Jaroslaw Zola
  *  Distributed under the MIT License.
  *  See accompanying file LICENSE_MIT.txt.

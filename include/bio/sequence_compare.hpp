@@ -4,7 +4,7 @@
  *  File: sequence_compare.hpp
  *  Created: May 03, 2012
  *
- *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
+ *  Author: Jaroslaw Zola <jaroslaw.zola@hush.com>
  *  Copyright (c) 2012-2013 Jaroslaw Zola
  *  Distributed under the Boost Software License, Version 1.0.
  *

@@ -4,7 +4,7 @@
  *  File: sffun.h
  *  Created: Aug 28, 2008
  *
- *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
+ *  Author: Jaroslaw Zola <jaroslaw.zola@hush.com>
  *  Copyright (c) 2007-2011 Jaroslaw Zola
  *  Distributed under the Boost Software License, Version 1.0.
  *  See accompanying file LICENSE_BOOST.txt.

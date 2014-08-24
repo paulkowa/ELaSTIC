@@ -4,7 +4,7 @@
  *  File: write_cbuffer.hpp
  *  Created: Feb 12, 2013
  *
- *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
+ *  Author: Jaroslaw Zola <jaroslaw.zola@hush.com>
  *  Copyright (c) 2013 Jaroslaw Zola
  *  Distributed under the Boost Software License, Version 1.0.
  *  See accompanying file LICENSE_BOOST.txt.

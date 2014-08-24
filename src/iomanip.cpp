@@ -4,7 +4,7 @@
  *  File: iomanip.cpp
  *  Created: May 30, 2012
  *
- *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
+ *  Author: Jaroslaw Zola <jaroslaw.zola@hush.com>
  *  Copyright (c) 2012 Jaroslaw Zola
  *  Distributed under the MIT License.
  *  See accompanying file LICENSE_MIT.txt.

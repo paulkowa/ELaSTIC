@@ -4,9 +4,9 @@
  *  File: make_shingles.hpp
  *  Created: May 23, 2012
  *
- *  Author: Jaroslaw Zola <jaroslaw.zola@gmail.com>
+ *  Author: Jaroslaw Zola <jaroslaw.zola@hush.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the License.
+ *  Distributed under the MIT License.
  *  See accompanying file LICENSE_MIT.txt.
  *
  *  This file is part of ELaSTIC.
