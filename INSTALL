@@ -12,13 +12,13 @@ conforming C++ compiler and MPI library can be used seamlessly.
 The main requirement are the Boost C++ Libraries, version 1.48 or newer. To
 compile all tools except of `elastic-sketch', three compiled Boost libraries
 are necessary: Boost.Filesystem, Boost.IOstreams and Boost.System.
-`elastic-sketch' depends on header-only libraries, e.g. Boost.Tuple. Note, that
+`elastic-sketch' depends on header-only libraries, e.g. Boost.Tuple. Note that
 all major Linux distributions provide Boost by default. Otherwise, the Boost
 libraries can be obtained from http://www.boost.org/. Finally, to build
 `elastic-sketch', which usually will be done on a cluster, MPI implementation
 compatible with the MPI-2 standard and with MPI I/O support is required.
 Examples include MPICH (http://www.mpich.org/) and Open MPI
-(http://www.open-mpi.org/). Note, that many hardware vendors provide MPI
+(http://www.open-mpi.org/). Note that many hardware vendors provide MPI
 libraries derived from one of these implementations.
 
 3. Building and installation
@@ -26,8 +26,8 @@ libraries derived from one of these implementations.
 The ELaSTIC package consists of five tools: `elastic-prepare', `elastic-sketch',
 `elastic-cluster', `elastic-convert' and `elastic-finalize'. It is possible to
 build all five tools in one step, or build `elastic-sketch' and the remaining
-tools separately. Note, that the later option is advantageous if
-'elastic-sketch' has to be deployed in a cross-compiled environment, e.g. the
+tools separately. Note that the later option is advantageous if
+`elastic-sketch' has to be deployed in a cross-compiled environment, e.g. the
 IBM Blue Gene.
 
 3.1. Basic installation
@@ -70,7 +70,7 @@ By default, `make' will build all five ELaSTIC tools. To disable
 
 $ cmake ../ -DWITH_SKETCH=off
 
-Note, that this will remove MPI dependency from the configuration script. In a
+Note that this will remove MPI dependency from the configuration script. In a
 similar way you can disable all tools other than `elastic-sketch' by passing
 `-DWITH_TOOLS=off':
 
@@ -87,7 +87,7 @@ to `cmake', for example, to use Clang/LLVM:
 $ cmake ../ -DCMAKE_CXX_COMPILER=clang++
 
 In a similar way you can tune compiler flags by passing
-`-DCMAKE_CXX_FLAGS=flags'. Note, that by default ELaSTIC sets compiler flags to
+`-DCMAKE_CXX_FLAGS=flags'. Note that by default ELaSTIC sets compiler flags to
 `-std=c++0x -O3'. This can be problematic with some older compilers, hence you
 may want to disable C++11 support:
 
@@ -120,7 +120,7 @@ $ cmake ../ -DWITH_TOOLS=off \
 3.6 Common problems
 
 The most common problem is incorrectly specified path to Boost libraries.
-If you encounter this message
+If you encounter this message:
 
 Use -DBOOST_ROOT=path to specify alternative location
 
