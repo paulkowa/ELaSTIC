@@ -9,4 +9,4 @@ thanks to the clever use of the MinHash and sketching technique, and the
 application of carefully engineered parallel algorithms.
 
 ELaSTIC follows a modular design, and it can be easily combined with other
-tools, like MCL or pClust, for the downstream analysis.
+tools, like MCL, for the downstream analysis.
