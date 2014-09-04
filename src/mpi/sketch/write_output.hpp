@@ -22,12 +22,13 @@
 #include "SequenceDB.hpp"
 #include "config_log.hpp"
 #include "iomanip.hpp"
+#include "tools.hpp"
 
 #include <mpix2/write_cbuffer.hpp>
 
 
 inline std::pair<bool, std::string> write_output(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
-						 const std::vector<read_pair>& edges) {
+						 const std::vector<read_pair>& edges, unsigned long int& fs) {
     report << info << "writing output..." << std::endl;
 
     const int MPI_ABRT_SIG = 13;
@@ -60,6 +61,8 @@ inline std::pair<bool, std::string> write_output(const AppConfig& opt, AppLog& l
 	report.critical << error << ("unable to create " + name) << std::endl;
 	MPI_Abort(comm, MPI_ABRT_SIG);
     }
+
+    fs = file_size(name.c_str());
 
     return std::make_pair(true, "");
 } // write_output

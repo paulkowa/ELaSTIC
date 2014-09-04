@@ -177,7 +177,8 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
     // write output
     double ti0 = MPI_Wtime();
-    boost::tie(res, err) = write_output(opt, log, report, comm, edges);
+    unsigned long int fs = 0;
+    boost::tie(res, err) = write_output(opt, log, report, comm, edges, fs);
     double ti1 = MPI_Wtime();
 
     if (res == false) {
@@ -233,8 +234,9 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 	flog.close();
     }
 
-    report << "time: " << log.wtime << std::endl;
-    report << "i/o time: " << (ti1 - ti0) << std::endl;
+    report << "time: " << log.wtime << " [s]" << std::endl;
+    report << "i/o time: " << (ti1 - ti0) << " [s]" << std::endl;
+    report << "i/o band: " << fs / ((ti1 - ti0) * 1024 * 1024) << " [MB/s]" << std::endl;
     report << "su: " << (size * log.wtime) / 3600 << std::endl;
     report << "done!" << std::endl;
 } // run
