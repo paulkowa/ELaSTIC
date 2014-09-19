@@ -34,6 +34,7 @@ struct AppConfig {
 	input = "";
 	output = "";
 	map = "";
+	expand = false;
     } // AppConfig
 
     static void usage() {
@@ -43,6 +44,7 @@ struct AppConfig {
 	std::cout << "  --input name          read input from this file/directory\n";
 	std::cout << "  --output name         write output to files with this prefix\n";
 	std::cout << "  --map name            read sequence map from this file\n";
+	std::cout << "  --expand {0|1}        expand sequence groups\n";
 	std::cout << "\n";
     } // usage
 
@@ -69,17 +71,28 @@ struct AppConfig {
 
 	map = val;
 
+	try {
+	    if (jaz::check_option(conf, "expand", val) == true) {
+		expand = boost::lexical_cast<bool>(val);
+	    }
+	} catch (boost::bad_lexical_cast& ex) {
+	    return std::make_pair(false, "incorrect argument(s)");
+	}
+
 	return std::make_pair(true, "");
     } // set
 
     std::string input;
     std::string output;
     std::string map;
+    bool expand;
+
 
     friend std::ostream& operator<<(std::ostream& os, const AppConfig& opt) {
 	os << "input = " << opt.input << "\n";
 	os << "output = " << opt.output << "\n";
 	os << "map = " << opt.map << "\n";
+	os << "expand = " << opt.expand << "\n";
 	return os;
     } // operator<<
 
@@ -165,7 +178,15 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
 
 	    if ((siter0 == smap.end()) || (siter1 == smap.end())) return std::make_pair(false, "incorrect index");
 
-	    fout << siter0->name[0] << "\t" << siter1->name[0] << ln << std::endl;
+	    if (opt.expand == false) {
+		fout << siter0->name[0] << "\t" << siter1->name[0] << ln << std::endl;
+	    } else {
+		for (int j = 0; j < siter0->name.size(); ++j) {
+		    for (int k = 0; k < siter1->name.size(); ++k) {
+			fout << siter0->name[j] << "\t" << siter1->name[k] << ln << std::endl;
+		    }
+		}
+	    }
 	} // for iter
     } // for i
 
