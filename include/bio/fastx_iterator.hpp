@@ -6,7 +6,7 @@
  *
  *  Author: Jaroslaw Zola <jaroslaw.zola@hush.com>
  *  Copyright (c) 2012 Jaroslaw Zola
- *  Distributed under the Boost Software License, Version 1.0
+ *  Distributed under the Boost Software License, Version 1.0.
  *
  *  Boost Software License - Version 1.0 - August 17th, 2003
  *
@@ -54,7 +54,7 @@ namespace bio {
   struct fastq_sequence_type {
       typedef boost::tuple<std::string, std::string, std::string> value_type;
       value_type operator()(const std::string& s1, const std::string& s2, const std::string& s3) const {
-	  return boost::make_tuple(s1, s2, s3);
+          return boost::make_tuple(s1, s2, s3);
       } // operator()
   }; // struct fastq_sequence_type
 
@@ -71,15 +71,15 @@ namespace bio {
       fasta_input_iterator() : state_(false), is_(0) { }
 
       fasta_input_iterator(istream_type& is) : is_(&is) {
-	  state_ = (is_ && *is_) ? true : false;
-	  if (state_) {
-	      while (*is_) {
-		  buf_ = "";
-		  std::getline(*is_, buf_);
-		  if (!buf_.empty() && (buf_[0] == '>')) break;
-	      }
-	      m_read__();
-	  } // if
+          state_ = (is_ && *is_) ? true : false;
+          if (state_) {
+              while (*is_) {
+                  buf_ = "";
+                  std::getline(*is_, buf_);
+                  if (!buf_.empty() && (buf_[0] == '>')) break;
+              }
+              m_read__();
+          } // if
       } // fasta_input_iterator
 
       const value_type& operator*() const { return value_; }
@@ -87,44 +87,44 @@ namespace bio {
       const value_type* operator->() const { return &(operator*()); }
 
       fasta_input_iterator& operator++() {
-	  m_read__();
-	  return *this;
+          m_read__();
+          return *this;
       } // operator++
 
       fasta_input_iterator operator++(int) {
-	  fasta_input_iterator tmp = *this;
-	  m_read__();
-	  return tmp;
+          fasta_input_iterator tmp = *this;
+          m_read__();
+          return tmp;
       } // operator++
 
   private:
       void m_read__() {
-	  state_ = (is_ && *is_) ? true : false;
-	  if (state_) {
-	      // trim sequence name
-	      unsigned int l = buf_.size() - 1;
-	      if (buf_[l] == '\r') buf_.resize(l);
+          state_ = (is_ && *is_) ? true : false;
+          if (state_) {
+              // trim sequence name
+              unsigned int l = buf_.size() - 1;
+              if (buf_[l] == '\r') buf_.resize(l);
 
-	      s1_ = (buf_.c_str() + 1);
-	      s2_ = "";
+              s1_ = (buf_.c_str() + 1);
+              s2_ = "";
 
-	      // get sequence
-	      do {
-		  buf_ = "";
-		  std::getline(*is_, buf_);
+              // get sequence
+              do {
+                  buf_ = "";
+                  std::getline(*is_, buf_);
 
-		  if (!buf_.empty()) {
-		      if ((buf_[0] != ';') && (buf_[0] != '>')) {
-			  unsigned int l = buf_.size() - 1;
-			  if (buf_[l] == '\r') buf_.resize(l);
-			  s2_ += buf_;
-		      } else if (buf_[0] == '>') break;
-		  }
-	      }
-	      while (*is_);
+                  if (!buf_.empty()) {
+                      if ((buf_[0] != ';') && (buf_[0] != '>')) {
+                          unsigned int l = buf_.size() - 1;
+                          if (buf_[l] == '\r') buf_.resize(l);
+                          s2_ += buf_;
+                      } else if (buf_[0] == '>') break;
+                  }
+              }
+              while (*is_);
 
-	      value_ = make_(s1_, s2_);
-	  } // if
+              value_ = make_(s1_, s2_);
+          } // if
       } // m_read__
 
       bool state_;
@@ -138,11 +138,11 @@ namespace bio {
       value_type value_;
 
       friend bool operator==(const fasta_input_iterator& lhs, const fasta_input_iterator& rhs) {
-	  return ((lhs.state_ == rhs.state_) && (!lhs.state_ || (lhs.is_ == rhs.is_)));
+          return ((lhs.state_ == rhs.state_) && (!lhs.state_ || (lhs.is_ == rhs.is_)));
       } // operator==
 
       friend bool operator!=(const fasta_input_iterator& lhs, const fasta_input_iterator& rhs) {
-	  return !(lhs == rhs);
+          return !(lhs == rhs);
       } // operator!=
 
   }; // class fasta_input_iterator
@@ -160,15 +160,15 @@ namespace bio {
       fastq_input_iterator() : state_(false), is_(0) { }
 
       fastq_input_iterator(istream_type& is) : is_(&is) {
-	  state_ = (is_ && *is_) ? true : false;
-	  if (state_) {
-	      while (*is_) {
-		  buf_ = "";
-		  std::getline(*is_, buf_);
-		  if (!buf_.empty() && (buf_[0] == '@')) break;
-	      }
-	      m_read__();
-	  } // if
+          state_ = (is_ && *is_) ? true : false;
+          if (state_) {
+              while (*is_) {
+                  buf_ = "";
+                  std::getline(*is_, buf_);
+                  if (!buf_.empty() && (buf_[0] == '@')) break;
+              }
+              m_read__();
+          } // if
       } // fastq_input_iterator
 
       const value_type& operator*() const { return value_; }
@@ -176,75 +176,75 @@ namespace bio {
       const value_type* operator->() const { return &(operator*()); }
 
       fastq_input_iterator& operator++() {
-	  m_read__();
-	  return *this;
+          m_read__();
+          return *this;
       } // operator++
 
       fastq_input_iterator operator++(int) {
-	  fastq_input_iterator tmp = *this;
-	  m_read__();
-	  return tmp;
+          fastq_input_iterator tmp = *this;
+          m_read__();
+          return tmp;
       } // operator++
 
   private:
       void m_read__() {
-	  state_ = (is_ && *is_) ? true : false;
-	  if (state_ == true) {
-	      // trim sequence name
-	      if (!buf_.empty()) {
-		  unsigned int l = buf_.size() - 1;
-		  if (buf_[l] == '\r') buf_.resize(l);
-	      }
+          state_ = (is_ && *is_) ? true : false;
+          if (state_ == true) {
+              // trim sequence name
+              if (!buf_.empty()) {
+                  unsigned int l = buf_.size() - 1;
+                  if (buf_[l] == '\r') buf_.resize(l);
+              }
 
-	      s1_ = (buf_.c_str() + 1);
-	      s2_ = "";
-	      s3_ = "";
+              s1_ = (buf_.c_str() + 1);
+              s2_ = "";
+              s3_ = "";
 
-	      // get sequence
-	      do {
-		  buf_ = "";
-		  std::getline(*is_, buf_);
+              // get sequence
+              do {
+                  buf_ = "";
+                  std::getline(*is_, buf_);
 
-		  if (!buf_.empty()) {
-		      if (buf_[0] != '+') {
-			  unsigned int l = buf_.size() - 1;
-			  if (buf_[l] == '\r') buf_.resize(l);
-			  s2_ += buf_;
-		      } else break;
-		  }
-	      }
-	      while (*is_);
+                  if (!buf_.empty()) {
+                      if (buf_[0] != '+') {
+                          unsigned int l = buf_.size() - 1;
+                          if (buf_[l] == '\r') buf_.resize(l);
+                          s2_ += buf_;
+                      } else break;
+                  }
+              }
+              while (*is_);
 
-	      // get scores
-	      do {
-		  buf_ = "";
-		  std::getline(*is_, buf_);
+              // get scores
+              do {
+                  buf_ = "";
+                  std::getline(*is_, buf_);
 
-		  if (!buf_.empty()) {
-		      unsigned int l = buf_.size() - 1;
-		      if (buf_[l] == '\r') buf_.resize(l);
-		      if (s3_.size() + buf_.size() <= s2_.size()) s3_ += buf_;
-		      else {
-			  if (buf_[0] != '@') {
-			      state_ = false;
-			      // we clear stream so that we can
-			      // test for eof() outside
-			      is_->clear();
-			  }
-			  break;
-		      }
-		  } // if
-	      }
-	      while (*is_);
+                  if (!buf_.empty()) {
+                      unsigned int l = buf_.size() - 1;
+                      if (buf_[l] == '\r') buf_.resize(l);
+                      if (s3_.size() + buf_.size() <= s2_.size()) s3_ += buf_;
+                      else {
+                          if (buf_[0] != '@') {
+                              state_ = false;
+                              // we clear stream so that we can
+                              // test for eof() outside
+                              is_->clear();
+                          }
+                          break;
+                      }
+                  } // if
+              }
+              while (*is_);
 
-	      if (s2_.size() != s3_.size()) {
-		  state_ = false;
-		  // we clear stream so that we can
-		  // test for eof() outside
-		  is_->clear();
-	      } else value_ = make_(s1_, s2_, s3_);
+              if (s2_.size() != s3_.size()) {
+                  state_ = false;
+                  // we clear stream so that we can
+                  // test for eof() outside
+                  is_->clear();
+              } else value_ = make_(s1_, s2_, s3_);
 
-	  } // if
+          } // if
       } // m_read__
 
       bool state_;
@@ -259,11 +259,11 @@ namespace bio {
       std::string buf_;
 
       friend bool operator==(const fastq_input_iterator& lhs, const fastq_input_iterator& rhs) {
-	  return ((lhs.state_ == rhs.state_) && (!lhs.state_ || (lhs.is_ == rhs.is_)));
+          return ((lhs.state_ == rhs.state_) && (!lhs.state_ || (lhs.is_ == rhs.is_)));
       } // operator==
 
       friend bool operator!=(const fastq_input_iterator& lhs, const fastq_input_iterator& rhs) {
-	  return !(lhs == rhs);
+          return !(lhs == rhs);
       } // operator!=
 
   }; // class fastq_input_iterator

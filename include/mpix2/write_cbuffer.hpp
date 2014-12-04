@@ -22,7 +22,7 @@
 namespace mpix {
 
   inline bool write_cbuffer(const std::string& name, const char* buf, int bsz,
-			    MPI_Comm comm) {
+                            MPI_Comm comm) {
       MPI_File fh;
       MPI_Status stat;
 
@@ -33,7 +33,7 @@ namespace mpix {
       MPI_Barrier(comm);
 
       int err = MPI_File_open(comm, const_cast<char*>(name.c_str()),
-			      MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fh);
+                              MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fh);
 
       if (err != MPI_SUCCESS) return false;
 

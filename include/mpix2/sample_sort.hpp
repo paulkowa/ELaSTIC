@@ -35,95 +35,95 @@ namespace mpix {
 
     template <typename Sequence, typename Pred>
     bool sampling(const Sequence& seq, Sequence& pivots, Pred pred, int C,
-		  MPI_Datatype Type, MPI_Comm Comm) {
-	typedef typename Sequence::value_type value_type;
-	typedef typename Sequence::const_iterator iterator;
+                  MPI_Datatype Type, MPI_Comm Comm) {
+        typedef typename Sequence::value_type value_type;
+        typedef typename Sequence::const_iterator iterator;
 
-	int size = 0;
-	int rank = 0;
+        int size = 0;
+        int rank = 0;
 
-	MPI_Comm_size(Comm, &size);
-	MPI_Comm_rank(Comm, &rank);
+        MPI_Comm_size(Comm, &size);
+        MPI_Comm_rank(Comm, &rank);
 
-	long long int n = seq.size();
-	int p = size;
+        long long int n = seq.size();
+        int p = size;
 
-	// get total size
-	long long int N = 0;
-	MPI_Allreduce(&n, &N, 1, MPI_LONG_LONG, MPI_SUM, Comm);
+        // get total size
+        long long int N = 0;
+        MPI_Allreduce(&n, &N, 1, MPI_LONG_LONG, MPI_SUM, Comm);
 
-	// if N < 2 nothing to sort
-	if (N < 0) throw bad_sample();
-	if (N < 2) return false;
+        // if N < 2 nothing to sort
+        if (N < 0) throw bad_sample();
+        if (N < 2) return false;
 
-	// get sample
-	int d = std::max(N / (C * p), 2LL);
-	int s = n / d;
+        // get sample
+        int d = std::max(N / (C * p), 2LL);
+        int s = n / d;
 
-	// we always sample smallest and largest element
-	Sequence sb(s + 1);
+        // we always sample smallest and largest element
+        Sequence sb(s + 1);
 
-	if (s > 0) for (int i = 0; i < s; ++i) sb[i] = seq[i * d];
+        if (s > 0) for (int i = 0; i < s; ++i) sb[i] = seq[i * d];
 
-	if (n > 0) {
-	    sb.back() = seq.back();
-	    s++;
-	}
+        if (n > 0) {
+            sb.back() = seq.back();
+            s++;
+        }
 
-	std::vector<int> all_s(p, 0);
-	std::vector<int> displ_s(p, 0);
+        std::vector<int> all_s(p, 0);
+        std::vector<int> displ_s(p, 0);
 
-	MPI_Allgather(&s, 1, MPI_INT, &all_s[0], 1, MPI_INT, Comm);
+        MPI_Allgather(&s, 1, MPI_INT, &all_s[0], 1, MPI_INT, Comm);
 
-	int S = std::accumulate(all_s.begin(), all_s.end(), 0);
-	if (S < 2) throw bad_sample();
+        int S = std::accumulate(all_s.begin(), all_s.end(), 0);
+        if (S < 2) throw bad_sample();
 
-	std::partial_sum(all_s.begin(), all_s.end() - 1, displ_s.begin() + 1);
+        std::partial_sum(all_s.begin(), all_s.end() - 1, displ_s.begin() + 1);
 
-	std::vector<value_type> sample(S);
-	MPI_Allgatherv(&sb[0], s, Type, &sample[0], &all_s[0], &displ_s[0], Type, Comm);
+        std::vector<value_type> sample(S);
+        MPI_Allgatherv(&sb[0], s, Type, &sample[0], &all_s[0], &displ_s[0], Type, Comm);
 
-	std::sort(sample.begin(), sample.end(), pred);
+        std::sort(sample.begin(), sample.end(), pred);
 
-	// get histogram
-	std::vector<int> hist(S, 0);
-	iterator iter = seq.begin();
+        // get histogram
+        std::vector<int> hist(S, 0);
+        iterator iter = seq.begin();
 
-	for (int i = 0; i < S - 1; ++i) {
-	    iterator temp = std::upper_bound(iter, seq.end(), sample[i], pred);
-	    hist[i] = temp - iter;
-	    iter = temp;
-	}
+        for (int i = 0; i < S - 1; ++i) {
+            iterator temp = std::upper_bound(iter, seq.end(), sample[i], pred);
+            hist[i] = temp - iter;
+            iter = temp;
+        }
 
-	hist.back() = seq.end() - iter;
+        hist.back() = seq.end() - iter;
 
-	std::vector<int> ghist(S, 0);
-	MPI_Allreduce(&hist[0], &ghist[0], S, MPI_INT, MPI_SUM, Comm);
+        std::vector<int> ghist(S, 0);
+        MPI_Allreduce(&hist[0], &ghist[0], S, MPI_INT, MPI_SUM, Comm);
 
-	// find pivots
-	pivots.resize(p - 1);
+        // find pivots
+        pivots.resize(p - 1);
 
-	int sz = ghist[0];
-	int pos = 0;
+        int sz = ghist[0];
+        int pos = 0;
 
-	d = std::max(N / p, 3LL);
+        d = std::max(N / p, 3LL);
 
-	// we use greedy approach here
-	for (int i = 1; (i < S - 1) && (pos < p - 1); ++i) {
-	    if (d < (sz + ghist[i])) {
-		if ((d - sz) < sz + ghist[i] - d) {
-		    pivots[pos] = sample[i - 1];
-		} else {
-		    pivots[pos] = sample[i];
-		    ++i;
-		}
-		sz = 0;
-		++pos;
-	    } // if d
-	    sz += ghist[i];
-	} // for i
+        // we use greedy approach here
+        for (int i = 1; (i < S - 1) && (pos < p - 1); ++i) {
+            if (d < (sz + ghist[i])) {
+                if ((d - sz) < sz + ghist[i] - d) {
+                    pivots[pos] = sample[i - 1];
+                } else {
+                    pivots[pos] = sample[i];
+                    ++i;
+                }
+                sz = 0;
+                ++pos;
+            } // if d
+            sz += ghist[i];
+        } // for i
 
-	return true;
+        return true;
     } // sampling
 
   } // namespace detail
@@ -159,9 +159,9 @@ namespace mpix {
       iterator iter = seq.begin();
 
       for (int i = 0; i < p - 1; ++i) {
-	  iterator temp = std::upper_bound(iter, seq.end(), pivots[i], pred);
-	  bin_sz[i] = temp - iter;
-	  iter = temp;
+          iterator temp = std::upper_bound(iter, seq.end(), pivots[i], pred);
+          bin_sz[i] = temp - iter;
+          iter = temp;
       }
 
       bin_sz.back() = seq.end() - iter;
@@ -181,7 +181,7 @@ namespace mpix {
       Sequence data(S);
 
       MPI_Alltoallv(&seq[0], &bin_sz[0], &bin_disp[0], Type,
-		    &data[0], &all_bin_sz[0], &all_bin_disp[0], Type, Comm);
+                    &data[0], &all_bin_sz[0], &all_bin_disp[0], Type, Comm);
 
       seq = data;
 

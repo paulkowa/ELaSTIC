@@ -31,8 +31,8 @@ namespace jaz {
       if (fs::exists(p) == false) return false;
 
       if (fs::is_directory(p) == true) {
-	  std::copy(fs::directory_iterator(p),fs::directory_iterator(), out);
-      } else (*out) = p;
+          std::copy(fs::directory_iterator(p),fs::directory_iterator(), out);
+      } else *out = p;
 
       return true;
   } // files

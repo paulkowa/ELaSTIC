@@ -49,9 +49,9 @@ namespace mpix {
       std::vector<value_type> data(n);
 
       for (int i = 0; i < n; ++i) {
-	  int pos = hash(seq[i]) % p;
-	  data[displ[pos] + all_bin_sz[pos]] = seq[i];
-	  all_bin_sz[pos]++;
+          int pos = hash(seq[i]) % p;
+          data[displ[pos] + all_bin_sz[pos]] = seq[i];
+          all_bin_sz[pos]++;
       }
 
       { Sequence().swap(seq); }
@@ -67,7 +67,7 @@ namespace mpix {
       seq.resize(S);
 
       MPI_Alltoallv(&data[0], &bin_sz[0], &displ[0], Type,
-		    &seq[0], &all_bin_sz[0], &all_displ[0], Type, Comm);
+                    &seq[0], &all_bin_sz[0], &all_displ[0], Type, Comm);
   } // simple_partition
 
 } // namespace mpix

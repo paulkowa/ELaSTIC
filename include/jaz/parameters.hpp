@@ -36,30 +36,30 @@ namespace jaz {
       std::vector<std::string> tokens;
 
       do {
-	  std::string s;
-	  std::getline(f, s);
-	  ++line;
+          std::string s;
+          std::getline(f, s);
+          ++line;
 
-	  if ((f.good() == false) && (f.eof() == false)) return std::make_pair(false, line);
+          if ((f.good() == false) && (f.eof() == false)) return std::make_pair(false, line);
 
-	  if (s.empty() == false) {
-	      // needed for windows files
-	      unsigned int len = s.size() - 1;
-	      if (s[len] == '\r') s.resize(len);
+          if (s.empty() == false) {
+              // needed for windows files
+              unsigned int len = s.size() - 1;
+              if (s[len] == '\r') s.resize(len);
 
-	      if (s.empty() == true) continue;
+              if (s.empty() == true) continue;
 
-	      if ((s[0] != '#') && (s[0] != ';')) {
-		  tokens.clear();
-		  split('=', s, std::back_inserter(tokens));
-		  if (tokens.size() != 2) return std::make_pair(false, line);
-		  else {
-		      tokens[0].erase(std::remove_if(tokens[0].begin(), tokens[0].end(), isspace), tokens[0].end());
-		      tokens[1].erase(std::remove_if(tokens[1].begin(), tokens[1].end(), isspace), tokens[1].end());
-		      cfg[tokens[0]] = tokens[1];
-		  }
-	      }
-	  } // if s.empty()
+              if ((s[0] != '#') && (s[0] != ';')) {
+                  tokens.clear();
+                  split('=', s, std::back_inserter(tokens));
+                  if (tokens.size() != 2) return std::make_pair(false, line);
+                  else {
+                      tokens[0].erase(std::remove_if(tokens[0].begin(), tokens[0].end(), isspace), tokens[0].end());
+                      tokens[1].erase(std::remove_if(tokens[1].begin(), tokens[1].end(), isspace), tokens[1].end());
+                      cfg[tokens[0]] = tokens[1];
+                  }
+              }
+          } // if s.empty()
       }
       while (f.eof() == false);
 
@@ -76,10 +76,10 @@ namespace jaz {
       int pos = 1;
 
       for (; pos < argc; pos += 2) {
-	  std::string opt = argv[pos];
-	  std::string arg = argv[pos + 1];
-	  if ((opt.size() < 3) || (opt[0] != '-') || (opt[1] != '-')) return std::make_pair(false, pos);
-	  cfg[std::string(opt.begin() + 2, opt.end())] = arg;
+          std::string opt = argv[pos];
+          std::string arg = argv[pos + 1];
+          if ((opt.size() < 3) || (opt[0] != '-') || (opt[1] != '-')) return std::make_pair(false, pos);
+          cfg[std::string(opt.begin() + 2, opt.end())] = arg;
       } // for pos
 
       return std::make_pair(true, pos);

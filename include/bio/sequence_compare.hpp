@@ -56,143 +56,143 @@ namespace bio {
     // this code comes from jaz
     template <typename Iter1, typename Iter2, typename Pred>
     std::size_t intersection_size(Iter1 first1, Iter1 last1, Iter2 first2, Iter2 last2, Pred pred) {
-	std::size_t S = 0;
+        std::size_t S = 0;
 
-	while ((first1 != last1) && (first2 != last2)) {
-	    if (pred(*first1, *first2)) ++first1;
-	    else if (pred(*first2, *first1)) ++first2;
-	    else {
-		first1++;
-		first2++;
-		S++;
-	    }
-	} // while
+        while ((first1 != last1) && (first2 != last2)) {
+            if (pred(*first1, *first2)) ++first1;
+            else if (pred(*first2, *first1)) ++first2;
+            else {
+                first1++;
+                first2++;
+                S++;
+            }
+        } // while
 
-	return S;
+        return S;
     } // intersection_size
 
 
     template <typename Iter1, typename Iter2>
     int count_distance(Iter1 first1, Iter1 last1, Iter2 first2, Iter2 last2) {
-	int S = 0;
+        int S = 0;
 
-	while ((first1 != last1) && (first2 != last2)) {
-	    if (first1->first < first2->first) {
-		S += (first1->second * first1->second);
-		++first1;
-	    }
-	    else if (first2->first < first1->first) {
-		S += (first2->second * first2->second);
-		++first2;
-	    }
-	    else {
-		int d = (first1->second - first2->second);
-		S += d * d;
-		first1++;
-		first2++;
-	    }
-	} // while
+        while ((first1 != last1) && (first2 != last2)) {
+            if (first1->first < first2->first) {
+                S += (first1->second * first1->second);
+                ++first1;
+            }
+            else if (first2->first < first1->first) {
+                S += (first2->second * first2->second);
+                ++first2;
+            }
+            else {
+                int d = (first1->second - first2->second);
+                S += d * d;
+                first1++;
+                first2++;
+            }
+        } // while
 
-	return S;
+        return S;
     } // count_distance
 
 
     template <typename Sequence> void general_kmer_index(const std::string& s, int k, Sequence& S) {
-	int l = s.size();
-	int end = l - k + 1;
-	S.resize(end);
-	for (int i = 0; i < end; ++i) {
-	    S[i] = std::string(s.begin() + i, s.begin() + i + k);
-	}
-	std::sort(S.begin(), S.end());
+        int l = s.size();
+        int end = l - k + 1;
+        S.resize(end);
+        for (int i = 0; i < end; ++i) {
+            S[i] = std::string(s.begin() + i, s.begin() + i + k);
+        }
+        std::sort(S.begin(), S.end());
     } // general_kmer_index
 
 
     template <typename Map> void general_kmer_count(const std::string& s, int k, Map& S) {
-	S.clear();
-	int l = s.size();
-	int end = l - k + 1;
-	for (int i = 0; i < end; ++i) {
-	    S[std::string(s.begin() + i, s.begin() + i + k)]++;
-	}
+        S.clear();
+        int l = s.size();
+        int end = l - k + 1;
+        for (int i = 0; i < end; ++i) {
+            S[std::string(s.begin() + i, s.begin() + i + k)]++;
+        }
     } // general_kmer_count
 
 
     class dna_digit {
     public:
-	dna_digit() {
-	    std::memset(digit_, 0, 256);
-	    digit_['c'] = digit_['C'] = 1;
-	    digit_['g'] = digit_['G'] = 2;
-	    digit_['t'] = digit_['T'] = 3;
-	    digit_['u'] = digit_['U'] = 3;
-	} // dna_digit
+        dna_digit() {
+            std::memset(digit_, 0, 256);
+            digit_['c'] = digit_['C'] = 1;
+            digit_['g'] = digit_['G'] = 2;
+            digit_['t'] = digit_['T'] = 3;
+            digit_['u'] = digit_['U'] = 3;
+        } // dna_digit
 
     protected:
-	char digit_[256];
+        char digit_[256];
 
     }; // dna_digit
 
 
     class dna_kmer_index : public dna_digit {
     public:
-	dna_kmer_index() : dna_digit() { }
+        dna_kmer_index() : dna_digit() { }
 
-	template <typename Sequence>
-	void operator()(const std::string& s, int k, Sequence& S) {
-	    int l = s.size();
-	    int end = l - k + 1;
+        template <typename Sequence>
+        void operator()(const std::string& s, int k, Sequence& S) {
+            int l = s.size();
+            int end = l - k + 1;
 
-	    S.resize(end);
+            S.resize(end);
 
-	    // first kmer
-	    unsigned long long int v = digit_[s[k - 1]];
-	    for (int i = 0; i < k - 1; ++i) {
-		v += digit_[s[i]] * (1ULL << ((k - i - 1) << 1));
-	    }
+            // first kmer
+            unsigned long long int v = digit_[s[k - 1]];
+            for (int i = 0; i < k - 1; ++i) {
+                v += digit_[s[i]] * (1ULL << ((k - i - 1) << 1));
+            }
 
-	    S[0] = v;
+            S[0] = v;
 
-	    // and then all other
-	    unsigned long long int b = 1ULL << ((k - 1) << 1);
+            // and then all other
+            unsigned long long int b = 1ULL << ((k - 1) << 1);
 
-	    for (int i = 1; i < end; ++i) {
-		v = (v - b * digit_[s[i - 1]]) * 4 + digit_[s[i + k - 1]];
-		S[i] = v;
-	    }
+            for (int i = 1; i < end; ++i) {
+                v = (v - b * digit_[s[i - 1]]) * 4 + digit_[s[i + k - 1]];
+                S[i] = v;
+            }
 
-	    std::sort(S.begin(), S.end());
-	} // operator()
+            std::sort(S.begin(), S.end());
+        } // operator()
 
     }; // class dna_kmer_index
 
 
     class dna_kmer_count : public dna_digit {
     public:
-	dna_kmer_count() : dna_digit() { }
+        dna_kmer_count() : dna_digit() { }
 
-	template <typename Map>
-	void operator()(const std::string& s, int k, Map& S) {
-	    int l = s.size();
-	    int end = l - k + 1;
+        template <typename Map>
+        void operator()(const std::string& s, int k, Map& S) {
+            int l = s.size();
+            int end = l - k + 1;
 
-	    // first kmer
-	    unsigned long long int v = digit_[s[k - 1]];
+            // first kmer
+            unsigned long long int v = digit_[s[k - 1]];
 
-	    for (int i = 0; i < k - 1; ++i) {
-		v += digit_[s[i]] * (1ULL << ((k - i - 1) << 1));
-	    }
+            for (int i = 0; i < k - 1; ++i) {
+                v += digit_[s[i]] * (1ULL << ((k - i - 1) << 1));
+            }
 
-	    S[v] = 1;
+            S[v] = 1;
 
-	    // and then all other
-	    unsigned long long int b = 1ULL << ((k - 1) << 1);
+            // and then all other
+            unsigned long long int b = 1ULL << ((k - 1) << 1);
 
-	    for (int i = 1; i < end; ++i) {
-		v = (v - b * digit_[s[i - 1]]) * 4 + digit_[s[i + k - 1]];
-		S[v]++;
-	    }
-	} // operator()
+            for (int i = 1; i < end; ++i) {
+                v = (v - b * digit_[s[i - 1]]) * 4 + digit_[s[i + k - 1]];
+                S[v]++;
+            }
+        } // operator()
 
     }; // class dna_kmer_count
 
@@ -208,7 +208,7 @@ namespace bio {
    */
   template <typename Derived> struct sequence_compare {
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
-	  return static_cast<Derived*>(this)->operator()(s0, s1);
+          return static_cast<Derived*>(this)->operator()(s0, s1);
       }
   }; // struct sequence_compare
 
@@ -229,8 +229,8 @@ namespace bio {
        *  matrix - Row-wise stored substitution matrix.
        */
       scoring_matrix(unsigned char sigma[256], const std::vector<signed char>& matrix)
-	  : sz_(static_cast<int>(std::sqrt(matrix.size()))), matrix_(matrix) {
-	  std::memcpy(sigma_, sigma, 256);
+          : sz_(static_cast<int>(std::sqrt(matrix.size()))), matrix_(matrix) {
+          std::memcpy(sigma_, sigma, 256);
       } // scoring_matrix
 
       /** Function: operator()
@@ -313,9 +313,9 @@ namespace bio {
 
       // read comments
       while (!f.eof()) {
-	  buf = "";
-	  std::getline(f, buf);
-	  if (buf.empty() || (buf[0] != '#')) break;
+          buf = "";
+          std::getline(f, buf);
+          if (buf.empty() || (buf[0] != '#')) break;
       } // while
 
       if (buf.empty()) return false;
@@ -334,19 +334,19 @@ namespace bio {
 
       // read matrix
       for (int i = 0; i < len; ++i) {
-	  char id = 0;
-	  int val;
+          char id = 0;
+          int val;
 
-	  f >> id;
-	  if (!f || (id != head[i])) return false;
+          f >> id;
+          if (!f || (id != head[i])) return false;
 
-	  for (int j = 0; j < len; ++j) {
-	      f >> val;
-	      if (!f) return false;
-	      int pos0 = sigma[head[i]];
-	      int pos1 = sigma[head[j]];
-	      matrix[pos0 * len + pos1] = val;
-	  } // for j
+          for (int j = 0; j < len; ++j) {
+              f >> val;
+              if (!f) return false;
+              int pos0 = sigma[head[i]];
+              int pos1 = sigma[head[j]];
+              matrix[pos0 * len + pos1] = val;
+          } // for j
       } // for i
 
       f.close();
@@ -373,7 +373,7 @@ namespace bio {
        *  h - Gap extension penalty (negative number).
        */
       explicit local_alignment(int m = 0, int s = 0, int g = 0, int h = 0)
-	  : sub_(make_dummy_sm(m, s)), g_(g), h_(h) { }
+          : sub_(make_dummy_sm(m, s)), g_(g), h_(h) { }
 
       /** Constructor: local_alignment
        *
@@ -383,7 +383,7 @@ namespace bio {
        *  h -  Gap extension penalty (negative number).
        */
       local_alignment(const scoring_matrix& sm, int g, int h)
-	  : sub_(sm), g_(g), h_(h) { }
+          : sub_(sm), g_(g), h_(h) { }
 
       /** Function: operator()
        *
@@ -394,126 +394,126 @@ namespace bio {
        *  3-tuple (alignment score, alignment length, number of matches).
        */
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
-	  int n = s0.size() + 1;
-	  int m = s1.size() + 1;
+          int n = s0.size() + 1;
+          int m = s1.size() + 1;
 
-	  // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j), 0 }
-	  // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
-	  // I(i, j) = max{ I(i - 1, j), S(i - 1, j) + g } + h
+          // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j), 0 }
+          // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
+          // I(i, j) = max{ I(i - 1, j), S(i - 1, j) + g } + h
 
-	  S_.resize(m, 0);
-	  std::fill(S_.begin(), S_.end(), 0);
+          S_.resize(m, 0);
+          std::fill(S_.begin(), S_.end(), 0);
 
-	  I_.resize(m, 0);
-	  std::fill(I_.begin(), I_.end(), 0);
+          I_.resize(m, 0);
+          std::fill(I_.begin(), I_.end(), 0);
 
-	  track_.resize(n * m);
-	  std::fill(track_.begin(), track_.end(), NOPE);
+          track_.resize(n * m);
+          std::fill(track_.begin(), track_.end(), NOPE);
 
-	  int pos = 0;
-	  int Sij = 0;
+          int pos = 0;
+          int Sij = 0;
 
-	  // we keep track of max
-	  // the first highest value is kept
-	  int mi = 0;
-	  int mj = 0;
-	  int me = 0;
+          // we keep track of max
+          // the first highest value is kept
+          int mi = 0;
+          int mj = 0;
+          int me = 0;
 
-	  for (int i = 1; i < n; ++i) {
-	      int Si = 0;
-	      int Di = 0;
+          for (int i = 1; i < n; ++i) {
+              int Si = 0;
+              int Di = 0;
 
-	      pos = i * m;
+              pos = i * m;
 
-	      for (int j = 1; j < m; ++j) {
-		  pos++;
+              for (int j = 1; j < m; ++j) {
+                  pos++;
 
-		  Di = std::max(Di, Si + g_) + h_;
-		  I_[j] = std::max(I_[j], S_[j] + g_) + h_;
+                  Di = std::max(Di, Si + g_) + h_;
+                  I_[j] = std::max(I_[j], S_[j] + g_) + h_;
 
-		  Si = Sij + sub_(s0[i - 1], s1[j - 1]);
+                  Si = Sij + sub_(s0[i - 1], s1[j - 1]);
 
-		  if ((Si < 0) && (Di < 0) && (I_[j] < 0)) {
-		      // max is 0
-		      Si = 0;
-		      track_[pos] = NOPE;
-		  } else {
-		      // default: max in Si
-		      track_[pos] = DIAG;
+                  if ((Si < 0) && (Di < 0) && (I_[j] < 0)) {
+                      // max is 0
+                      Si = 0;
+                      track_[pos] = NOPE;
+                  } else {
+                      // default: max in Si
+                      track_[pos] = DIAG;
 
-		      if (Di < I_[j]) {
-			  if (Si < I_[j]) {
-			      // max in I_[j]
-			      Si = I_[j];
-			      track_[pos] = TOP;
-			  }
-		      } else {
-			  if (Si < Di) {
-			      // max in Di
-			      Si = Di;
-			      track_[pos] = LEFT;
-			  }
-		      }
-		  } // if
+                      if (Di < I_[j]) {
+                          if (Si < I_[j]) {
+                              // max in I_[j]
+                              Si = I_[j];
+                              track_[pos] = TOP;
+                          }
+                      } else {
+                          if (Si < Di) {
+                              // max in Di
+                              Si = Di;
+                              track_[pos] = LEFT;
+                          }
+                      }
+                  } // if
 
-		  if (me < Si) {
-		      me = Si;
-		      mi = i;
-		      mj = j;
-		  }
+                  if (me < Si) {
+                      me = Si;
+                      mi = i;
+                      mj = j;
+                  }
 
-		  Sij = S_[j];
-		  S_[j] = Si;
+                  Sij = S_[j];
+                  S_[j] = Si;
 
-	      } // for j
+              } // for j
 
-	      Sij = 0;
-	  } // for i
+              Sij = 0;
+          } // for i
 
-	  // backtrack
-	  int i = mi;
-	  int j = mj;
+          // backtrack
+          int i = mi;
+          int j = mj;
 
-	  int match = 0;
-	  int length = 0;
+          int match = 0;
+          int length = 0;
 
-	  has_path_ = false;
-	  path_.clear();
+          has_path_ = false;
+          path_.clear();
 
-	  while (track_[i * m + j] != NOPE) {
-	      switch (track_[i * m + j]) {
-		case NOPE:
-		    break;
+          while (track_[i * m + j] != NOPE) {
+              switch (track_[i * m + j]) {
+                case NOPE:
+                    break;
 
-		case TOP:
-		    --i;
-		    path_.push_back('d');
-		    break;
+                case TOP:
+                    --i;
+                    path_.push_back('d');
+                    break;
 
-		case LEFT:
-		    --j;
-		    path_.push_back('i');
-		    break;
+                case LEFT:
+                    --j;
+                    path_.push_back('i');
+                    break;
 
-		case DIAG:
-		    --i;
-		    --j;
+                case DIAG:
+                    --i;
+                    --j;
 
-		    if (s0[i] == s1[j]) {
-			match++;
-			path_.push_back('m');
-		    } else path_.push_back('s');
+                    if (s0[i] == s1[j]) {
+                        match++;
+                        path_.push_back('m');
+                    } else path_.push_back('s');
 
-		    break;
-	      } // switch
+                    break;
+              } // switch
 
-	      length++;
-	  } // while
+              length++;
+          } // while
 
-	  ps0_ = i;
-	  ps1_ = j;
+          ps0_ = i;
+          ps1_ = j;
 
-	  return boost::make_tuple(me, length, match);
+          return boost::make_tuple(me, length, match);
       } // operator()
 
       /** Function: path
@@ -525,11 +525,11 @@ namespace bio {
        *  's' is substitution, and 'm' is match.
        */
       std::string path() {
-	  if (!has_path_) {
-	      std::reverse(path_.begin(), path_.end());
-	      has_path_ = true;
-	  }
-	  return path_;
+          if (!has_path_) {
+              std::reverse(path_.begin(), path_.end());
+              has_path_ = true;
+          }
+          return path_;
       } // path
 
       /** Function: position
@@ -541,7 +541,7 @@ namespace bio {
        *  and the second is a position in s1.
        */
       std::pair<int, int> position() const {
-	  return std::make_pair(ps0_, ps1_);
+          return std::make_pair(ps0_, ps1_);
       } // position
 
   private:
@@ -581,7 +581,7 @@ namespace bio {
        *  h - Gap extension penalty (negative number).
        */
       explicit global_alignment(int m = 0, int s = 0, int g = 0, int h = 0)
-	  : sub_(make_dummy_sm(m, s)), g_(g), h_(h) { }
+          : sub_(make_dummy_sm(m, s)), g_(g), h_(h) { }
 
       /** Constructor: global_alignment
        *
@@ -591,7 +591,7 @@ namespace bio {
        *  h -  Gap extension penalty (negative number).
        */
       global_alignment(const scoring_matrix& sm, int g, int h)
-	  : sub_(sm), g_(g), h_(h) { }
+          : sub_(sm), g_(g), h_(h) { }
 
       /** Function: operator()
        *
@@ -601,121 +601,121 @@ namespace bio {
        *  3-tuple (alignment score, alignment length without terminal gaps, number of matches).
        */
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
-	  int n = s0.size() + 1;
-	  int m = s1.size() + 1;
+          int n = s0.size() + 1;
+          int m = s1.size() + 1;
 
-	  // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j) }
-	  // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
-	  // I(i, j) = max{ I(i - 1, j), S(i - 1, j) + g } + h
+          // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j) }
+          // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
+          // I(i, j) = max{ I(i - 1, j), S(i - 1, j) + g } + h
 
-	  S_.resize(m, 0);
-	  std::fill(S_.begin(), S_.end(), 0);
+          S_.resize(m, 0);
+          std::fill(S_.begin(), S_.end(), 0);
 
-	  I_.resize(m, 0);
-	  std::fill(I_.begin(), I_.end(), 0);
+          I_.resize(m, 0);
+          std::fill(I_.begin(), I_.end(), 0);
 
-	  track_.resize(n * m);
-	  std::fill(track_.begin(), track_.end(), TOP);
+          track_.resize(n * m);
+          std::fill(track_.begin(), track_.end(), TOP);
 
-	  for (int j = 1; j < m; ++j) {
-	      track_[j] = LEFT;
-	      S_[j] = I_[j] = g_ + j * h_;
-	  }
+          for (int j = 1; j < m; ++j) {
+              track_[j] = LEFT;
+              S_[j] = I_[j] = g_ + j * h_;
+          }
 
-	  int pos = 0;
-	  int Sij = 0;
+          int pos = 0;
+          int Sij = 0;
 
-	  for (int i = 1; i < n; ++i) {
-	      int Si = g_ + i * h_;
-	      int Di = g_ + i * h_;
+          for (int i = 1; i < n; ++i) {
+              int Si = g_ + i * h_;
+              int Di = g_ + i * h_;
 
-	      pos = i * m;
-	      track_[pos] = TOP;
+              pos = i * m;
+              track_[pos] = TOP;
 
-	      for (int j = 1; j < m; ++j) {
-		  pos++;
+              for (int j = 1; j < m; ++j) {
+                  pos++;
 
-		  Di = std::max(Di, Si + g_) + h_;
-		  I_[j] = std::max(I_[j], S_[j] + g_) + h_;
+                  Di = std::max(Di, Si + g_) + h_;
+                  I_[j] = std::max(I_[j], S_[j] + g_) + h_;
 
-		  Si = Sij + sub_(s0[i - 1], s1[j - 1]);
+                  Si = Sij + sub_(s0[i - 1], s1[j - 1]);
 
-		  // default: max in Si
-		  track_[pos] = DIAG;
+                  // default: max in Si
+                  track_[pos] = DIAG;
 
-		  if (Di < I_[j]) {
-		      if (Si < I_[j]) {
-			  // max in I_[j]
-			  Si = I_[j];
-			  track_[pos] = TOP;
-		      }
-		  } else {
-		      if (Si < Di) {
-			  // max in Di
-			  Si = Di;
-			  track_[pos] = LEFT;
-		      }
-		  } // if
+                  if (Di < I_[j]) {
+                      if (Si < I_[j]) {
+                          // max in I_[j]
+                          Si = I_[j];
+                          track_[pos] = TOP;
+                      }
+                  } else {
+                      if (Si < Di) {
+                          // max in Di
+                          Si = Di;
+                          track_[pos] = LEFT;
+                      }
+                  } // if
 
-		  Sij = S_[j];
-		  S_[j] = Si;
+                  Sij = S_[j];
+                  S_[j] = Si;
 
-	      } // for j
+              } // for j
 
-	      Sij = g_ + i * h_;
+              Sij = g_ + i * h_;
 
-	  } // for i
+          } // for i
 
-	  // backtrack
-	  int i = n - 1;
-	  int j = m - 1;
+          // backtrack
+          int i = n - 1;
+          int j = m - 1;
 
-	  int match = 0;
-	  int length = 0;
+          int match = 0;
+          int length = 0;
 
-	  bool has_gap = false;
-	  int sgap = 0;
-	  int egap = 0;
+          bool has_gap = false;
+          int sgap = 0;
+          int egap = 0;
 
-	  has_path_ = false;
-	  path_.clear();
+          has_path_ = false;
+          path_.clear();
 
-	  while ((i > 0) || (j > 0)) {
-	      switch (track_[i * m + j]) {
-		case TOP:
-		    --i;
-		    sgap++;
-		    path_.push_back('d');
-		    break;
+          while ((i > 0) || (j > 0)) {
+              switch (track_[i * m + j]) {
+                case TOP:
+                    --i;
+                    sgap++;
+                    path_.push_back('d');
+                    break;
 
-		case LEFT:
-		    --j;
-		    sgap++;
-		    path_.push_back('i');
-		    break;
+                case LEFT:
+                    --j;
+                    sgap++;
+                    path_.push_back('i');
+                    break;
 
-		case DIAG:
-		    --i;
-		    --j;
+                case DIAG:
+                    --i;
+                    --j;
 
-		    if (s0[i] == s1[j]) {
-			match++;
-			path_.push_back('m');
-		    } else path_.push_back('s');
+                    if (s0[i] == s1[j]) {
+                        match++;
+                        path_.push_back('m');
+                    } else path_.push_back('s');
 
-		    if (!has_gap) {
-			has_gap = true;
-			egap = sgap;
-		    }
+                    if (!has_gap) {
+                        has_gap = true;
+                        egap = sgap;
+                    }
 
-		    sgap = 0;
-		    break;
-	      } // switch
+                    sgap = 0;
+                    break;
+              } // switch
 
-	      length++;
-	  } // while
+              length++;
+          } // while
 
-	  return boost::make_tuple(S_.back(), length - sgap - egap, match);
+          return boost::make_tuple(S_.back(), length - sgap - egap, match);
       } // operator()
 
       /** Function: path
@@ -727,11 +727,11 @@ namespace bio {
        *  's' is substitution, and 'm' is match.
        */
       std::string path() {
-	  if (!has_path_) {
-	      std::reverse(path_.begin(), path_.end());
-	      has_path_ = true;
-	  }
-	  return path_;
+          if (!has_path_) {
+              std::reverse(path_.begin(), path_.end());
+              has_path_ = true;
+          }
+          return path_;
       } // path
 
   private:
@@ -769,7 +769,7 @@ namespace bio {
        *  h - Gap extension penalty (negative number).
        */
       explicit free_global_alignment(int m = 0, int s = 0, int g = 0, int h = 0)
-	  : sub_(make_dummy_sm(m, s)), g_(g), h_(h) { }
+          : sub_(make_dummy_sm(m, s)), g_(g), h_(h) { }
 
       /** Constructor: free_global_alignment
        *
@@ -779,7 +779,7 @@ namespace bio {
        *  h -  Gap extension penalty (negative number).
        */
       free_global_alignment(const scoring_matrix& sm, int g, int h)
-	  : sub_(sm), g_(g), h_(h) { }
+          : sub_(sm), g_(g), h_(h) { }
 
       /** Function: operator()
        *
@@ -790,122 +790,122 @@ namespace bio {
        *  3-tuple (alignment score, alignment length without terminal gaps, number of matches).
        */
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
-	  int n = s0.size() + 1;
-	  int m = s1.size() + 1;
+          int n = s0.size() + 1;
+          int m = s1.size() + 1;
 
-	  // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j) }
-	  // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
-	  // I(i, j) = max{ I(i - 1, j), S(i - 1, j) + g } + h
+          // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j) }
+          // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
+          // I(i, j) = max{ I(i - 1, j), S(i - 1, j) + g } + h
 
-	  S_.resize(m, 0);
-	  std::fill(S_.begin(), S_.end(), 0);
+          S_.resize(m, 0);
+          std::fill(S_.begin(), S_.end(), 0);
 
-	  I_.resize(m, 0);
-	  std::fill(I_.begin(), I_.end(), 0);
+          I_.resize(m, 0);
+          std::fill(I_.begin(), I_.end(), 0);
 
-	  track_.resize(n * m);
-	  std::fill(track_.begin(), track_.end(), TOP);
+          track_.resize(n * m);
+          std::fill(track_.begin(), track_.end(), TOP);
 
-	  for (int j = 1; j < m; ++j) {
-	      I_[j] = g_ + j * h_;
-	      track_[j] = LEFT;
-	  }
+          for (int j = 1; j < m; ++j) {
+              I_[j] = g_ + j * h_;
+              track_[j] = LEFT;
+          }
 
-	  int pos = 0;
-	  int Sij = 0;
+          int pos = 0;
+          int Sij = 0;
 
-	  for (int i = 1; i < n; ++i) {
-	      int Si = g_ + i * h_;
-	      int Di = g_ + i * h_;
+          for (int i = 1; i < n; ++i) {
+              int Si = g_ + i * h_;
+              int Di = g_ + i * h_;
 
-	      pos = i * m;
-	      track_[pos] = TOP;
+              pos = i * m;
+              track_[pos] = TOP;
 
-	      for (int j = 1; j < m; ++j) {
-		  pos++;
+              for (int j = 1; j < m; ++j) {
+                  pos++;
 
-		  Di = std::max(Di, Si + g_) + h_;
-		  I_[j] = std::max(I_[j], S_[j] + g_) + h_;
+                  Di = std::max(Di, Si + g_) + h_;
+                  I_[j] = std::max(I_[j], S_[j] + g_) + h_;
 
-		  Si = Sij + sub_(s0[i - 1], s1[j - 1]);
+                  Si = Sij + sub_(s0[i - 1], s1[j - 1]);
 
-		  // default: max in Si
-		  track_[pos] = DIAG;
+                  // default: max in Si
+                  track_[pos] = DIAG;
 
-		  if (Di < I_[j]) {
-		      if (Si < I_[j]) {
-			  // max in I_[j]
-			  Si = I_[j];
-			  track_[pos] = TOP;
-		      }
-		  } else {
-		      if (Si < Di) {
-			  // max in Di
-			  Si = Di;
-			  track_[pos] = LEFT;
-		      }
-		  } // if
+                  if (Di < I_[j]) {
+                      if (Si < I_[j]) {
+                          // max in I_[j]
+                          Si = I_[j];
+                          track_[pos] = TOP;
+                      }
+                  } else {
+                      if (Si < Di) {
+                          // max in Di
+                          Si = Di;
+                          track_[pos] = LEFT;
+                      }
+                  } // if
 
-		  Sij = S_[j];
-		  S_[j] = Si;
+                  Sij = S_[j];
+                  S_[j] = Si;
 
-	      } // for j
+              } // for j
 
-	      Sij = g_ + i * h_;
-	  } // for i
+              Sij = g_ + i * h_;
+          } // for i
 
-	  // backtrack
-	  int i = n - 1;
-	  int j = std::max_element(S_.begin() + 1, S_.end()) - S_.begin();
+          // backtrack
+          int i = n - 1;
+          int j = std::max_element(S_.begin() + 1, S_.end()) - S_.begin();
 
-	  int score = S_[j];
+          int score = S_[j];
 
-	  int match = 0;
-	  int length = (m - 1) - j;
+          int match = 0;
+          int length = (m - 1) - j;
 
-	  bool has_gap = true;
-	  int sgap = 0;
-	  int egap = length;
+          bool has_gap = true;
+          int sgap = 0;
+          int egap = length;
 
-	  has_path_ = false;
-	  path_ = std::string(length, 'i');
+          has_path_ = false;
+          path_ = std::string(length, 'i');
 
-	  while ((i > 0) || (j > 0)) {
-	      switch (track_[i * m + j]) {
-		case TOP:
-		    --i;
-		    sgap++;
-		    path_.push_back('d');
-		    break;
+          while ((i > 0) || (j > 0)) {
+              switch (track_[i * m + j]) {
+                case TOP:
+                    --i;
+                    sgap++;
+                    path_.push_back('d');
+                    break;
 
-		case LEFT:
-		    --j;
-		    sgap++;
-		    path_.push_back('i');
-		    break;
+                case LEFT:
+                    --j;
+                    sgap++;
+                    path_.push_back('i');
+                    break;
 
-		case DIAG:
-		    --i;
-		    --j;
+                case DIAG:
+                    --i;
+                    --j;
 
-		    if (s0[i] == s1[j]) {
-			match++;
-			path_.push_back('m');
-		    } else path_.push_back('s');
+                    if (s0[i] == s1[j]) {
+                        match++;
+                        path_.push_back('m');
+                    } else path_.push_back('s');
 
-		    if (!has_gap) {
-			has_gap = true;
-			egap = sgap;
-		    }
+                    if (!has_gap) {
+                        has_gap = true;
+                        egap = sgap;
+                    }
 
-		    sgap = 0;
-		    break;
-	      } // switch
+                    sgap = 0;
+                    break;
+              } // switch
 
-	      length++;
-	  } // while
+              length++;
+          } // while
 
-	  return boost::make_tuple(score, length - sgap - egap, match);
+          return boost::make_tuple(score, length - sgap - egap, match);
       } // operator()
 
       /** Function: path
@@ -917,11 +917,11 @@ namespace bio {
        *  's' is substitution, and 'm' is match.
        */
       std::string path() {
-	  if (!has_path_) {
-	      std::reverse(path_.begin(), path_.end());
-	      has_path_ = true;
-	  }
-	  return path_;
+          if (!has_path_) {
+              std::reverse(path_.begin(), path_.end());
+              has_path_ = true;
+          }
+          return path_;
       } // path
 
   private:
@@ -964,23 +964,23 @@ namespace bio {
        *  3-tuple (d2 score, number of unique kmers in s0, number of unique kmers in s1).
        */
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
-	  if ((s0.size() < k_) || (s1.size() < k_)) return boost::make_tuple(-1, -1, -1);
+          if ((s0.size() < k_) || (s1.size() < k_)) return boost::make_tuple(-1, -1, -1);
 
-	  if (isdna_) {
-	      dC_(s0, k_, dcount0_);
-	      dC_(s1, k_, dcount1_);
-	      int S = detail::count_distance(dcount0_.begin(), dcount0_.end(),
-					     dcount1_.begin(), dcount1_.end());
-	      return boost::make_tuple(S, dcount0_.size(), dcount1_.size());
-	  } else {
-	      detail::general_kmer_count(s0, k_, count0_);
-	      detail::general_kmer_count(s1, k_, count1_);
-	      int S = detail::count_distance(count0_.begin(), count0_.end(),
-					     count1_.begin(), count1_.end());
-	      return boost::make_tuple(S, count0_.size(), count1_.size());
-	  }
+          if (isdna_) {
+              dC_(s0, k_, dcount0_);
+              dC_(s1, k_, dcount1_);
+              int S = detail::count_distance(dcount0_.begin(), dcount0_.end(),
+                                             dcount1_.begin(), dcount1_.end());
+              return boost::make_tuple(S, dcount0_.size(), dcount1_.size());
+          } else {
+              detail::general_kmer_count(s0, k_, count0_);
+              detail::general_kmer_count(s1, k_, count1_);
+              int S = detail::count_distance(count0_.begin(), count0_.end(),
+                                             count1_.begin(), count1_.end());
+              return boost::make_tuple(S, count0_.size(), count1_.size());
+          }
 
-	  return boost::make_tuple(-1, -1, -1);
+          return boost::make_tuple(-1, -1, -1);
       } // operator()
 
       /** Function: operator()
@@ -992,21 +992,21 @@ namespace bio {
        *  3-tuple (d2 score, number of unique kmers in s0, number of unique kmers in s1).
        */
       boost::tuple<int, int, int> operator()(const std::string& s1) {
-	  if (s1.size() < k_) return boost::make_tuple(-1, -1, -1);
+          if (s1.size() < k_) return boost::make_tuple(-1, -1, -1);
 
-	  if (isdna_) {
-	      dC_(s1, k_, dcount1_);
-	      int S = detail::count_distance(dcount0_.begin(), dcount0_.end(),
-					     dcount1_.begin(), dcount1_.end());
-	      return boost::make_tuple(S, dcount0_.size(), dcount1_.size());
-	  } else {
-	      detail::general_kmer_count(s1, k_, count1_);
-	      int S = detail::count_distance(count0_.begin(), count0_.end(),
-					     count1_.begin(), count1_.end());
-	      return boost::make_tuple(S, count0_.size(), count1_.size());
-	  }
+          if (isdna_) {
+              dC_(s1, k_, dcount1_);
+              int S = detail::count_distance(dcount0_.begin(), dcount0_.end(),
+                                             dcount1_.begin(), dcount1_.end());
+              return boost::make_tuple(S, dcount0_.size(), dcount1_.size());
+          } else {
+              detail::general_kmer_count(s1, k_, count1_);
+              int S = detail::count_distance(count0_.begin(), count0_.end(),
+                                             count1_.begin(), count1_.end());
+              return boost::make_tuple(S, count0_.size(), count1_.size());
+          }
 
-	  return boost::make_tuple(-1, -1, -1);
+          return boost::make_tuple(-1, -1, -1);
       } // operator()
 
   private:
@@ -1046,25 +1046,25 @@ namespace bio {
        *  3-tuple (number of common kmers, number of kmers in s0, number of kmers in s1).
        */
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
-	  if ((s0.size() < k_) || (s1.size() < k_)) return boost::make_tuple(-1, -1, -1);
+          if ((s0.size() < k_) || (s1.size() < k_)) return boost::make_tuple(-1, -1, -1);
 
-	  if (isdna_) {
-	      dI_(s0, k_, dindex0_);
-	      dI_(s1, k_, dindex1_);
-	      int S = detail::intersection_size(dindex0_.begin(), dindex0_.end(),
-						dindex1_.begin(), dindex1_.end(),
-						std::less<unsigned long long int>());
-	      return boost::make_tuple(S, dindex0_.size(), dindex1_.size());
-	  } else {
-	      detail::general_kmer_index(s0, k_, index0_);
-	      detail::general_kmer_index(s1, k_, index1_);
-	      int S = detail::intersection_size(index0_.begin(), index0_.end(),
-						index1_.begin(), index1_.end(),
-						std::less<std::string>());
-	      return boost::make_tuple(S, index0_.size(), index1_.size());
-	  }
+          if (isdna_) {
+              dI_(s0, k_, dindex0_);
+              dI_(s1, k_, dindex1_);
+              int S = detail::intersection_size(dindex0_.begin(), dindex0_.end(),
+                                                dindex1_.begin(), dindex1_.end(),
+                                                std::less<unsigned long long int>());
+              return boost::make_tuple(S, dindex0_.size(), dindex1_.size());
+          } else {
+              detail::general_kmer_index(s0, k_, index0_);
+              detail::general_kmer_index(s1, k_, index1_);
+              int S = detail::intersection_size(index0_.begin(), index0_.end(),
+                                                index1_.begin(), index1_.end(),
+                                                std::less<std::string>());
+              return boost::make_tuple(S, index0_.size(), index1_.size());
+          }
 
-	  return boost::make_tuple(-1, -1, -1);
+          return boost::make_tuple(-1, -1, -1);
       } // operator()
 
       /** Function: operator()
@@ -1076,23 +1076,23 @@ namespace bio {
        *  3-tuple (number of common kmers, number of kmers in s0, number of kmers in s1).
        */
       boost::tuple<int, int, int> operator()(const std::string& s1) {
-	  if (s1.size() < k_) return boost::make_tuple(-1, -1, -1);
+          if (s1.size() < k_) return boost::make_tuple(-1, -1, -1);
 
-	  if (isdna_) {
-	      dI_(s1, k_, dindex1_);
-	      int S = detail::intersection_size(dindex0_.begin(), dindex0_.end(),
-						dindex1_.begin(), dindex1_.end(),
-						std::less<unsigned long long int>());
-	      return boost::make_tuple(S, dindex0_.size(), dindex1_.size());
-	  } else {
-	      detail::general_kmer_index(s1, k_, index1_);
-	      int S = detail::intersection_size(index0_.begin(), index0_.end(),
-						index1_.begin(), index1_.end(),
-						std::less<std::string>());
-	      return boost::make_tuple(S, index0_.size(), index1_.size());
-	  }
+          if (isdna_) {
+              dI_(s1, k_, dindex1_);
+              int S = detail::intersection_size(dindex0_.begin(), dindex0_.end(),
+                                                dindex1_.begin(), dindex1_.end(),
+                                                std::less<unsigned long long int>());
+              return boost::make_tuple(S, dindex0_.size(), dindex1_.size());
+          } else {
+              detail::general_kmer_index(s1, k_, index1_);
+              int S = detail::intersection_size(index0_.begin(), index0_.end(),
+                                                index1_.begin(), index1_.end(),
+                                                std::less<std::string>());
+              return boost::make_tuple(S, index0_.size(), index1_.size());
+          }
 
-	  return boost::make_tuple(-1, -1, -1);
+          return boost::make_tuple(-1, -1, -1);
       } // operator()
 
   private:
@@ -1115,27 +1115,27 @@ namespace bio {
       explicit spaced_seeds_fraction(const std::string& sseed) : sseed_(sseed) { }
 
       boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
-	  int k = sseed_.size();
+          int k = sseed_.size();
 
-	  detail::general_kmer_index(s0, k, index0_);
-	  detail::general_kmer_index(s1, k, index1_);
+          detail::general_kmer_index(s0, k, index0_);
+          detail::general_kmer_index(s1, k, index1_);
 
-	  for (int i = 0; i < index0_.size(); ++i) {
-	      for (int j = 0; j < k; ++j) if (sseed_[j] == '0') index0_[i][j] = '*';
-	  }
+          for (int i = 0; i < index0_.size(); ++i) {
+              for (int j = 0; j < k; ++j) if (sseed_[j] == '0') index0_[i][j] = '*';
+          }
 
-	  for (int i = 0; i < index1_.size(); ++i) {
-	      for (int j = 0; j < k; ++j) if (sseed_[j] == '0') index1_[i][j] = '*';
-	  }
+          for (int i = 0; i < index1_.size(); ++i) {
+              for (int j = 0; j < k; ++j) if (sseed_[j] == '0') index1_[i][j] = '*';
+          }
 
-	  std::sort(index0_.begin(), index0_.end());
-	  std::sort(index1_.begin(), index1_.end());
+          std::sort(index0_.begin(), index0_.end());
+          std::sort(index1_.begin(), index1_.end());
 
-	  int S = detail::intersection_size(index0_.begin(), index0_.end(),
-					    index1_.begin(), index1_.end(),
-					    std::less<std::string>());
+          int S = detail::intersection_size(index0_.begin(), index0_.end(),
+                                            index1_.begin(), index1_.end(),
+                                            std::less<std::string>());
 
-	  return boost::make_tuple(S, index0_.size(), index1_.size());
+          return boost::make_tuple(S, index0_.size(), index1_.size());
       } // operator()
 
   private:
@@ -1149,30 +1149,30 @@ namespace bio {
 
 
   inline std::ostream& print_alignment(std::ostream& os,
-				       const std::string& s0,
-				       const std::string& s1,
-				       const std::string& path) {
+                                       const std::string& s0,
+                                       const std::string& s1,
+                                       const std::string& path) {
       int l = path.size();
       int pos = 0;
 
       for (int i = 0; i < l; ++i) {
-	  if (path[i] == 'i') os << '-';
-	  else os << s0[pos++];
+          if (path[i] == 'i') os << '-';
+          else os << s0[pos++];
       }
 
       os << "\n";
 
       for (int i = 0; i < l; ++i) {
-	  if (path[i] == 'm') os << '|';
-	  else os << ' ';
+          if (path[i] == 'm') os << '|';
+          else os << ' ';
       }
 
       os << "\n";
       pos = 0;
 
       for (int i = 0; i < l; ++i) {
-	  if (path[i] == 'd') os << '-';
-	  else os << s1[pos++];
+          if (path[i] == 'd') os << '-';
+          else os << s1[pos++];
       }
 
       return os;

@@ -31,14 +31,15 @@ namespace jaz {
   template <typename charT, typename traits, typename Alloc, typename Iter>
   void split(charT pat, const std::basic_string<charT, traits, Alloc>& s, Iter out) {
       unsigned int pos = 0;
+      unsigned int len = s.size();
 
-      for (unsigned int i = 0; i < s.size(); ++i) {
-	  if (s[i] == pat) {
-	      if (i - pos > 0) {
-		  *(out++) = std::basic_string<charT, traits, Alloc>(s, pos, i - pos);
-	      }
-	      pos = i + 1;
-	  }
+      for (unsigned int i = 0; i < len; ++i) {
+          if (s[i] == pat) {
+              if (i - pos > 0) {
+                  *(out++) = std::basic_string<charT, traits, Alloc>(s, pos, i - pos);
+              }
+              pos = i + 1;
+          }
       } // for
 
       *(out++) = std::basic_string<charT, traits, Alloc>(s, pos, s.size() - pos);
@@ -47,6 +48,8 @@ namespace jaz {
 
   /** Function: join
    *  Merges a sequence of strings into a single string.
+   *
+   *  Parameters:
    *  pat   - separator character.
    *  first - Beginning of the sequence to join.
    *  last  - End of the sequence to join.
@@ -83,8 +86,8 @@ namespace jaz {
    */
   template <typename charT, typename traits, typename Alloc>
   std::pair<long int, bool> approx_match(const std::basic_string<charT, traits, Alloc>& T,
-					 const std::basic_string<charT, traits, Alloc>& P,
-					 unsigned int mm) {
+                                         const std::basic_string<charT, traits, Alloc>& P,
+                                         unsigned int mm) {
       unsigned int n = T.size();
       unsigned int m = P.size();
 
@@ -95,24 +98,24 @@ namespace jaz {
       unsigned int cmm = mm + 1;
 
       for (long int i = 0; i < l; ++i) {
-	  unsigned int t = 0;
-	  unsigned int j = 0;
+          unsigned int t = 0;
+          unsigned int j = 0;
 
-	  for (; j < m; ++j) {
-	      if (T[i + j] != P[j]) t++;
-	      if (t == cmm) break;
-	  }
+          for (; j < m; ++j) {
+              if (T[i + j] != P[j]) t++;
+              if (t == cmm) break;
+          }
 
-	  if (j == m) {
-	      if (t < cmm - 1) {
-		  pos = i;
-		  mult = false;
-		  cmm = t + 1;
-	      } else if (t == cmm - 1) {
-		  if (pos == std::string::npos) pos = i;
-		  else mult = true;
-	      }
-	  }
+          if (j == m) {
+              if (t < cmm - 1) {
+                  pos = i;
+                  mult = false;
+                  cmm = t + 1;
+              } else if (t == cmm - 1) {
+                  if (pos == std::string::npos) pos = i;
+                  else mult = true;
+              }
+          }
       } // for i
 
       return std::make_pair(pos, mult);

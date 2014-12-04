@@ -119,7 +119,7 @@ inline unsigned int ltsf3(unsigned int i, unsigned int j) {
 // if (i mod 2 == 1) j = N - j0 else j = j0
 
 inline void rrecsf1(unsigned int n, unsigned int* i, unsigned int* j,
-		    unsigned int N) {
+                    unsigned int N) {
     *i = n / N;
     *j = n % N;
     if (*i % 2 == 1) *j = N - *j - 1;
@@ -138,12 +138,12 @@ inline unsigned int zsf(unsigned int z, unsigned int i, unsigned int j) {
     unsigned int b1;
 
     for (; b < z; ++b) {
-	b0 = (i & 1);
-	b1 = (j & 1);
-	r |= (b1 << (2 * b));
-	r |= (b0 << (2 * b + 1));
-	i = i >> 1;
-	j = j >> 1;
+        b0 = (i & 1);
+        b1 = (j & 1);
+        r |= (b1 << (2 * b));
+        r |= (b0 << (2 * b + 1));
+        i = i >> 1;
+        j = j >> 1;
     }
 
     return r;
@@ -155,11 +155,11 @@ inline void rzsf(unsigned int z, unsigned int n, unsigned int* i, unsigned int* 
     *i = 0;
     *j = 0;
     for (; b < z; ++b) {
-	*j += ((n & 1) * mul);
-	n >>= 1;
-	*i += ((n & 1) * mul);
-	n >>= 1;
-	mul <<= 1;
+        *j += ((n & 1) * mul);
+        n >>= 1;
+        *i += ((n & 1) * mul);
+        n >>= 1;
+        mul <<= 1;
     }
 } // rzsf
 
