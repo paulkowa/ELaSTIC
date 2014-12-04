@@ -35,29 +35,29 @@ public:
     typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
 
     explicit fast_vector(size_type n = 0) : sz_(0), n_(0), buf_(0) {
-	if (n > 0) reserve(n);
-	n_ = n;
+        if (n > 0) reserve(n);
+        n_ = n;
     } // fast_vector
 
     fast_vector(const fast_vector<value_type>& v) : sz_(0), n_(0), buf_(0) {
-	reserve(v.n_);
-	n_ = v.n_;
-	std::memcpy(buf_, v.buf_, n_ * sizeof(value_type));
+        reserve(v.n_);
+        n_ = v.n_;
+        std::memcpy(buf_, v.buf_, n_ * sizeof(value_type));
     } // fast_vector
 
     ~fast_vector() {
-	if (buf_ != 0) std::free(buf_);
-	sz_ = 0;
-	n_ = 0;
-	buf_ = 0;
+        if (buf_ != 0) std::free(buf_);
+        sz_ = 0;
+        n_ = 0;
+        buf_ = 0;
     } // ~fast_vector
 
     fast_vector<value_type>& operator=(const fast_vector<value_type>& v) {
-	if (this == &v) return *this;
-	reserve(v.n_);
-	n_ = v.n_;
-	std::memcpy(buf_, v.buf_, n_ * sizeof(value_type));
-	return *this;
+        if (this == &v) return *this;
+        reserve(v.n_);
+        n_ = v.n_;
+        std::memcpy(buf_, v.buf_, n_ * sizeof(value_type));
+        return *this;
     } // operator=
 
     iterator begin() { return buf_; }
@@ -97,34 +97,34 @@ public:
     void clear() { resize(0); }
 
     void reserve(size_type n) {
-	if (sz_ < n) {
-	    sz_ = n;
-	    buf_ = static_cast<pointer>(std::realloc(buf_, sz_ * sizeof(value_type)));
-	    if (buf_ == 0) throw std::bad_alloc();
-	}
+        if (sz_ < n) {
+            sz_ = n;
+            buf_ = static_cast<pointer>(std::realloc(buf_, sz_ * sizeof(value_type)));
+            if (buf_ == 0) throw std::bad_alloc();
+        }
     } // reserve
 
     void resize(size_type n) {
-	sz_ = n;
-	n_ = n;
-	buf_ = static_cast<pointer>(std::realloc(buf_, sz_ * sizeof(value_type)));
-	if (buf_ == 0) throw std::bad_alloc();
+        sz_ = n;
+        n_ = n;
+        buf_ = static_cast<pointer>(std::realloc(buf_, sz_ * sizeof(value_type)));
+        if (buf_ == 0) throw std::bad_alloc();
     } // resize
 
     void push_back(const value_type& t) {
-	if (sz_ <= n_) {
-	    sz_ += BLOCK;
-	    buf_ = static_cast<pointer>(std::realloc(buf_, sz_ * sizeof(value_type)));
-	}
-	if (buf_ == 0) throw std::bad_alloc();
-	buf_[n_] = t;
-	n_++;
+        if (sz_ <= n_) {
+            sz_ += BLOCK;
+            buf_ = static_cast<pointer>(std::realloc(buf_, sz_ * sizeof(value_type)));
+        }
+        if (buf_ == 0) throw std::bad_alloc();
+        buf_[n_] = t;
+        n_++;
     } // push_back
 
     void swap(fast_vector<value_type>& v) {
-	std::swap(sz_, v.sz_);
-	std::swap(n_, v.n_);
-	std::swap(buf_, v.buf_);
+        std::swap(sz_, v.sz_);
+        std::swap(n_, v.n_);
+        std::swap(buf_, v.buf_);
     } // swap
 
 private:

@@ -27,8 +27,8 @@
 
 template <typename Hash>
 std::pair<bool, std::string> make_shingles(const AppConfig& opt, AppLog& log, Reporter& report,
-					   const SequenceList& SL, const Hash& hash,
-					   std::vector<shingle_list_type>& shingles) {
+                                           const SequenceList& SL, const Hash& hash,
+                                           std::vector<shingle_list_type>& shingles) {
     report << step << "creating shingles..." << std::endl;
 
     unsigned short int k = opt.kmer;
@@ -41,11 +41,11 @@ std::pair<bool, std::string> make_shingles(const AppConfig& opt, AppLog& log, Re
     shingles.resize(n);
 
     for (unsigned int i = 0; i < n; ++i) {
-	unsigned int l = SL.seqs[i].s.size();
-	std::string s = ca(SL.seqs[i].s);
+        unsigned int l = SL.seqs[i].s.size();
+        std::string s = ca(SL.seqs[i].s);
 
-	shingles[i].resize(l - k + 1);
-	for (unsigned int j = 0; j < l - k + 1; ++j) shingles[i][j] = hash(sc.code(s.substr(j, k)));
+        shingles[i].resize(l - k + 1);
+        for (unsigned int j = 0; j < l - k + 1; ++j) shingles[i][j] = hash(sc.code(s.substr(j, k)));
     } // for i
 
     return std::make_pair(true, "");

@@ -88,12 +88,12 @@ private:
     double t_;
 
     friend std::ostream& operator<<(std::ostream& os, const timer& t) {
-	unsigned int tt = static_cast<unsigned int>(t.t_);
-	unsigned int ht = tt / 3600;
-	unsigned int mt = (tt % 3600) / 60;
-	unsigned int st = (tt % 3600) % 60;
-	os << t.t_ << "s [" << ht << "h" << mt << "m" << st << "s]";
-	return os;
+        unsigned int tt = static_cast<unsigned int>(t.t_);
+        unsigned int ht = tt / 3600;
+        unsigned int mt = (tt % 3600) / 60;
+        unsigned int st = (tt % 3600) % 60;
+        os << t.t_ << "s [" << ht << "h" << mt << "m" << st << "s]";
+        return os;
     } // operator <<
 
 }; // class timer

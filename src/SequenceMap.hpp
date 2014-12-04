@@ -54,77 +54,77 @@ public:
     const_iterator end() const { return seqmap_.end(); }
 
     // std::pair<iterator, bool> insert(const SequenceGroup& obj) {
-    // 	iterator first, last;
+    //  iterator first, last;
 
-    // 	boost::tie(first, last) = std::equal_range(seqmap_.begin(), seqmap_.end(), obj);
-    // 	if (first != last) return std::make_pair(first, false);
+    //  boost::tie(first, last) = std::equal_range(seqmap_.begin(), seqmap_.end(), obj);
+    //  if (first != last) return std::make_pair(first, false);
 
-    // 	return std::make_pair(seqmap_.insert(first, obj), true);
+    //  return std::make_pair(seqmap_.insert(first, obj), true);
     // } // insert
 
     const_iterator find(unsigned int id) const {
-	SequenceGroup key;
-	key.id = id;
+        SequenceGroup key;
+        key.id = id;
 
-	const_iterator first, last;
+        const_iterator first, last;
 
-	boost::tie(first, last) = std::equal_range(seqmap_.begin(), seqmap_.end(), key);
-	if (first == last) return end();
+        boost::tie(first, last) = std::equal_range(seqmap_.begin(), seqmap_.end(), key);
+        if (first == last) return end();
 
-	return first;
+        return first;
     } // find
 
 
     bool read(const std::string& name) {
-	std::ifstream f(name.c_str());
-	if (!f) return false;
+        std::ifstream f(name.c_str());
+        if (!f) return false;
 
-	seqmap_.clear();
+        seqmap_.clear();
 
-	std::string buf;
-	SequenceGroup obj;
+        std::string buf;
+        SequenceGroup obj;
 
-	while (!f.eof()) {
-	    f >> obj.id;
+        while (!f.eof()) {
+            f >> obj.id;
 
-	    unsigned int size = 0;
-	    f >> size;
+            unsigned int size = 0;
+            f >> size;
 
-	    if (!f.eof() && !f) return false;
-	    seqmap_.push_back(obj);
+            if (!f.eof() && !f) return false;
+            seqmap_.push_back(obj);
 
-	    std::getline(f, buf);
+            std::getline(f, buf);
 
-	    seqmap_.back().name.resize(size);
-	    for (unsigned int i = 0; i < size; ++i) {
-		std::getline(f, seqmap_.back().name[i]);
-	    }
-	} // while
+            seqmap_.back().name.resize(size);
+            for (unsigned int i = 0; i < size; ++i) {
+                std::getline(f, seqmap_.back().name[i]);
+            }
+        } // while
 
-	f.close();
+        f.close();
 
-	std::sort(seqmap_.begin(), seqmap_.end());
-	seqmap_.erase(std::unique(seqmap_.begin(), seqmap_.end()), seqmap_.end());
+        std::sort(seqmap_.begin(), seqmap_.end());
+        seqmap_.erase(std::unique(seqmap_.begin(), seqmap_.end()), seqmap_.end());
 
-	return true;
+        return true;
     } // read
 
 
     bool write(const std::string& name) const {
-	std::ofstream f(name.c_str());
-	if (!f) return false;
+        std::ofstream f(name.c_str());
+        if (!f) return false;
 
-	unsigned int n = seqmap_.size();
+        unsigned int n = seqmap_.size();
 
-	for (unsigned int i = 0; i < n; ++i) {
-	    f << seqmap_[i].id << " " << seqmap_[i].name.size() << std::endl;
-	    std::copy(seqmap_[i].name.begin(), seqmap_[i].name.end(),
-		      std::ostream_iterator<std::string>(f, "\n"));
-	}
+        for (unsigned int i = 0; i < n; ++i) {
+            f << seqmap_[i].id << " " << seqmap_[i].name.size() << std::endl;
+            std::copy(seqmap_[i].name.begin(), seqmap_[i].name.end(),
+                      std::ostream_iterator<std::string>(f, "\n"));
+        }
 
-	f.close();
+        f.close();
 
-	return true;
+        return true;
     } // write
 
 

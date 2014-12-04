@@ -120,9 +120,9 @@ inline void decompose_sketch_triangle(std::vector<sketch_id>& sketch_list, unsig
 
     // top right rectangle
     for (int i = pos; i != pos + l; ++i) {
-	sketch_list.push_back(sketch_list[i]);
-	sketch_list.back().part = part;
-	sketch_list.back().sep = p;
+        sketch_list.push_back(sketch_list[i]);
+        sketch_list.back().part = part;
+        sketch_list.back().sep = p;
     }
     part++;
 } // decompose_sketch_triangle
@@ -136,51 +136,51 @@ inline void decompose_sketch_rectangle(std::vector<sketch_id>& sketch_list, unsi
 
     // top left
     for (int i = pos; i != pos + px; ++i) {
-	sketch_list.push_back(sketch_list[i]);
-	sketch_list.back().sep = px;
+        sketch_list.push_back(sketch_list[i]);
+        sketch_list.back().sep = px;
     }
     for (int i = pos + p; i != pos + p + py; ++i) {
-	sketch_list.push_back(sketch_list[i]);
-	sketch_list.back().sep = px;
+        sketch_list.push_back(sketch_list[i]);
+        sketch_list.back().sep = px;
     }
     // part++;
 
     // top right
     for (int i = pos; i != pos + px; ++i) {
-	sketch_list.push_back(sketch_list[i]);
-	sketch_list.back().part = part;
-	sketch_list.back().sep = px;
+        sketch_list.push_back(sketch_list[i]);
+        sketch_list.back().part = part;
+        sketch_list.back().sep = px;
     }
     for (int i = pos + p + py; i != pos + l; ++i) {
-	sketch_list.push_back(sketch_list[i]);
-	sketch_list.back().part = part;
-	sketch_list.back().sep = px;
+        sketch_list.push_back(sketch_list[i]);
+        sketch_list.back().part = part;
+        sketch_list.back().sep = px;
     }
     part++;
 
     // bottom left
     for (int i = pos + px; i != pos + p; ++i) {
-	sketch_list.push_back(sketch_list[i]);
-	sketch_list.back().part = part;
-	sketch_list.back().sep = p - px;
+        sketch_list.push_back(sketch_list[i]);
+        sketch_list.back().part = part;
+        sketch_list.back().sep = p - px;
     }
     for (int i = pos + p; i != pos + p + py; ++i) {
-	sketch_list.push_back(sketch_list[i]);
-	sketch_list.back().part = part;
-	sketch_list.back().sep = p - px;
+        sketch_list.push_back(sketch_list[i]);
+        sketch_list.back().part = part;
+        sketch_list.back().sep = p - px;
     }
     part++;
 
     // bottom right
     for (int i = pos + px; i != pos + p; ++i) {
-	sketch_list.push_back(sketch_list[i]);
-	sketch_list.back().part = part;
-	sketch_list.back().sep = p - px;
+        sketch_list.push_back(sketch_list[i]);
+        sketch_list.back().part = part;
+        sketch_list.back().sep = p - px;
     }
     for (int i = pos + p + py; i != pos + l; ++i) {
-	sketch_list.push_back(sketch_list[i]);
-	sketch_list.back().part = part;
-	sketch_list.back().sep = p - px;
+        sketch_list.push_back(sketch_list[i]);
+        sketch_list.back().part = part;
+        sketch_list.back().sep = p - px;
     }
     part++;
 
@@ -192,19 +192,19 @@ inline unsigned int decompose_sketch_list(std::vector<sketch_id>& sketch_list, i
     int first = 0;
 
     while ((sketch_list.begin() + first) != sketch_list.end()) {
-	int temp = jaz::range(sketch_list.begin() + first, sketch_list.end()) - sketch_list.begin();
-	int l = temp - first;
+        int temp = jaz::range(sketch_list.begin() + first, sketch_list.end()) - sketch_list.begin();
+        int l = temp - first;
 
-	if (lim < l) {
-	    bool is_triangle = (sketch_list[first].sep == 0);
+        if (lim < l) {
+            bool is_triangle = (sketch_list[first].sep == 0);
 
-	    // get partition to the end
-	    std::rotate(sketch_list.begin() + first, sketch_list.begin() + temp, sketch_list.end());
+            // get partition to the end
+            std::rotate(sketch_list.begin() + first, sketch_list.begin() + temp, sketch_list.end());
 
-	    if (is_triangle) decompose_sketch_triangle(sketch_list, part, l);
-	    else decompose_sketch_rectangle(sketch_list, part, l);
+            if (is_triangle) decompose_sketch_triangle(sketch_list, part, l);
+            else decompose_sketch_rectangle(sketch_list, part, l);
 
-	} else first = temp;
+        } else first = temp;
     } // while
 
     return part;

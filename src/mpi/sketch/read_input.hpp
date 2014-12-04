@@ -29,7 +29,7 @@
 
 
 inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
-					       SequenceList& SL) {
+                                               SequenceList& SL) {
     report << step << "reading input sequences..." << std::endl;
 
     int size, rank;
@@ -99,18 +99,18 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
     seqs[0].s = sc.decode(std::string(data.begin() + 4, data.begin() + pos));
 
     if ((seqs[0].s.size() < opt.kmer) || (seqs[0].s.find('?') != std::string::npos)) {
-	return std::make_pair(false, "invalid input sequence, change kmer?");
+        return std::make_pair(false, "invalid input sequence, change kmer?");
     }
 
     for (unsigned int i = 1; i < nloc; ++i) {
-	seqs[i].id = ntohl(*reinterpret_cast<uint32_t*>(&data[pos]));
-	seqs[i].s = sc.decode(std::string(data.begin() + pos + 4, data.begin() + pos + index[i]));
+        seqs[i].id = ntohl(*reinterpret_cast<uint32_t*>(&data[pos]));
+        seqs[i].s = sc.decode(std::string(data.begin() + pos + 4, data.begin() + pos + index[i]));
 
-	if ((seqs[i].s.size() < opt.kmer) || (seqs[i].s.find('?') != std::string::npos)) {
-	    return std::make_pair(false, "invalid input sequence, change kmer?");
-	}
+        if ((seqs[i].s.size() < opt.kmer) || (seqs[i].s.find('?') != std::string::npos)) {
+            return std::make_pair(false, "invalid input sequence, change kmer?");
+        }
 
-	pos += index[i];
+        pos += index[i];
     }
 
     // update log

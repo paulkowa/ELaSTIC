@@ -51,8 +51,8 @@ int main(int argc, char* argv[]) {
     std::map<std::string, std::string> conf;
 
     if (argc == 1) {
-	AppConfig::usage();
-	return 0;
+        AppConfig::usage();
+        return 0;
     }
 
     bool res = false;
@@ -61,14 +61,14 @@ int main(int argc, char* argv[]) {
     boost::tie(res, pos) = jaz::parse_argv(argc, argv, conf);
 
     if (res == false) {
-	if (pos == -1) {
-	    AppConfig::usage();
-	    std::cout << error << "incorrect command line arguments\n";
-	    return -1;
-	} else {
-	    std::cout << error << "incorrect command line argument " << argv[pos] << "\n";
-	    return -1;
-	}
+        if (pos == -1) {
+            AppConfig::usage();
+            std::cout << error << "incorrect command line arguments\n";
+            return -1;
+        } else {
+            std::cout << error << "incorrect command line argument " << argv[pos] << "\n";
+            return -1;
+        }
     } // if res
 
     // set reporter
@@ -81,8 +81,8 @@ int main(int argc, char* argv[]) {
     boost::tie(res, err) = opt.set(conf);
 
     if (res == false) {
-	report << error << err << "\n";
-	return -1;
+        report << error << err << "\n";
+        return -1;
     }
 
     // TODO: update for OpenMP

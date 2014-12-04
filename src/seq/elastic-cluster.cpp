@@ -30,57 +30,57 @@
 
 struct AppConfig {
     AppConfig() {
-	input = "";
-	output = "";
-	nodes = 0;
-	level = 0;
+        input = "";
+        output = "";
+        nodes = 0;
+        level = 0;
     } // AppConfig
 
     static void usage() {
-	std::cout << "Usage: " << ELASTIC_CLUSTER_SHORT << " --input name --output name --nodes size [options...]\n";
-	std::cout << "\n";
-	std::cout << "Options:\n";
-	std::cout << "  --input name          read input from this file/directory\n";
-	std::cout << "  --output name         write output to files with this prefix\n";
-	std::cout << "  --nodes size          assume that many input nodes\n";
-	std::cout << "  --level size          use this threshold to filter edges (default 0)\n";
-	std::cout << "\n";
+        std::cout << "Usage: " << ELASTIC_CLUSTER_SHORT << " --input name --output name --nodes size [options...]\n";
+        std::cout << "\n";
+        std::cout << "Options:\n";
+        std::cout << "  --input name          read input from this file/directory\n";
+        std::cout << "  --output name         write output to files with this prefix\n";
+        std::cout << "  --nodes size          assume that many input nodes\n";
+        std::cout << "  --level size          use this threshold to filter edges (default 0)\n";
+        std::cout << "\n";
     } // usage
 
     template <typename Container>
     std::pair<bool, std::string> set(const Container& conf) {
-	std::string val;
+        std::string val;
 
-	// check major options
-	if (jaz::check_option(conf, "input", val) == false) {
-	    return std::make_pair(false, "missing input parameter");
-	}
+        // check major options
+        if (jaz::check_option(conf, "input", val) == false) {
+            return std::make_pair(false, "missing input parameter");
+        }
 
-	input = val;
+        input = val;
 
-	if (jaz::check_option(conf, "output", val) == false) {
-	    return std::make_pair(false, "missing output parameter");
-	}
+        if (jaz::check_option(conf, "output", val) == false) {
+            return std::make_pair(false, "missing output parameter");
+        }
 
-	output = val;
+        output = val;
 
-	try {
-	    if (jaz::check_option(conf, "nodes", val) == true) {
-		nodes = boost::lexical_cast<unsigned int>(val);
-	    }
+        try {
+            if (jaz::check_option(conf, "nodes", val) == true) {
+                nodes = boost::lexical_cast<unsigned int>(val);
+            }
 
-	    if (jaz::check_option(conf, "level", val) == true) {
-		level = boost::lexical_cast<unsigned int>(val);
-	    }
-	} catch (boost::bad_lexical_cast& ex) {
-	    return std::make_pair(false, "incorrect argument(s)");
-	}
+            if (jaz::check_option(conf, "level", val) == true) {
+                level = boost::lexical_cast<unsigned int>(val);
+            }
+        } catch (boost::bad_lexical_cast& ex) {
+            return std::make_pair(false, "incorrect argument(s)");
+        }
 
-	if (nodes < 2) {
-	    return std::make_pair(false, "incorrect number of nodes");
-	}
+        if (nodes < 2) {
+            return std::make_pair(false, "incorrect number of nodes");
+        }
 
-	return std::make_pair(true, "");
+        return std::make_pair(true, "");
     } // set
 
     std::string input;
@@ -89,11 +89,11 @@ struct AppConfig {
     unsigned int level;
 
     friend std::ostream& operator<<(std::ostream& os, const AppConfig& opt) {
-	os << "input = " << opt.input << "\n";
-	os << "output = " << opt.output << "\n";
-	os << "nodes = " << opt.nodes << "\n";
-	os << "level = " << opt.level << "\n";
-	return os;
+        os << "input = " << opt.input << "\n";
+        os << "output = " << opt.output << "\n";
+        os << "nodes = " << opt.nodes << "\n";
+        os << "level = " << opt.level << "\n";
+        return os;
     } // operator<<
 
 }; // struct AppConfig
@@ -101,9 +101,9 @@ struct AppConfig {
 
 struct AppLog {
     AppLog() : argv(), wtime(0), input(0), extracted(0) {
-	time_t t;
-	time(&t);
-	date = ctime(&t);
+        time_t t;
+        time(&t);
+        date = ctime(&t);
     } // AppLog
 
     std::string date;
@@ -113,13 +113,13 @@ struct AppLog {
     unsigned int extracted;
 
     friend std::ostream& operator<<(std::ostream& os, const AppLog& log) {
-	os << "execution date: " << log.date;
-	os << "program version: " << ELASTIC_CLUSTER_SHORT << " " << ELASTIC_CLUSTER_VERSION << "\n";
-	os << "program options: " << log.argv << "\n";
-	os << "walltime used: " << log.wtime << "\n";
-	os << "input edges: " << log.input << "\n";
-	os << "extracted clusters: " << log.extracted << "\n";
-	return os;
+        os << "execution date: " << log.date;
+        os << "program version: " << ELASTIC_CLUSTER_SHORT << " " << ELASTIC_CLUSTER_VERSION << "\n";
+        os << "program options: " << log.argv << "\n";
+        os << "walltime used: " << log.wtime << "\n";
+        os << "input edges: " << log.input << "\n";
+        os << "extracted clusters: " << log.extracted << "\n";
+        return os;
     } // operator<<
 }; // struct AppLog
 
@@ -163,7 +163,7 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     std::vector<fs::path> files;
 
     if (jaz::files(opt.input, std::back_inserter(files)) == false) {
-	return std::make_pair(false, "unable to scan " + opt.input);
+        return std::make_pair(false, "unable to scan " + opt.input);
     }
 
     if (files.empty() == true) return std::make_pair(false, "no files to process");
@@ -177,37 +177,37 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     jaz::set_make<unsigned int>(&uf[0], uf.size());
 
     for (unsigned int i = 0; i < files.size(); ++i) {
-	if (fs::is_regular_file(files[i]) == false) continue;
+        if (fs::is_regular_file(files[i]) == false) continue;
 
-	std::ifstream fs(files[i].string().c_str());
-	std::istream_iterator<edge_t> ii(fs), end;
+        std::ifstream fs(files[i].string().c_str());
+        std::istream_iterator<edge_t> ii(fs), end;
 
-	for (; ii != end; ++ii) {
-	    if (ii->sim >= opt.level) {
-		if (ii->sim > 100) {
-		    report.critical << warning << "unexpected edge " << *ii << ", error?" << std::endl;
-		}
-		if ((ii->id0 < opt.nodes) && (ii->id1 < opt.nodes)) {
-		    jaz::set_union(&uf[0], ii->id0, ii->id1);
-		    num_edges++;
-		} else {
-		    report.critical << warning << "incorrect edge " << *ii << ", ignoring" << std::endl;
-		}
-	    }
-	} // for
+        for (; ii != end; ++ii) {
+            if (ii->sim >= opt.level) {
+                if (ii->sim > 100) {
+                    report.critical << warning << "unexpected edge " << *ii << ", error?" << std::endl;
+                }
+                if ((ii->id0 < opt.nodes) && (ii->id1 < opt.nodes)) {
+                    jaz::set_union(&uf[0], ii->id0, ii->id1);
+                    num_edges++;
+                } else {
+                    report.critical << warning << "incorrect edge " << *ii << ", ignoring" << std::endl;
+                }
+            }
+        } // for
 
-	if (fs.eof() == false) {
-	    report.critical << warning << "incorrect file " << files[i] << ", some edges ignored" << std::endl;
-	}
+        if (fs.eof() == false) {
+            report.critical << warning << "incorrect file " << files[i] << ", some edges ignored" << std::endl;
+        }
 
-	fs.close();
+        fs.close();
     } // for i
 
     std::vector<std::pair<unsigned int, unsigned int> > cluster(opt.nodes);
 
     for (unsigned int i = 0; i < opt.nodes; ++i) {
-	cluster[i].first = jaz::set_find(&uf[0], i);
-	cluster[i].second = i;
+        cluster[i].first = jaz::set_find(&uf[0], i);
+        cluster[i].second = i;
     }
 
     std::sort(cluster.begin(), cluster.end());
@@ -216,13 +216,13 @@ std::pair<bool, std::string> run(const AppConfig& opt, AppLog& log, Reporter& re
     unsigned int pos = 0;
 
     for (unsigned int i = 1; i < opt.nodes + 1; ++i) {
-	int lim = (i < opt.nodes) ? cluster[i].first : -1;
-	if (cluster[pos].first != lim) {
-	    for (unsigned int j = pos; j < i - 1; ++j) fcls << cluster[j].second << " ";
-	    fcls << cluster[i - 1].second << std::endl;
-	    pos = i;
-	    cnum++;
-	}
+        int lim = (i < opt.nodes) ? cluster[i].first : -1;
+        if (cluster[pos].first != lim) {
+            for (unsigned int j = pos; j < i - 1; ++j) fcls << cluster[j].second << " ";
+            fcls << cluster[i - 1].second << std::endl;
+            pos = i;
+            cnum++;
+        }
     }
 
     fcls.close();
@@ -251,8 +251,8 @@ int main(int argc, char* argv[]) {
     std::map<std::string, std::string> conf;
 
     if (argc == 1) {
-	AppConfig::usage();
-	return 0;
+        AppConfig::usage();
+        return 0;
     }
 
     bool res = false;
@@ -262,14 +262,14 @@ int main(int argc, char* argv[]) {
     boost::tie(res, pos) = jaz::parse_argv(argc, argv, conf);
 
     if (res == false) {
-	if (pos == -1) {
-	    AppConfig::usage();
-	    std::cout << error << "incorrect command line arguments\n";
-	    return -1;
-	} else {
-	    std::cout << error << "incorrect command line argument " << argv[pos] << "\n";
-	    return -1;
-	}
+        if (pos == -1) {
+            AppConfig::usage();
+            std::cout << error << "incorrect command line arguments\n";
+            return -1;
+        } else {
+            std::cout << error << "incorrect command line argument " << argv[pos] << "\n";
+            return -1;
+        }
     }
 
     // create config and log
@@ -277,8 +277,8 @@ int main(int argc, char* argv[]) {
     boost::tie(res, err) = opt.set(conf);
 
     if (res == false) {
-	std::cout << error << err << "\n";
-	return -1;
+        std::cout << error << err << "\n";
+        return -1;
     }
 
     AppLog log;
@@ -289,8 +289,8 @@ int main(int argc, char* argv[]) {
     boost::tie(res, err) = run(opt, log, report);
 
     if (res == false) {
-	std::cout << error << err << "\n";
-	return -1;
+        std::cout << error << err << "\n";
+        return -1;
     }
 
     std::cout << "time: " << log.wtime << std::endl;

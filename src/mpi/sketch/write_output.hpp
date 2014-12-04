@@ -28,7 +28,7 @@
 
 
 inline std::pair<bool, std::string> write_output(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm,
-						 const std::vector<read_pair>& edges, unsigned long int& fs) {
+                                                 const std::vector<read_pair>& edges, unsigned long int& fs) {
     report << info << "writing output..." << std::endl;
 
     const int MPI_ABRT_SIG = 13;
@@ -46,20 +46,20 @@ inline std::pair<bool, std::string> write_output(const AppConfig& opt, AppLog& l
     std::ostringstream os;
 
     if (opt.factor == true) {
-	name = opt.output + ".tim.00000";
-	unsigned int m = edges.size();
-	for (unsigned int i = 0; i < m; ++i) {
-	    write_read_pair(os, edges[i]);
-	    os << "\n";
-	}
+        name = opt.output + ".tim.00000";
+        unsigned int m = edges.size();
+        for (unsigned int i = 0; i < m; ++i) {
+            write_read_pair(os, edges[i]);
+            os << "\n";
+        }
     } else {
-	name = opt.output + ".sim.00000";
-	std::copy(edges.begin(), edges.end(), std::ostream_iterator<read_pair>(os, "\n"));
+        name = opt.output + ".sim.00000";
+        std::copy(edges.begin(), edges.end(), std::ostream_iterator<read_pair>(os, "\n"));
     }
 
     if (mpix::write_cbuffer(name, os.str().c_str(), os.str().size(), comm) == false) {
-	report.critical << error << ("unable to create " + name) << std::endl;
-	MPI_Abort(comm, MPI_ABRT_SIG);
+        report.critical << error << ("unable to create " + name) << std::endl;
+        MPI_Abort(comm, MPI_ABRT_SIG);
     }
 
     fs = file_size(name.c_str());

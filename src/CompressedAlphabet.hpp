@@ -79,14 +79,14 @@ bool any(std::string sigma, char map[]) {
     jaz::split(',', sigma, std::back_inserter(A));
 
     for (unsigned int j = 0; j < A.size(); ++j) {
-	std::string& s = A[j];
-	unsigned int l = s.size();
-	char c = std::toupper(s[0]);
-	for (unsigned int i = 0; i < l; ++i) {
-	    char c0 = std::tolower(s[i]);
-	    char c1 = std::toupper(s[i]);
-	    map[c0] = map[c1] = c;
-	}
+        std::string& s = A[j];
+        unsigned int l = s.size();
+        char c = std::toupper(s[0]);
+        for (unsigned int i = 0; i < l; ++i) {
+            char c0 = std::tolower(s[i]);
+            char c1 = std::toupper(s[i]);
+            map[c0] = map[c1] = c;
+        }
     } // for j
 
     return true;
@@ -95,40 +95,40 @@ bool any(std::string sigma, char map[]) {
 class CompressedAlphabet {
 public:
     explicit CompressedAlphabet(const std::string& sigma) {
-	std::memset(map_, ' ', 256);
-	if (sigma == "A20") A20(map_);
-	else if (sigma == "Dayhoff6") Dayhoff6(map_);
-	else any(sigma, map_);
+        std::memset(map_, ' ', 256);
+        if (sigma == "A20") A20(map_);
+        else if (sigma == "Dayhoff6") Dayhoff6(map_);
+        else any(sigma, map_);
     } // CompressedAlphabet
 
     bool test() const {
-	if ((map_['A'] == ' ') || (map_['a'] == ' ')) return false;
-	if ((map_['C'] == ' ') || (map_['c'] == ' ')) return false;
-	if ((map_['D'] == ' ') || (map_['d'] == ' ')) return false;
-	if ((map_['E'] == ' ') || (map_['e'] == ' ')) return false;
-	if ((map_['F'] == ' ') || (map_['f'] == ' ')) return false;
-	if ((map_['G'] == ' ') || (map_['g'] == ' ')) return false;
-	if ((map_['H'] == ' ') || (map_['h'] == ' ')) return false;
-	if ((map_['I'] == ' ') || (map_['i'] == ' ')) return false;
-	if ((map_['K'] == ' ') || (map_['k'] == ' ')) return false;
-	if ((map_['L'] == ' ') || (map_['l'] == ' ')) return false;
-	if ((map_['M'] == ' ') || (map_['m'] == ' ')) return false;
-	if ((map_['N'] == ' ') || (map_['n'] == ' ')) return false;
-	if ((map_['P'] == ' ') || (map_['p'] == ' ')) return false;
-	if ((map_['Q'] == ' ') || (map_['q'] == ' ')) return false;
-	if ((map_['R'] == ' ') || (map_['r'] == ' ')) return false;
-	if ((map_['S'] == ' ') || (map_['s'] == ' ')) return false;
-	if ((map_['T'] == ' ') || (map_['t'] == ' ')) return false;
-	if ((map_['V'] == ' ') || (map_['v'] == ' ')) return false;
-	if ((map_['W'] == ' ') || (map_['w'] == ' ')) return false;
-	if ((map_['Y'] == ' ') || (map_['y'] == ' ')) return false;
-	return true;
+        if ((map_['A'] == ' ') || (map_['a'] == ' ')) return false;
+        if ((map_['C'] == ' ') || (map_['c'] == ' ')) return false;
+        if ((map_['D'] == ' ') || (map_['d'] == ' ')) return false;
+        if ((map_['E'] == ' ') || (map_['e'] == ' ')) return false;
+        if ((map_['F'] == ' ') || (map_['f'] == ' ')) return false;
+        if ((map_['G'] == ' ') || (map_['g'] == ' ')) return false;
+        if ((map_['H'] == ' ') || (map_['h'] == ' ')) return false;
+        if ((map_['I'] == ' ') || (map_['i'] == ' ')) return false;
+        if ((map_['K'] == ' ') || (map_['k'] == ' ')) return false;
+        if ((map_['L'] == ' ') || (map_['l'] == ' ')) return false;
+        if ((map_['M'] == ' ') || (map_['m'] == ' ')) return false;
+        if ((map_['N'] == ' ') || (map_['n'] == ' ')) return false;
+        if ((map_['P'] == ' ') || (map_['p'] == ' ')) return false;
+        if ((map_['Q'] == ' ') || (map_['q'] == ' ')) return false;
+        if ((map_['R'] == ' ') || (map_['r'] == ' ')) return false;
+        if ((map_['S'] == ' ') || (map_['s'] == ' ')) return false;
+        if ((map_['T'] == ' ') || (map_['t'] == ' ')) return false;
+        if ((map_['V'] == ' ') || (map_['v'] == ' ')) return false;
+        if ((map_['W'] == ' ') || (map_['w'] == ' ')) return false;
+        if ((map_['Y'] == ' ') || (map_['y'] == ' ')) return false;
+        return true;
     } // test
 
     std::string operator()(std::string s) const {
-	unsigned int l = s.size();
-	for (unsigned int i = 0; i < l; ++i) s[i] = map_[s[i]];
-	return s;
+        unsigned int l = s.size();
+        for (unsigned int i = 0; i < l; ++i) s[i] = map_[s[i]];
+        return s;
     } // operator()
 
 private:

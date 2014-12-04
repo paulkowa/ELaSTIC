@@ -80,21 +80,21 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     boost::tie(res, err) = read_input(opt, log, report, comm, SL);
 
     if (res == false) {
-	report.critical << error << err << std::endl;
-	MPI_Abort(comm, MPI_ABRT_SIG);
+        report.critical << error << err << std::endl;
+        MPI_Abort(comm, MPI_ABRT_SIG);
     }
 
     // generate profiling report
     if (rank == opt.dbg) {
-	using namespace boost::accumulators;
-	accumulator_set<unsigned int, stats<tag::min, tag::max, tag::mean, tag::sum> > acc;
+        using namespace boost::accumulators;
+        accumulator_set<unsigned int, stats<tag::min, tag::max, tag::mean, tag::sum> > acc;
 
-	for (unsigned int i = 0; i < SL.seqs.size(); ++i) acc(SL.seqs[i].s.size());
-	unsigned int mem = SL.seqs.size() * sizeof(Sequence) + sum(acc);
+        for (unsigned int i = 0; i < SL.seqs.size(); ++i) acc(SL.seqs[i].s.size());
+        unsigned int mem = SL.seqs.size() * sizeof(Sequence) + sum(acc);
 
-	report.stream << debug << "SL.seqs: " << SL.seqs.size()
-		      << ", min/avg/max: " << min(acc) << "/" << mean(acc) << "/" << max(acc)
-		      << " memory: " << mem << std::endl;
+        report.stream << debug << "SL.seqs: " << SL.seqs.size()
+                      << ", min/avg/max: " << min(acc) << "/" << mean(acc) << "/" << max(acc)
+                      << " memory: " << mem << std::endl;
     } // if dbg
 
 
@@ -105,28 +105,28 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     boost::tie(res, err) = make_shingles(opt, log, report, SL, hash, shingles);
 
     if (res == false) {
-	report.critical << error << err << std::endl;
-	MPI_Abort(comm, MPI_ABRT_SIG);
+        report.critical << error << err << std::endl;
+        MPI_Abort(comm, MPI_ABRT_SIG);
     }
 
     // generate profiling report
     if (rank == opt.dbg) {
-	unsigned int S = 0;
+        unsigned int S = 0;
 
-	for (unsigned int i = 0; i < shingles.size(); ++i) S += shingles[i].size();
-	unsigned int mem = sizeof(shingles) + S * sizeof(shingle_list_type::value_type);
+        for (unsigned int i = 0; i < shingles.size(); ++i) S += shingles[i].size();
+        unsigned int mem = sizeof(shingles) + S * sizeof(shingle_list_type::value_type);
 
-	report.stream << debug << "shingles, memory: " << mem << std::endl;
+        report.stream << debug << "shingles, memory: " << mem << std::endl;
     } // if dbg
 
 
     // compress sequences
     if ((opt.is_dna == false) && (opt.compress == true) && (opt.sigma != "A20")) {
-	CompressedAlphabet ca(opt.sigma);
-	unsigned int n = SL.seqs.size();
-	for (unsigned int i = 0; i < n; ++i) {
-	    SL.seqs[i].s = ca(SL.seqs[i].s);
-	}
+        CompressedAlphabet ca(opt.sigma);
+        unsigned int n = SL.seqs.size();
+        for (unsigned int i = 0; i < n; ++i) {
+            SL.seqs[i].s = ca(SL.seqs[i].s);
+        }
     }
 
 
@@ -137,8 +137,8 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     boost::tie(res, err) = generate_edges(opt, log, report, comm, SL, shingles, edges);
 
     if (res == false) {
-	report.critical << error << err << std::endl;
-	MPI_Abort(comm, MPI_ABRT_SIG);
+        report.critical << error << err << std::endl;
+        MPI_Abort(comm, MPI_ABRT_SIG);
     }
 
     unsigned long long int etot = edges.size();
@@ -153,8 +153,8 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     boost::tie(res, err) = rma_seq.init(SL);
 
     if (res == false) {
-	report.critical << error << err << std::endl;
-	MPI_Abort(comm, MPI_ABRT_SIG);
+        report.critical << error << err << std::endl;
+        MPI_Abort(comm, MPI_ABRT_SIG);
     }
 
 
@@ -165,8 +165,8 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     double tv1 = MPI_Wtime() - t0;
 
     if (res == false) {
-	report.critical << error << err << std::endl;
-	MPI_Abort(comm, MPI_ABRT_SIG);
+        report.critical << error << err << std::endl;
+        MPI_Abort(comm, MPI_ABRT_SIG);
     }
 
 
@@ -182,8 +182,8 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     double ti1 = MPI_Wtime();
 
     if (res == false) {
-	report.critical << error << err << std::endl;
-	MPI_Abort(comm, MPI_ABRT_SIG);
+        report.critical << error << err << std::endl;
+        MPI_Abort(comm, MPI_ABRT_SIG);
     }
 
 
@@ -221,17 +221,17 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
     // write log
     if (rank == 0) {
-	std::ofstream flog((opt.output + ".eslog").c_str());
+        std::ofstream flog((opt.output + ".eslog").c_str());
 
-	if (!flog) {
-	    report.critical << error << "unable to create " << opt.output + ".eslog" << std::endl;
-	    MPI_Abort(comm, MPI_ABRT_SIG);
-	}
+        if (!flog) {
+            report.critical << error << "unable to create " << opt.output + ".eslog" << std::endl;
+            MPI_Abort(comm, MPI_ABRT_SIG);
+        }
 
-	flog << log;
-	flog << "config:" << std::endl;
-	flog << opt;
-	flog.close();
+        flog << log;
+        flog << "config:" << std::endl;
+        flog << opt;
+        flog.close();
     }
 
     report << "time: " << log.wtime << " [s]" << std::endl;
@@ -258,8 +258,8 @@ int main(int argc, char* argv[]) {
     std::map<std::string, std::string> conf;
 
     if (argc == 1) {
-	if (rank == 0) AppConfig::usage();
-	return MPI_Finalize();
+        if (rank == 0) AppConfig::usage();
+        return MPI_Finalize();
     }
 
     bool res = false;
@@ -268,18 +268,18 @@ int main(int argc, char* argv[]) {
     boost::tie(res, pos) = jaz::parse_argv(argc, argv, conf);
 
     if (res == false) {
-	if (pos == -1) {
-	    if (rank == 0) {
-		AppConfig::usage();
-		std::cout << error << "incorrect command line arguments\n";
-	    }
-	    return MPI_Finalize();
-	} else {
-	    if (rank == 0) {
-		std::cout << error << "incorrect command line argument " << argv[pos] << "\n";
-	    }
-	    return MPI_Finalize();
-	}
+        if (pos == -1) {
+            if (rank == 0) {
+                AppConfig::usage();
+                std::cout << error << "incorrect command line arguments\n";
+            }
+            return MPI_Finalize();
+        } else {
+            if (rank == 0) {
+                std::cout << error << "incorrect command line argument " << argv[pos] << "\n";
+            }
+            return MPI_Finalize();
+        }
     } // if res
 
     // set reporter
@@ -292,8 +292,8 @@ int main(int argc, char* argv[]) {
     boost::tie(res, err) = opt.set(conf);
 
     if (res == false) {
-	report << error << err << "\n";
-	return MPI_Finalize();
+        report << error << err << "\n";
+        return MPI_Finalize();
     }
 
     AppLog log;

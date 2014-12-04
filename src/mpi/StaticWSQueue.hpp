@@ -22,22 +22,22 @@
 template <typename T> class StaticWSQueue {
 public:
     struct range_type {
-	unsigned int first;
-	unsigned int last;
+        unsigned int first;
+        unsigned int last;
     }; // struct range_type
 
 
     static range_type make_range(unsigned int first, unsigned int last) {
-	range_type range;
-	range.first = first;
-	range.last = last;
-	return range;
+        range_type range;
+        range.first = first;
+        range.last = last;
+        return range;
     } // make_range
 
 
     explicit StaticWSQueue(MPI_Comm comm) : active_(false), comm_(comm) {
-	MPI_Comm_size(comm_, &size_);
-	MPI_Comm_rank(comm_, &rank_);
+        MPI_Comm_size(comm_, &size_);
+        MPI_Comm_rank(comm_, &rank_);
     } // StaticWSQueue
 
 
@@ -46,202 +46,202 @@ public:
 
     template <typename IterData, typename IterTask>
     bool init(IterData dfirst, IterData dlast, IterTask tfirst, IterTask tlast) {
-	if (active_ == true) return false;
-	active_ = true;
+        if (active_ == true) return false;
+        active_ = true;
 
-	victims_.resize(size_);
-	for (int i = 0; i < size_; ++i) victims_[i] = i;
+        victims_.resize(size_);
+        for (int i = 0; i < size_; ++i) victims_[i] = i;
 
-	victims_.erase(victims_.begin() + rank_);
-	ends_ = 1;
+        victims_.erase(victims_.begin() + rank_);
+        ends_ = 1;
 
-	MPI_Type_contiguous(sizeof(range_type), MPI_BYTE, &MPI_RANGE_TYPE);
-	MPI_Type_commit(&MPI_RANGE_TYPE);
+        MPI_Type_contiguous(sizeof(range_type), MPI_BYTE, &MPI_RANGE_TYPE);
+        MPI_Type_commit(&MPI_RANGE_TYPE);
 
-	int n = dlast - dfirst;
+        int n = dlast - dfirst;
 
-	data_.resize(n);
-	std::copy(dfirst, dlast, data_.begin());
+        data_.resize(n);
+        std::copy(dfirst, dlast, data_.begin());
 
-	int m = tlast - tfirst;
+        int m = tlast - tfirst;
 
-	task_.resize(m);
-	std::copy(tfirst, tlast, task_.begin());
+        task_.resize(m);
+        std::copy(tfirst, tlast, task_.begin());
 
-	queue_[0] = -1;
-	queue_[1] = m;
+        queue_[0] = -1;
+        queue_[1] = m;
 
-	MPI_Irecv(req_buf_, 2, MPI_INT, MPI_ANY_SOURCE, SWSQ_STEAL_REQ, comm_, &req_);
+        MPI_Irecv(req_buf_, 2, MPI_INT, MPI_ANY_SOURCE, SWSQ_STEAL_REQ, comm_, &req_);
 
-	return true;
+        return true;
     } // init
 
 
     void finalize() {
-	if (active_ == true) {
-	    terminate();
-	    while (progress() == true) { }
-	    MPI_Cancel(&req_);
-	} // if
+        if (active_ == true) {
+            terminate();
+            while (progress() == true) { }
+            MPI_Cancel(&req_);
+        } // if
 
-	active_ = false;
+        active_ = false;
     } // finalize
 
 
     bool get(const T*& first, const T*& last) {
-	first = 0;
-	last = 0;
+        first = 0;
+        last = 0;
 
-	if (active_ == false) return false;
+        if (active_ == false) return false;
 
-	if ((queue_[0] + 1) == queue_[1]) return false;
-	else queue_[0]++;
+        if ((queue_[0] + 1) == queue_[1]) return false;
+        else queue_[0]++;
 
-	first = &data_[task_[queue_[0]].first];
-	last = &data_[task_[queue_[0]].last];
+        first = &data_[task_[queue_[0]].first];
+        last = &data_[task_[queue_[0]].last];
 
-	return true;
+        return true;
     } // get
 
 
     bool steal(int& vrank, T*& first, T*& last) {
-	if (size_ == 1) return false;
-	vrank = -1;
+        if (size_ == 1) return false;
+        vrank = -1;
 
-	MPI_Status stat;
+        MPI_Status stat;
 
-	MPI_Request sreq;
-	MPI_Request rreq;
+        MPI_Request sreq;
+        MPI_Request rreq;
 
-	int sflag = 0;
-	int rflag = 0;
+        int sflag = 0;
+        int rflag = 0;
 
-	int vpos = 0;
-	int vic = 0;
+        int vpos = 0;
+        int vic = 0;
 
-	range_type task;
+        range_type task;
 
-	int quest[2];
-	quest[0] = rank_;
-	quest[1] = rank_;
+        int quest[2];
+        quest[0] = rank_;
+        quest[1] = rank_;
 
-	do {
-	    vpos = std::rand() % victims_.size();
-	    vic = victims_[vpos];
+        do {
+            vpos = std::rand() % victims_.size();
+            vic = victims_[vpos];
 
-	    task.first = task.last = 0;
+            task.first = task.last = 0;
 
-	    MPI_Isend(quest, 2, MPI_INT, vic, SWSQ_STEAL_REQ, comm_, &sreq);
-	    MPI_Irecv(&task, 1, MPI_RANGE_TYPE, vic, SWSQ_TASK_ANS, comm_, &rreq);
+            MPI_Isend(quest, 2, MPI_INT, vic, SWSQ_STEAL_REQ, comm_, &sreq);
+            MPI_Irecv(&task, 1, MPI_RANGE_TYPE, vic, SWSQ_TASK_ANS, comm_, &rreq);
 
-	    sflag = 0;
+            sflag = 0;
 
-	    do {
-		MPI_Test(&sreq, &sflag, &stat);
-		progress();
-	    } while (sflag == false);
+            do {
+                MPI_Test(&sreq, &sflag, &stat);
+                progress();
+            } while (sflag == false);
 
-	    rflag = 0;
+            rflag = 0;
 
-	    do {
-		MPI_Test(&rreq, &rflag, &stat);
-		progress();
-	    } while (rflag == false);
+            do {
+                MPI_Test(&rreq, &rflag, &stat);
+                progress();
+            } while (rflag == false);
 
-	    if (task.first == task.last) victims_.erase(victims_.begin() + vpos);
-	    else {
-		int k = task.last - task.first;
+            if (task.first == task.last) victims_.erase(victims_.begin() + vpos);
+            else {
+                int k = task.last - task.first;
 
-		first = new T[k];
-		last = first + k;
+                first = new T[k];
+                last = first + k;
 
-		MPI_Recv(first, k * sizeof(T), MPI_BYTE, vic, SWSQ_TASK_DATA, comm_, &stat);
-		vrank = vic;
-	    }
-	} while ((task.first == task.last) && (victims_.empty() == false));
+                MPI_Recv(first, k * sizeof(T), MPI_BYTE, vic, SWSQ_TASK_DATA, comm_, &stat);
+                vrank = vic;
+            }
+        } while ((task.first == task.last) && (victims_.empty() == false));
 
-	if (victims_.empty() == true) return false;
-	return true;
+        if (victims_.empty() == true) return false;
+        return true;
     } // steal
 
 
     bool progress() {
-	if (size_ <= ends_) return false;
+        if (size_ <= ends_) return false;
 
-	MPI_Status stat;
-	int flag = 0;
+        MPI_Status stat;
+        int flag = 0;
 
-	unsigned int t = 0;
+        unsigned int t = 0;
 
-	do {
-	    MPI_Test(&req_, &flag, &stat);
+        do {
+            MPI_Test(&req_, &flag, &stat);
 
-	    if (flag == true) {
-		range_type task;
-		bool ht = true;
+            if (flag == true) {
+                range_type task;
+                bool ht = true;
 
-		if (req_buf_[1] != -1) {
-		    if ((queue_[0] + 1) < queue_[1]) {
-			queue_[1]--;
-			task = task_[queue_[1]];
-		    } else ht = false;
-		} else ht = false;
+                if (req_buf_[1] != -1) {
+                    if ((queue_[0] + 1) < queue_[1]) {
+                        queue_[1]--;
+                        task = task_[queue_[1]];
+                    } else ht = false;
+                } else ht = false;
 
-		if (ht == false) {
-		    task.first = task.last = 0;
-		    ends_++;
-		}
+                if (ht == false) {
+                    task.first = task.last = 0;
+                    ends_++;
+                }
 
-		MPI_Send(&task, 1, MPI_RANGE_TYPE, req_buf_[0], SWSQ_TASK_ANS, comm_);
-		if (ht == true) {
-		    unsigned int k = task.last - task.first;
-		    MPI_Send(&data_[task.first], k * sizeof(T), MPI_BYTE, req_buf_[0], SWSQ_TASK_DATA, comm_);
-		}
-		MPI_Irecv(req_buf_, 2, MPI_INT, MPI_ANY_SOURCE, SWSQ_STEAL_REQ, comm_, &req_);
+                MPI_Send(&task, 1, MPI_RANGE_TYPE, req_buf_[0], SWSQ_TASK_ANS, comm_);
+                if (ht == true) {
+                    unsigned int k = task.last - task.first;
+                    MPI_Send(&data_[task.first], k * sizeof(T), MPI_BYTE, req_buf_[0], SWSQ_TASK_DATA, comm_);
+                }
+                MPI_Irecv(req_buf_, 2, MPI_INT, MPI_ANY_SOURCE, SWSQ_STEAL_REQ, comm_, &req_);
 
-		t++;
-	    } // if
-	} while ((flag == true) && (t < 1));
+                t++;
+            } // if
+        } while ((flag == true) && (t < 1));
 
-	return (ends_ < size_);
+        return (ends_ < size_);
     } // progress
 
 
     void terminate() {
-	MPI_Status stat;
+        MPI_Status stat;
 
-	MPI_Request sreq;
-	MPI_Request rreq;
+        MPI_Request sreq;
+        MPI_Request rreq;
 
-	int sflag = 0;
-	int rflag = 0;
+        int sflag = 0;
+        int rflag = 0;
 
-	range_type task;
-	int quest[2];
+        range_type task;
+        int quest[2];
 
-	quest[0] = rank_;
-	quest[1] = -1;
+        quest[0] = rank_;
+        quest[1] = -1;
 
-	for (unsigned int i = 0; i < victims_.size(); ++i) {
-	    task.first = task.last = 0;
+        for (unsigned int i = 0; i < victims_.size(); ++i) {
+            task.first = task.last = 0;
 
-	    MPI_Isend(quest, 2, MPI_INT, victims_[i], SWSQ_STEAL_REQ, comm_, &sreq);
-	    MPI_Irecv(&task, 1, MPI_RANGE_TYPE, victims_[i], SWSQ_TASK_ANS, comm_, &rreq);
+            MPI_Isend(quest, 2, MPI_INT, victims_[i], SWSQ_STEAL_REQ, comm_, &sreq);
+            MPI_Irecv(&task, 1, MPI_RANGE_TYPE, victims_[i], SWSQ_TASK_ANS, comm_, &rreq);
 
-	    sflag = 0;
+            sflag = 0;
 
-	    do {
-		MPI_Test(&sreq, &sflag, &stat);
-		progress();
-	    } while (sflag == false);
+            do {
+                MPI_Test(&sreq, &sflag, &stat);
+                progress();
+            } while (sflag == false);
 
-	    rflag = 0;
+            rflag = 0;
 
-	    do {
-		MPI_Test(&rreq, &rflag, &stat);
-		progress();
-	    } while (rflag == false);
-	}
+            do {
+                MPI_Test(&rreq, &rflag, &stat);
+                progress();
+            } while (rflag == false);
+        }
     } // terminate
 
 
