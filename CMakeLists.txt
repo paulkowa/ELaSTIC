@@ -11,7 +11,7 @@ OPTION(WITH_MPE "Build with MPE profiler" OFF)
 
 IF (CMAKE_CXX_FLAGS)
 ELSE()
-  SET(CMAKE_CXX_FLAGS "-std=c++0x -O3")
+  SET(CMAKE_CXX_FLAGS "-O3")
 ENDIF()
 
 FIND_PACKAGE(Boost 1.48.0)

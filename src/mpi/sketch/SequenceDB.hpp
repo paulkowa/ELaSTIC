@@ -27,6 +27,7 @@
 
 #include <mpi.h>
 
+#include "Sequence.hpp"
 #include "sketch_id.hpp"
 
 
@@ -69,24 +70,6 @@ private:
     unsigned int nloc_;
 
 }; // class id2rank
-
-
-
-struct Sequence {
-    unsigned int id;
-    std::string s;
-}; // struct Sequence
-
-inline bool operator<(const Sequence& s0, const Sequence& s1) {
-    return (s0.id < s1.id);
-} // operator<
-
-
-struct SequenceList {
-    unsigned int N; // global size
-    std::vector<Sequence> seqs;
-}; // struct SequenceList
-
 
 
 class SequenceRMA {
@@ -279,9 +262,6 @@ private:
 #endif // WITH_MPE
 
 }; // SequenceRMA
-
-
-typedef std::vector<uint64_t> shingle_list_type;
 
 
 struct read_pair {

@@ -21,7 +21,7 @@
 #include "CompressedAlphabet.hpp"
 #include "SequenceCodec.hpp"
 
-#include "SequenceDB.hpp"
+#include "Sequence.hpp"
 #include "config_log.hpp"
 
 
