@@ -64,6 +64,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     double t0 = MPI_Wtime();
 
     report << info << "using " << size << " processors..." << std::endl;
+    report << info << "input configuration:\n" << opt;
 
     // ALL ERRORS IN THIS FUNCTION ARE CRITICAL AND TERMINATE MPI
     bool res = true;

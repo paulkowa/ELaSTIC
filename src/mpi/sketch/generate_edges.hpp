@@ -19,6 +19,7 @@
 #include <limits>
 #include <numeric>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -42,6 +43,18 @@
 
 
 template <typename Int> inline Int nc2(Int n) { return (n * (n - 1)) >> 1; }
+
+
+inline std::string size_str(unsigned int sz) {
+    std::ostringstream ss;
+    if (sz < 1024) ss << sz << "B";
+    else if (sz < (1024 * 1024)) {
+        ss << (static_cast<double>(sz) / 1024) << "KB";
+    } else {
+        ss << (static_cast<double>(sz) / (1024 * 1024)) << "MB";
+    }
+    return ss.str();
+} // size_str
 
 
 inline int partition_level(int size) {
@@ -144,7 +157,7 @@ void compact_counts(const AppConfig& opt, Reporter& report, MPI_Comm comm,
                           << " counts: " << counts.size() << "/" << counts.capacity()
                           << "\tbuf: " << buf.size() << "/" << buf.capacity()
                           << "\tdata: " << data.size() << "/" << data.capacity()
-                          << "\tmemory: " << mem << "/" << mem_res << std::endl;
+                          << "\tmemory: " << size_str(mem) << "/" << size_str(mem_res) << std::endl;
         }
     } // for i
 
@@ -158,8 +171,8 @@ void compact_counts(const AppConfig& opt, Reporter& report, MPI_Comm comm,
 
     if (rank == opt.dbg) {
         report.stream << debug << "counts: " << counts.size()
-                      << ", memory: " << counts.size() * sizeof(read_pair)
-                      << "/" << counts.capacity() * sizeof(read_pair) << std::endl;
+                      << ", memory: " << size_str(counts.size() * sizeof(read_pair))
+                      << "/" << size_str(counts.capacity() * sizeof(read_pair)) << std::endl;
     }
 
     MPI_Type_free(&MPI_READ_PAIR);
@@ -276,8 +289,8 @@ void aggregate_list(const AppConfig& opt, Reporter& report, MPI_Comm comm,
 
     if (rank == opt.dbg) {
         report.stream << debug << "agg_rem_list: " << S
-                      << ", memory: " << S * sizeof(id_sketch)
-                      << "/" << agg_rem_list.capacity() * sizeof(id_sketch)
+                      << ", memory: " << size_str(S * sizeof(id_sketch))
+                      << "/" << size_str(agg_rem_list.capacity() * sizeof(id_sketch))
                       << " parts: " << rb << std::endl;
     }
 
@@ -348,12 +361,12 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 
     if (rank == opt.dbg) {
         report.stream << debug << "rem_list: " << rem_list.size()
-                      << ", memory: " << rem_list.size() * sizeof(id_sketch)
-                      << "/" << rem_list.capacity() * sizeof(id_sketch) << std::endl;
+                      << ", memory: " << size_str(rem_list.size() * sizeof(id_sketch))
+                      << "/" << size_str(rem_list.capacity() * sizeof(id_sketch)) << std::endl;
 
         report.stream << debug << "sketch_list: " << sketch_list.size()
-                      << ", memory: " << sketch_list.size() * sizeof(sketch_id)
-                      << "/" << sketch_list.capacity() * sizeof(sketch_id) << std::endl;
+                      << ", memory: " << size_str(sketch_list.size() * sizeof(sketch_id))
+                      << "/" << size_str(sketch_list.capacity() * sizeof(sketch_id)) << std::endl;
     }
 
     // balance sketches
@@ -400,8 +413,8 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 
     if (rank == opt.dbg) {
         report.stream << debug << "sketch_list: " << sketch_list.size()
-                      << ", memory: " << sketch_list.size() * sizeof(sketch_id)
-                      << "/" << sketch_list.capacity() * sizeof(sketch_id) << std::endl;
+                      << ", memory: " << size_str(sketch_list.size() * sizeof(sketch_id))
+                      << "/" << size_str(sketch_list.capacity() * sizeof(sketch_id)) << std::endl;
     }
 
 #ifdef WITH_MPE
@@ -436,6 +449,10 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
         count_alloc += bsz;
         iter = temp;
     } // while
+
+    if (rank == opt.dbg) {
+        report.stream << debug << "allocating " << count_alloc << " counts" << std::endl;
+    }
 
     try {
         counts.reserve(count_alloc);
@@ -521,8 +538,8 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
 
     if (rank == opt.dbg) {
         report.stream << debug << "counts: " << counts.size()
-                      << ", memory: " << counts.size() * sizeof(read_pair)
-                      << "/" << counts.capacity() * sizeof(read_pair) << std::endl;
+                      << ", memory: " << size_str(counts.size() * sizeof(read_pair))
+                      << "/" << size_str(counts.capacity() * sizeof(read_pair)) << std::endl;
     }
 
     // add new edges
@@ -535,8 +552,8 @@ inline std::pair<bool, std::string> extract_pairs(const AppConfig& opt, AppLog& 
     if (rank == opt.dbg) {
         report.stream << debug << "edges: " << edges.size()
                       << ", +" << counts.size()
-                      << " memory: " << edges.size() * sizeof(read_pair)
-                      << "/" << edges.capacity() * sizeof(read_pair) << std::endl;
+                      << " memory: " << size_str(edges.size() * sizeof(read_pair))
+                      << "/" << size_str(edges.capacity() * sizeof(read_pair)) << std::endl;
     }
 
 #ifdef WITH_MPE
@@ -604,8 +621,8 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 
         if (rank == opt.dbg) {
             report.stream << debug << "sketch_list: " << sketch_list.size()
-                          << ", memory: " << sketch_list.size() * sizeof(sketch_id)
-                          << "/" << sketch_list.capacity() * sizeof(sketch_id) << std::endl;
+                          << ", memory: " << size_str(sketch_list.size() * sizeof(sketch_id))
+                          << "/" << size_str(sketch_list.capacity() * sizeof(sketch_id)) << std::endl;
         }
 
 #ifdef WITH_MPE
@@ -624,17 +641,19 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 
         if (rank == opt.dbg) {
             report.stream << debug << "sketch_list: " << sketch_list.size()
-                          << ", memory: " << sketch_list.size() * sizeof(sketch_id)
-                          << "/" << sketch_list.capacity() * sizeof(sketch_id) << std::endl;
+                          << ", memory: " << size_str(sketch_list.size() * sizeof(sketch_id))
+                          << "/" << size_str(sketch_list.capacity() * sizeof(sketch_id)) << std::endl;
         }
 
 #ifdef WITH_MPE
         mpe_log.stop();
 #endif // WITH_MPE
 
+        /* we do re-balancing anyway
         if (sketch_list.empty()) {
             report.critical << warning << "{" << rank << "}" << " empty list of sketches!" << std::endl;
         }
+        */
 
         // add to edges read pairs with common sketches
         unsigned int edges_sz = edges.size();
