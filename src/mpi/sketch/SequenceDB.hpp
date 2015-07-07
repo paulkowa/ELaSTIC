@@ -304,7 +304,7 @@ inline bool locality_compare(const read_pair& lhs, const read_pair& rhs) {
 
 inline bool source_compare(const read_pair& lhs, const read_pair& rhs) {
     return (lhs.id0 < rhs.id0);
-} // operator<
+} // source_compare
 
 inline read_pair make_read_pair(const sketch_id& r0, const sketch_id& r1) {
     read_pair tmp;
@@ -363,24 +363,24 @@ private:
 }; // class compare_rank
 
 
-inline unsigned int hash_read_pair0(const read_pair& rp) { return rp.id0 ^ rp.id1; }
+inline unsigned int hash_rp_xor(const read_pair& rp) { return rp.id0 ^ rp.id1; }
 
 
-class hash_read_pair1 {
+class hash_rp_id0 {
 public:
-    hash_read_pair1(unsigned int n, int size) : i2r_(n, size) { }
+    hash_rp_id0(unsigned int n, int size) : i2r_(n, size) { }
 
     unsigned int operator()(const read_pair& rp) const { return i2r_(rp.id0); }
 
 private:
     id2rank i2r_;
 
-}; // class hash_read_pair1
+}; // class hash_rp_id0
 
 
-class hash_read_pair2 {
+class hash_rp_id0or1 {
 public:
-    hash_read_pair2(unsigned int n, int size) : i2r_(n, size) { }
+    hash_rp_id0or1(unsigned int n, int size) : i2r_(n, size) { }
 
     unsigned int operator()(const read_pair& rp) const {
         return (rp.id0 + rp.id1) % 2 ? i2r_(rp.id0) : i2r_(rp.id1);
@@ -389,10 +389,10 @@ public:
 private:
     id2rank i2r_;
 
-}; // class hash_read_pair2
+}; // class hash_rp_id0or1
 
 
-inline unsigned int hash_read_pair3(const read_pair& rp) { return rp.score; }
+inline unsigned int hash_rp_score(const read_pair& rp) { return rp.score; }
 
 
 class local {
@@ -475,6 +475,12 @@ private:
     int size_;
 
 }; // class matrix_block
+
+
+inline read_pair reads_xor(read_pair rp) {
+    rp.score = hash_rp_xor(rp);
+    return rp;
+} // reads_xor
 
 
 inline read_pair kmer_fraction(read_pair rp) {

@@ -87,11 +87,7 @@ to `cmake', for example, to use Clang/LLVM:
 $ cmake ../ -DCMAKE_CXX_COMPILER=clang++
 
 In a similar way you can tune compiler flags by passing
-`-DCMAKE_CXX_FLAGS=flags'. Note that by default ELaSTIC sets compiler flags to
-`-std=c++0x -O3'. This can be problematic with some older compilers, hence you
-may want to disable C++11 support:
-
-$ cmake ../ -DCMAKE_CXX_FLAGS="-O3"
+`-DCMAKE_CXX_FLAGS=flags'.
 
 3.4 Non-standard Boost installation
 
@@ -112,7 +108,7 @@ libraries installed in /opt/boost:
 
 $ cmake ../ -DWITH_TOOLS=off \
             -DCMAKE_CXX_COMPILER=powerpc-bgp-linux-c++ \
-            -DCMAKE_CXX_FLAGS="-static -std=c++0x \
+            -DCMAKE_CXX_FLAGS="-static -std=c++11 \
                                -mcpu=450fp2 -mstrict-align \
                                -fno-strict-aliasing -O3" \
             -DBOOST_ROOT=/opt/boost
@@ -131,17 +127,9 @@ directory must be cleaned before calling `cmake' again:
 $ cd build/
 $ rm -rf *
 
-Another problem is caused by old C++ compilers. Unfortunately, currently
-we do not check weather the compiler supports the C++11 standard. If after 
-calling `make' you see error similar to this:
-
-cc1plus: error: unrecognized command line option "-std=c++0x"
-
-change compiler flags as described in Section 3.3.
-
 4. Copyright
 
-ELaSTIC (c) 2012-2014 Jaroslaw Zola under the MIT License.
+ELaSTIC (c) 2012-2015 Jaroslaw Zola under the MIT License.
 BIO     (c) 2012-2014 Jaroslaw Zola under the Boost Software License.
 JAZ     (c) 2004-2014 Jaroslaw Zola under the Boost Software License.
 MPIX2   (c) 2005-2014 Jaroslaw Zola under the Boost Software License.

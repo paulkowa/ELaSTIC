@@ -15,7 +15,9 @@
 #ifndef IOMANIP_HPP
 #define IOMANIP_HPP
 
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 
 
 struct null_ostream : public std::ostream {
@@ -97,5 +99,20 @@ private:
     } // operator <<
 
 }; // class timer
+
+inline std::string to_size(unsigned long long int sz) {
+    std::ostringstream ss;
+
+    if (sz < 1024) ss << sz << "B";
+    else if (sz < (1024 * 1024)) {
+        ss << std::setprecision(4) << (static_cast<float>(sz) / 1024) << "KB";
+    } else if (sz < (1024 * 1024 * 1024)) {
+        ss << std::setprecision(4) << (static_cast<float>(sz) / (1024 * 1024)) << "MB";
+    } else {
+        ss << std::setprecision(4) << (static_cast<float>(sz) / (1024 * 1024 * 1024)) << "GB";
+    }
+
+    return ss.str();
+} // to_size
 
 #endif // IOMANIP_HPP

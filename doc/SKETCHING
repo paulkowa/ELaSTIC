@@ -1,9 +1,13 @@
-List of MPE phases in the edge generation routine.
-Version 1.71 (notation as in HiCOMB paper):
+List of (MPE) phases in the edge generation routine.
+Version 1.71 (notation as in the HiCOMB paper):
 
-1. generate sketch_list: each processor enumerates (x,r,d) tuple
-2. group sketch_list: processors perform all-to-all binning to get list L^i
-3. decompose sketch_list: break L^i and pre-balance
-4. balance sketch_list: perform load balancing of L^i
-5. get counts: enumerate pairs as prescribed by sketches in L^i to get W^i
-6. compact counts: perform reduction to count how many time given pair has been enumerated
+1.  generate sketch_list: each processor enumerates (x,r,d) tuple
+2.  group sketch_list: processors perform all-to-all binning to get list L^i
+3.  decompose sketch_list: break L^i and pre-balance
+4.  balance sketch_list: perform load balancing of L^i
+5.  get counts: enumerate pairs as prescribed by sketches in L^i to get W^i
+6.  compact counts: perform reduction to count how many times given pair has been enumerated
+7.  aggregate aux_list: create A^i list storing info about frequent k-mers
+8.  update counts: update W^i with information from A^i
+9.  filter counts: approximate similarity and filter W^i
+10. merge edges: merge W^i with list of edges from previous iteration

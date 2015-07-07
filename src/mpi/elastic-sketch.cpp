@@ -64,7 +64,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     double t0 = MPI_Wtime();
 
     report << info << "using " << size << " processors..." << std::endl;
-    report << info << "input configuration:\n" << opt;
+    report << info << "input configuration...\n" << opt;
 
     // ALL ERRORS IN THIS FUNCTION ARE CRITICAL AND TERMINATE MPI
     bool res = true;
@@ -95,7 +95,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
         report.stream << debug << "SL.seqs: " << SL.seqs.size()
                       << ", min/avg/max: " << min(acc) << "/" << mean(acc) << "/" << max(acc)
-                      << " memory: " << mem << std::endl;
+                      << " memory: " << to_size(mem) << std::endl;
     } // if dbg
 
 
@@ -117,7 +117,7 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
         for (unsigned int i = 0; i < shingles.size(); ++i) S += shingles[i].size();
         unsigned int mem = sizeof(shingles) + S * sizeof(shingle_list_type::value_type);
 
-        report.stream << debug << "shingles, memory: " << mem << std::endl;
+        report.stream << debug << "shingles, memory: " << to_size(mem) << std::endl;
     } // if dbg
 
 
@@ -143,6 +143,19 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     }
 
     unsigned long long int etot = edges.size();
+    unsigned long long int num_cedges = 0;
+
+    MPI_Reduce(&etot, &num_cedges, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, 0, comm);
+
+    report << info << "extracted " << num_cedges << " candidate edges" << std::endl;
+
+    if (rank == opt.dbg) {
+        report.stream << debug << "collective edge memory: " << to_size(num_cedges * sizeof(read_pair)) << std::endl;
+    }
+
+
+    // we should dump candidate graph here
+    // ...
 
 #ifdef WITH_MPE
     // profiling of validation is disabled by default
@@ -194,11 +207,9 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
 
     // update log
-    unsigned long long int num_cedges = 0;
     double gtv0 = 0.0;
     double gtv1 = 0.0;
 
-    MPI_Reduce(&etot, &num_cedges, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, 0, comm);
     MPI_Reduce(&tv0, &gtv0, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
     MPI_Reduce(&tv1, &gtv1, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
 

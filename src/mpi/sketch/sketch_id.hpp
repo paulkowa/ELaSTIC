@@ -24,6 +24,9 @@
 #include <inttypes.h>
 
 
+template <typename Int> inline Int nc2(Int n) { return (n * (n - 1)) >> 1; }
+
+
 struct sketch_id {
     uint64_t sketch;
     unsigned int id;
@@ -209,5 +212,26 @@ inline unsigned int decompose_sketch_list(std::vector<sketch_id>& sketch_list, i
 
     return part;
 } // decompose_sketch_list
+
+inline void print_sketch_tasks(std::ostream& os, std::vector<sketch_id>& sketch_list) {
+    typedef std::vector<sketch_id>::iterator si_iterator;
+    si_iterator iter = sketch_list.begin();
+
+    unsigned int bsz = 0;
+
+    while (iter != sketch_list.end()) {
+        si_iterator temp = jaz::range(iter, sketch_list.end());
+        int k = temp - iter;
+
+        if (iter->sep == 0) bsz = nc2(k);
+        else {
+            if (iter->sep == k) bsz = k * k;
+            else bsz = iter->sep * (k - iter->sep);
+        }
+
+        os << bsz << " ";
+        iter = temp;
+    } // while
+} // print_sketch_tasks
 
 #endif // SKETCH_ID_HPP

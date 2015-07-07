@@ -20,5 +20,5 @@
 
 #define ELASTIC_SKETCH_SHORT "elastic-sketch"
 #define ELASTIC_SKETCH_FULL "ELaSTIC Similarity Graph Builder"
-#define ELASTIC_SKETCH_VERSION "1.71:2014-03-01"
+#define ELASTIC_SKETCH_VERSION "1.75:2015-07-07"
 #define ELASTIC_SKETCH_COPYRIGHT "Copyright (c) 2012-2015 Jaroslaw Zola"

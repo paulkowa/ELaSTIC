@@ -105,7 +105,7 @@ inline std::pair<bool, std::string> validate_edges(const AppConfig& opt, AppLog&
     MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
     MPI_Type_commit(&MPI_READ_PAIR);
 
-    mpix::simple_partition(edges, hash_read_pair2(SL.N, size), MPI_READ_PAIR, comm);
+    mpix::simple_partition(edges, hash_rp_id0or1(SL.N, size), MPI_READ_PAIR, comm);
 
     MPI_Type_free(&MPI_READ_PAIR);
 
@@ -200,7 +200,7 @@ inline std::pair<bool, std::string> validate_edges_ws(const AppConfig& opt, AppL
     MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
     MPI_Type_commit(&MPI_READ_PAIR);
 
-    mpix::simple_partition(edges, hash_read_pair2(SL.N, size), MPI_READ_PAIR, comm);
+    mpix::simple_partition(edges, hash_rp_id0or1(SL.N, size), MPI_READ_PAIR, comm);
 
     MPI_Type_free(&MPI_READ_PAIR);
 

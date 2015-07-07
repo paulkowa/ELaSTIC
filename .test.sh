@@ -1,6 +1,8 @@
 #!/bin/bash
 
+clear
+
 rm -rf build/*
 cd build/
-cmake ../
-make -j6
+cmake ../ -DCMAKE_INSTALL_PREFIX=.
+make -j6 install
