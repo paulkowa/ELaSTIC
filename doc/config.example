@@ -1,4 +1,4 @@
-# Default config file for ELaSTIC 1.69+
+# Default config file for ELaSTIC 1.80+
 
 # Set input data type.
 # Two types are supported:
@@ -19,6 +19,10 @@ sigma = A20
 # Use compressed alphabet during validation (valid for proteins only).
 # Default: 0
 compress = 0
+
+# Perform edge validation.
+# Default: 1
+validate = 1
 
 # Select the method to perform validation.
 # Currently, six methods are available:

@@ -1,4 +1,4 @@
-ELaSTIC Similarity Graph Builder Version 1.75:2015-07-07
+ELaSTIC Similarity Graph Builder Version 1.80:2015-07-10
 Copyright (c) 2012-2015 Jaroslaw Zola
 
 Usage: elastic-sketch --input name --output name [options...]
@@ -10,6 +10,7 @@ Options:
   --type {nt|aa}     set input sequence type (default nt)
   --sigma type       use this compressed amino acid alphabet (default A20)
   --compress {0|1}   use compressed alphabet during validation (default 0)
+  --validate {0|1}   perform validation (default 1)
   --method type      use this method for validation (default 0)
   --kmer size        use kmers of this size (default 16)
   --gaps type        use these alignment parameters (default [1,-2,-10,-1])

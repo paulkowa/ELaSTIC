@@ -153,10 +153,6 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
         report.stream << debug << "collective edge memory: " << to_size(num_cedges * sizeof(read_pair)) << std::endl;
     }
 
-
-    // we should dump candidate graph here
-    // ...
-
 #ifdef WITH_MPE
     // profiling of validation is disabled by default
     return;
@@ -174,8 +170,10 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
 
     // validate candidate edges
     double tv0 = MPI_Wtime() - t0;
-    if (opt.wsq == false) boost::tie(res, err) = validate_edges(opt, log, report, comm, SL, rma_seq, edges);
-    else boost::tie(res, err) = validate_edges_ws(opt, log, report, comm, SL, rma_seq, edges);
+    if (opt.validate == true) {
+        if (opt.wsq == false) boost::tie(res, err) = validate_edges(opt, log, report, comm, SL, rma_seq, edges);
+        else boost::tie(res, err) = validate_edges_ws(opt, log, report, comm, SL, rma_seq, edges);
+    }
     double tv1 = MPI_Wtime() - t0;
 
     if (res == false) {
@@ -226,10 +224,13 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     report << info << "extracted " << log.cedges << " candidate edges" << std::endl;
     report << info << "generated " << log.vedges << " valid edges" << std::endl;
     report << info << "sketching phase: " << gst << std::endl;
-    report << info << "validation phase: " << (gtv1 - gtv0) << std::endl;
-    report << info << "edge throughput: " << static_cast<unsigned int>(num_cedges / (gtv1 - gtv0)) << std::endl;
-    report << info << "fraction processed: " << fa2a << std::endl;
-    report << info << "fraction accepted: " << static_cast<double>(log.vedges) / log.cedges << std::endl;
+
+    if (opt.validate == true) {
+        report << info << "validation phase: " << (gtv1 - gtv0) << std::endl;
+        report << info << "edge throughput: " << static_cast<unsigned int>(num_cedges / (gtv1 - gtv0)) << std::endl;
+        report << info << "fraction processed: " << fa2a << std::endl;
+        report << info << "fraction accepted: " << static_cast<double>(log.vedges) / log.cedges << std::endl;
+    }
 
     // write log
     if (rank == 0) {

@@ -32,6 +32,8 @@
 #include <mpix2/simple_partition.hpp>
 #include <mpix2/write_cbuffer.hpp>
 
+#include "../sequence_compact.hpp"
+
 #include "SequenceDB.hpp"
 #include "config_log.hpp"
 #include "iomanip.hpp"
@@ -347,17 +349,27 @@ std::pair<bool, std::string> compact_counts(const AppConfig& opt, Reporter& repo
                       << "/" << to_size(counts.capacity() * sizeof(read_pair)) << std::endl;
     }
 
-    if (rank == opt.dbg) report.stream << debug << "compact global" << std::endl;
+    double t0 = 0;
+
+    if (rank == opt.dbg) {
+        report.stream << debug << "compact global" << std::endl;
+        t0 = MPI_Wtime();
+    }
 
     try {
         mpix::simple_partition(counts, hash_rp_score, MPI_READ_PAIR, comm);
         std::sort(counts.begin(), counts.end());
+
         counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
+        if ((counts.size() > 0) && (counts.capacity() / counts.size() > 2)) counts.shrink_to_fit();
     } catch (...) {
         return std::make_pair(false, "counts compaction failure,...");
     }
 
     if (rank == opt.dbg) {
+        double t1 = MPI_Wtime();
+        report.stream << debug << "time: " << (t1 - t0) << "s" << std::endl;
+
         report.stream << debug << "counts: " << counts.size()
                       << ", memory: " << to_size(counts.size() * sizeof(read_pair))
                       << "/" << to_size(counts.capacity() * sizeof(read_pair)) << std::endl;
@@ -367,6 +379,96 @@ std::pair<bool, std::string> compact_counts(const AppConfig& opt, Reporter& repo
 
     return std::make_pair(true, "");
 } // compact_counts
+
+
+template <typename Sequence>
+std::pair<bool, std::string> compact_counts_lomem(const AppConfig& opt, Reporter& report, MPI_Comm comm,
+                                                  const SequenceList& SL, const std::vector<read_pair>& edges,
+                                                  Sequence& counts) {
+    int size, rank;
+
+    MPI_Comm_size(comm, &size);
+    MPI_Comm_rank(comm, &rank);
+
+#ifdef WITH_MPE
+    mpix::MPE_Log mpe_log("compact_counts", "red");
+    mpe_log.start();
+#endif // WITH_MPE
+
+    MPI_Datatype MPI_READ_PAIR;
+    MPI_Type_contiguous(sizeof(read_pair), MPI_BYTE, &MPI_READ_PAIR);
+    MPI_Type_commit(&MPI_READ_PAIR);
+
+    if (rank == opt.dbg) {
+        report.stream << debug << "counts: " << counts.size()
+                      << ", memory: " << to_size(counts.size() * sizeof(read_pair))
+                      << "/" << to_size(counts.capacity() * sizeof(read_pair)) << std::endl;
+    }
+
+    if (rank == opt.dbg) report.stream << debug << "compact local" << std::endl;
+
+    std::sort(counts.begin(), counts.end());
+    counts.resize(jaz::compact(counts.begin(), counts.end(), std::plus<read_pair>()) - counts.begin());
+
+    if (rank == opt.dbg) {
+        report.stream << debug << "counts: " << counts.size()
+                      << ", memory: " << to_size(counts.size() * sizeof(read_pair))
+                      << "/" << to_size(counts.capacity() * sizeof(read_pair)) << std::endl;
+    }
+
+    double t0 = 0;
+
+    if (rank == opt.dbg) {
+        report.stream << debug << "compact global" << std::endl;
+        t0 = MPI_Wtime();
+    }
+
+    try {
+        boost::container::vector<read_pair> buf;
+        boost::container::vector<read_pair> out;
+
+        for (int i = 0; i < size; ++i) {
+            if (rank == opt.dbg) report.stream << debug << "round: " << i << std::endl;
+
+            tree_compact(counts, buf, hash_rp_xor, std::plus<read_pair>(), MPI_READ_PAIR, i, comm);
+            if ((counts.size() > 0) && (counts.capacity() / counts.size() > 2)) counts.shrink_to_fit();
+
+            if (i == rank) {
+                out = buf;
+
+                if (rank == opt.dbg) {
+                    report.stream << debug << "out: " << out.size()
+                                  << ", memory: " << to_size(out.size() * sizeof(read_pair))
+                                  << "/" << to_size(out.capacity() * sizeof(read_pair)) << std::endl;
+                }
+            } // if i
+
+            if (rank == opt.dbg) {
+                report.stream << debug << "counts: " << counts.size()
+                              << ", memory: " << to_size(counts.size() * sizeof(read_pair))
+                              << "/" << to_size(counts.capacity() * sizeof(read_pair)) << std::endl;
+            }
+        } // for i
+
+        counts = boost::move(out);
+
+    } catch (...) {
+        return std::make_pair(false, "counts compaction failure,...");
+    }
+
+    if (rank == opt.dbg) {
+        double t1 = MPI_Wtime();
+        report.stream << debug << "time: " << (t1 - t0) << "s" << std::endl;
+
+        report.stream << debug << "counts: " << counts.size()
+                      << ", memory: " << to_size(counts.size() * sizeof(read_pair))
+                      << "/" << to_size(counts.capacity() * sizeof(read_pair)) << std::endl;
+    }
+
+    MPI_Type_free(&MPI_READ_PAIR);
+
+    return std::make_pair(true, "");
+} // compact_counts_lomem
 
 
 inline std::pair<bool, std::string> aggregate_aux_list(const AppConfig& opt, Reporter& report, MPI_Comm comm,
@@ -482,8 +584,8 @@ void filter_counts(const AppConfig& opt, Reporter& report, MPI_Comm comm, Sequen
 
 
 template <typename Sequence>
-void merge_edges(const AppConfig& opt, Reporter& report, MPI_Comm comm,
-                 Sequence& counts, std::vector<read_pair>& edges) {
+std::pair<bool, std::string> merge_edges(const AppConfig& opt, Reporter& report, MPI_Comm comm,
+                                         Sequence& counts, std::vector<read_pair>& edges) {
 #ifdef WITH_MPE
     mpix::MPE_Log mpe_log("merge edges", "red");
     mpe_log.start();
@@ -501,20 +603,25 @@ void merge_edges(const AppConfig& opt, Reporter& report, MPI_Comm comm,
 
     std::sort(counts.begin(), counts.end());
 
-    if (edges.empty()) std::copy(counts.begin(), counts.end(), std::back_inserter(edges));
-    else {
-        typename Sequence::iterator iter0(counts.begin()), end0(counts.end());
-        std::vector<read_pair>::iterator iter1(edges.begin()), end1(edges.end());
+    try {
+        if (edges.empty()) {
+            edges.resize(counts.size());
+            std::copy(counts.begin(), counts.end(), edges.begin());
+        } else {
+            int i = 0;
+            int j = 0;
 
-        while ((iter0 != end0) && (iter1 != end1)) {
-            if (*iter0 < *iter1) edges.push_back(*(iter0++));
-            else if (*iter1 < *iter0) iter1++;
-            else { iter0++; iter1++; }
+            while ((i < counts_sz) && (j != edges_sz)) {
+                if (counts[i] < edges[j]) edges.push_back(counts[i++]);
+                else if (edges[j] < counts[i]) j++;
+                else { i++; j++; }
+            }
+
+            std::copy(counts.begin() + i, counts.end(), std::back_inserter(edges));
+            std::inplace_merge(edges.begin(), edges.begin() + edges_sz, edges.end());
         }
-
-        std::copy(iter0, end0, std::back_inserter(edges));
-
-        std::inplace_merge(edges.begin(), edges.begin() + edges_sz, edges.end());
+    } catch (...) {
+        return std::make_pair(false, "edge merging failure,...");
     }
 
     if (rank == opt.dbg) {
@@ -523,6 +630,8 @@ void merge_edges(const AppConfig& opt, Reporter& report, MPI_Comm comm,
                       << " memory: " << to_size(edges.size() * sizeof(read_pair))
                       << "/" << to_size(edges.capacity() * sizeof(read_pair)) << std::endl;
     }
+
+    return std::make_pair(true, "");
 } // merge_edges
 
 
@@ -568,9 +677,11 @@ inline std::pair<bool, std::string> extract_edges(const AppConfig& opt, AppLog& 
 
     // removed pairs without sufficient support
     filter_counts(opt, report, comm, counts);
+    counts.shrink_to_fit();
 
     // add to candidate edges
-    merge_edges(opt, report, comm, counts, edges);
+    boost::tie(res, err) = merge_edges(opt, report, comm, counts, edges);
+    if (res == false) return std::make_pair(false, err);
 
     return std::make_pair(true, "");
 } // extract_edges
@@ -600,9 +711,6 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 
     bool res = false;
     std::string err = "";
-
-    // number of edge improvements
-    unsigned int tries = 0;
 
     // main loop (we look for several evidences to get edge)
     for (unsigned int i = 0; i < end; ++i) {
@@ -656,18 +764,16 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
 
         if (opt.dbg < 0) report << ":" << std::flush;
 
-
         // check if we are getting new edges
         unsigned int ed = edges.size() - edges_sz;
         MPI_Allreduce(&ed, &edges_sz, 1, MPI_UNSIGNED, MPI_SUM, comm);
 
         if (rank == opt.dbg) {
-            report.stream << debug << "total edges added: " << edges_sz << std::endl;
+            report.stream << debug << "total edges added: " << edges_sz
+                          << " memory: " << to_size(edges_sz * sizeof(read_pair))
+                          << std::endl;
             report.stream << debug << std::endl;
         }
-
-        if (edges_sz == 0) tries++; else tries = 0;
-        if (tries == 2) break;
     } // for i
 
     MPI_Type_free(&MPI_SKETCH_ID);

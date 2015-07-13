@@ -37,6 +37,7 @@ struct AppConfig {
         is_dna = true;
         sigma = "A20";
         compress = 0;
+        validate = true;
         method = 0;
         kmer = 16;
         gaps = "[1,-2,-10,-1]";
@@ -56,6 +57,7 @@ struct AppConfig {
         params.push_back("type");
         params.push_back("sigma");
         params.push_back("compress");
+        params.push_back("validate");
         params.push_back("method");
         params.push_back("kmer");
         params.push_back("gaps");
@@ -80,6 +82,7 @@ struct AppConfig {
         std::cout << "  --type {nt|aa}     set input sequence type (default nt)\n";
         std::cout << "  --sigma type       use this compressed amino acid alphabet (default A20)\n";
         std::cout << "  --compress {0|1}   use compressed alphabet during validation (default 0)\n";
+        std::cout << "  --validate {0|1}   perform validation (default 1)\n";
         std::cout << "  --method type      use this method for validation (default 0)\n";
         std::cout << "  --kmer size        use kmers of this size (default 16)\n";
         std::cout << "  --gaps type        use these alignment parameters (default [1,-2,-10,-1])\n";
@@ -135,6 +138,9 @@ struct AppConfig {
         // from here complete config is in ext_conf
 
         try {
+            if (jaz::check_option(ext_conf, "validate", val) == true) {
+                validate = boost::lexical_cast<bool>(val);
+            }
 
             if (jaz::check_option(ext_conf, "method", val) == true) {
                 method = boost::lexical_cast<unsigned short int>(val);
@@ -258,6 +264,7 @@ struct AppConfig {
     bool is_dna;
     std::string sigma;
     bool compress;
+    bool validate;
     unsigned short int method;
     unsigned short int kmer;
     std::string gaps;
@@ -279,6 +286,7 @@ struct AppConfig {
         os << "dna = " << opt.is_dna << "\n";
         os << "sigma = " << opt.sigma << "\n";
         os << "compress = " << opt.compress << "\n";
+        os << "validate = " << opt.validate << "\n";
         os << "method = " << opt.method << "\n";
         os << "kmer = " << opt.kmer << "\n";
         os << "gaps = " << opt.gaps << "\n";
