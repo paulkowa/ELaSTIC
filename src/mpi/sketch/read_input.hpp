@@ -102,9 +102,13 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
         return std::make_pair(false, "invalid input sequence, change kmer?");
     }
 
+    unsigned long long int L = 0;
+
     for (unsigned int i = 1; i < nloc; ++i) {
         seqs[i].id = ntohl(*reinterpret_cast<uint32_t*>(&data[pos]));
         seqs[i].s = sc.decode(std::string(data.begin() + pos + 4, data.begin() + pos + index[i]));
+
+        L += seqs[i].s.size();
 
         if ((seqs[i].s.size() < opt.kmer) || (seqs[i].s.find('?') != std::string::npos)) {
             return std::make_pair(false, "invalid input sequence, change kmer?");
@@ -114,10 +118,12 @@ inline std::pair<bool, std::string> read_input(const AppConfig& opt, AppLog& log
     }
 
     // update log
+    MPI_Reduce(&L, &log.length, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, 0, comm);
     log.input = n;
 
     report << info << "found " << n << " sequences" << std::endl;
-
+    report << info << "total length " << log.length << std::endl;
+    
     return std::make_pair(true, "");
 } // read_input
 

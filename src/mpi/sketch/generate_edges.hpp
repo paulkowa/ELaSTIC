@@ -734,6 +734,7 @@ inline std::pair<bool, std::string> generate_edges(const AppConfig& opt, AppLog&
         mpe_log.stop();
 #endif // WITH_MPE
 
+
 #ifdef WITH_MPE
         mpe_log.init("group sketch_list", "red");
         mpe_log.start();

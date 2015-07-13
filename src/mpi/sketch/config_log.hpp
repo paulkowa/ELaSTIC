@@ -304,7 +304,7 @@ struct AppConfig {
 
 
 struct AppLog {
-    AppLog() : argv(), cpus(0), wtime(0), input(0), cedges(0), vedges(0) {
+    AppLog() : argv(), cpus(0), wtime(0), input(0), length(0), cedges(0), vedges(0) {
         time_t t;
         time(&t);
         date = ctime(&t);
@@ -315,6 +315,7 @@ struct AppLog {
     unsigned int cpus;
     double wtime;
     unsigned int input;
+    unsigned long long int length;
     unsigned long long int cedges;
     unsigned long long int vedges;
 
@@ -325,6 +326,7 @@ struct AppLog {
         os << "processors used: " << log.cpus << "\n";
         os << "walltime used: " << log.wtime << "\n";
         os << "input sequences: " << log.input << "\n";
+        os << "total length: " << log.length << "\n";
         os << "candidate edges: " << log.cedges << "\n";
         os << "validated edges: " << log.vedges << "\n";
         return os;
