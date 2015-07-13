@@ -173,6 +173,8 @@ void run(const AppConfig& opt, AppLog& log, Reporter& report, MPI_Comm comm) {
     if (opt.validate == true) {
         if (opt.wsq == false) boost::tie(res, err) = validate_edges(opt, log, report, comm, SL, rma_seq, edges);
         else boost::tie(res, err) = validate_edges_ws(opt, log, report, comm, SL, rma_seq, edges);
+    } else {
+        report << info << "skipping validation..." << std::endl;
     }
     double tv1 = MPI_Wtime() - t0;
 
