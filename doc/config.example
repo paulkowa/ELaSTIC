@@ -32,6 +32,8 @@ validate = 1
 # 3 = BLAST identity from global alignment with cost-free end gaps
 # 4 = BLAST identity from global alignment
 # 5 = BLAST identity from local alignment
+# 6 = CD-HIT identity from banded global alignment
+# 7 = BLAST identity from banded global alignment
 # Default: 0
 method = 0
 

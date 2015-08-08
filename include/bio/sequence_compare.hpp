@@ -55,8 +55,8 @@ namespace bio {
 
     // this code comes from jaz
     template <typename Iter1, typename Iter2, typename Pred>
-    std::size_t intersection_size(Iter1 first1, Iter1 last1, Iter2 first2, Iter2 last2, Pred pred) {
-        std::size_t S = 0;
+    int intersection_size(Iter1 first1, Iter1 last1, Iter2 first2, Iter2 last2, Pred pred) {
+        int S = 0;
 
         while ((first1 != last1) && (first2 != last2)) {
             if (pred(*first1, *first2)) ++first1;
@@ -325,7 +325,7 @@ namespace bio {
       head.erase(std::remove(head.begin(), head.end(), ' '), head.end());
 
       int len = head.size();
-      if (head[len - 1] != '*') return false;
+      if (head[head.size() - 1] != '*') return false;
 
       std::vector<signed char> matrix(len * len, 0);
 
@@ -487,22 +487,20 @@ namespace bio {
 
                 case TOP:
                     --i;
-                    path_.push_back('d');
+                    path_.push_back('D');
                     break;
 
                 case LEFT:
                     --j;
-                    path_.push_back('i');
+                    path_.push_back('I');
                     break;
 
                 case DIAG:
                     --i;
                     --j;
 
-                    if (s0[i] == s1[j]) {
-                        match++;
-                        path_.push_back('m');
-                    } else path_.push_back('s');
+                    if (s0[i] == s1[j]) match++;
+                    path_.push_back('M');
 
                     break;
               } // switch
@@ -521,8 +519,7 @@ namespace bio {
        *  Return the edit path of the last computed alignment.
        *
        *  Returns:
-       *  Edit path where 'i' means insert gap in s0, 'd' is deletion,
-       *  's' is substitution, and 'm' is match.
+       *  Edit path in the basic CIGAR format.
        */
       std::string path() {
           if (!has_path_) {
@@ -685,23 +682,21 @@ namespace bio {
                 case TOP:
                     --i;
                     sgap++;
-                    path_.push_back('d');
+                    path_.push_back('D');
                     break;
 
                 case LEFT:
                     --j;
                     sgap++;
-                    path_.push_back('i');
+                    path_.push_back('I');
                     break;
 
                 case DIAG:
                     --i;
                     --j;
 
-                    if (s0[i] == s1[j]) {
-                        match++;
-                        path_.push_back('m');
-                    } else path_.push_back('s');
+                    if (s0[i] == s1[j]) match++;
+                    path_.push_back('M');
 
                     if (!has_gap) {
                         has_gap = true;
@@ -723,8 +718,7 @@ namespace bio {
        *  Return the edit path of the last computed alignment.
        *
        *  Returns:
-       *  Edit path where 'i' means insert gap in s0, 'd' is deletion,
-       *  's' is substitution, and 'm' is match.
+       *  Edit path in the basic CIGAR format.
        */
       std::string path() {
           if (!has_path_) {
@@ -752,10 +746,430 @@ namespace bio {
   }; // class global_alignment
 
 
+  /** Class: banded_global_alignment
+   *
+   *  Functor implementing memory-efficient banded global pairwise sequence alignment
+   *  with affine gap penalty. The algorithm assumes that gaps no longer than b
+   *  will occur in the alignment. The band is adjusted if b < abs(|s0| - |s1|).
+   */
+  class banded_global_alignment : public sequence_compare<banded_global_alignment> {
+  public:
+      /** Constructor: banded_global_alignment
+       *
+       *  Parameter:
+       *  m - Match score (some positive number).
+       *  s - Substitution penalty (usually negative number).
+       *  g - Gap opening penalty (negative number).
+       *  h - Gap extension penalty (negative number).
+       *  b - Expected band size.
+       */
+      explicit banded_global_alignment(int m = 0, int s = 0, int g = 0, int h = 0, int b = 0)
+          : sub_(make_dummy_sm(m, s)), g_(g), h_(h), band_(b), lband_(b) { }
+
+      /** Constructor: banded_global_alignment
+       *
+       *  Parameter:
+       *  sm - Substitution matrix.
+       *  g -  Gap opening penalty (negative number).
+       *  h -  Gap extension penalty (negative number).
+       *  b -  Expected band size.
+       */
+      banded_global_alignment(const scoring_matrix& sm, int g, int h, int b)
+          : sub_(sm), g_(g), h_(h), band_(b), lband_(b) { }
+
+      /** Function: operator()
+       *
+       *  Compute alignment between s0 and s1.
+       *
+       *  Returns:
+       *  3-tuple (alignment score, alignment length without terminal gaps, number of matches).
+       */
+      boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
+          const int INF = 99999999;
+
+          int n = s0.size() + 1;
+          int m = s1.size() + 1;
+
+          // adjust band
+          lband_ = band_;
+
+          if (lband_ == 0) lband_ = std::max(10, std::max(n, m) / 10);
+
+          int b = std::max(n, m);
+          if (b < 2 * lband_ + 1) lband_ = (b - 1) >> 1;
+
+          b = std::abs(n - m);
+          if (lband_ < b) lband_ = b + 1;
+
+          // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j) }
+          // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
+          // I(i, j) = max{ I(i - 1, j), S(i - 1, j) + g } + h
+
+          // TODO: we can optimize S_, I_ and track_ to store only required elements
+          S_.resize(m);
+          std::fill(S_.begin(), S_.end(), -INF);
+
+          I_.resize(m);
+          std::fill(I_.begin(), I_.end(), -INF);
+
+          S_[0] = I_[0] = 0;
+
+          track_.resize(n * m);
+          std::fill(track_.begin(), track_.end(), TOP);
+
+          int beg = 0;
+          int end = std::min(m, lband_);
+
+          for (int j = 1; j < end; ++j) {
+              track_[j] = LEFT;
+              S_[j] = I_[j] = g_ + j * h_;
+          }
+
+          // int pos = 0;
+          int Sij = 0;
+
+          for (int i = 1; i < n; ++i) {
+              int Si = (i < lband_) ? g_ + i * h_ : -INF;
+              int Di = (i < lband_) ? g_ + i * h_ : -INF;
+
+              track_[i * m] = TOP;
+
+              beg = std::max(1, i - lband_);
+              end = std::min(m, i + lband_);
+
+              for (int j = beg; j < end; ++j) {
+                  Di = std::max(Di, Si + g_) + h_;
+                  I_[j] = std::max(I_[j], S_[j] + g_) + h_;
+
+                  Si = Sij + sub_(s0[i - 1], s1[j - 1]);
+
+                  // default: max in Si
+                  track_[i * m + j] = DIAG;
+
+                  if (Di < I_[j]) {
+                      if (Si < I_[j]) {
+                          // max in I_[j]
+                          Si = I_[j];
+                          track_[i * m + j] = TOP;
+                      }
+                  } else {
+                      if (Si < Di) {
+                          // max in Di
+                          Si = Di;
+                          track_[i * m + j] = LEFT;
+                      }
+                  } // if
+
+                  Sij = S_[j];
+                  S_[j] = Si;
+
+              } // for j
+
+              Sij = (i < lband_) ? g_ + i * h_ : -INF;
+
+          } // for i
+
+          // backtrack
+          int i = n - 1;
+          int j = std::min(m - 1, i + lband_ - 1);
+
+          int match = 0;
+          int length = 0;
+
+          bool has_gap = false;
+          int sgap = 0;
+          int egap = 0;
+
+          has_path_ = false;
+          path_.clear();
+
+          while ((i > 0) || (j > 0)) {
+              switch (track_[i * m + j]) {
+                case TOP:
+                    --i;
+                    sgap++;
+                    path_.push_back('D');
+                    break;
+
+                case LEFT:
+                    --j;
+                    sgap++;
+                    path_.push_back('I');
+                    break;
+
+                case DIAG:
+                    --i;
+                    --j;
+
+                    if (s0[i] == s1[j]) match++;
+                    path_.push_back('M');
+
+                    if (!has_gap) {
+                        has_gap = true;
+                        egap = sgap;
+                    }
+
+                    sgap = 0;
+                    break;
+              } // switch
+
+              length++;
+          } // while
+
+          return boost::make_tuple(S_[std::min(n - 1 + lband_ - 1, m - 1)], length - sgap - egap, match);
+      } // operator()
+
+      /** Function: path
+       *
+       *  Return the edit path of the last computed alignment.
+       *
+       *  Returns:
+       *  Edit path in the basic CIGAR format.
+       */
+      std::string path() {
+          if (!has_path_) {
+              std::reverse(path_.begin(), path_.end());
+              has_path_ = true;
+          }
+          return path_;
+      } // path
+
+      /** Function: band
+       *
+       *  Return the band size used to compute the last alignment.
+       */
+      int band() const { return lband_; }
+
+  private:
+      enum Move { TOP = 0, LEFT = 1, DIAG = 2 };
+
+      bool has_path_;
+      std::string path_;
+      std::vector<Move> track_;
+
+      std::vector<int> S_;
+      std::vector<int> I_;
+
+      scoring_matrix sub_;
+
+      int g_;
+      int h_;
+
+      int band_;
+      int lband_;
+
+  }; // class banded_global_alignment
+
+
+  /** Class: semi_global_alignment
+   *
+   *  Functor implementing memory-efficient semi-global pairwise sequence
+   *  alignment with affine gap penalty.
+   */
+  class semi_global_alignment : public sequence_compare<semi_global_alignment> {
+  public:
+      /** Constructor: semi_global_alignment
+       *
+       *  Parameter:
+       *  m - Match score (some positive number).
+       *  s - Substitution penalty (usually negative number).
+       *  g - Gap opening penalty (negative number).
+       *  h - Gap extension penalty (negative number).
+       */
+      explicit semi_global_alignment(int m = 0, int s = 0, int g = 0, int h = 0)
+          : sub_(make_dummy_sm(m, s)), g_(g), h_(h) { }
+
+      /** Constructor: semi_global_alignment
+       *
+       *  Parameter:
+       *  sm - Substitution matrix.
+       *  g -  Gap opening penalty (negative number).
+       *  h -  Gap extension penalty (negative number).
+       */
+      semi_global_alignment(const scoring_matrix& sm, int g, int h)
+          : sub_(sm), g_(g), h_(h) { }
+
+      /** Function: operator()
+       *
+       *  Compute alignment between s0 and s1.
+       *
+       *  Returns:
+       *  3-tuple (alignment score, alignment length without terminal gaps, number of matches).
+       */
+      boost::tuple<int, int, int> operator()(const std::string& s0, const std::string& s1) {
+          int n = s0.size() + 1;
+          int m = s1.size() + 1;
+
+          // S(i, j) = max{ I(i, j), D(i, j), S(i - 1, j - 1) + d(i,j) }
+          // D(i, j) = max{ D(i, j - 1), S(i, j - 1) + g } + h
+          // I(i, j) = max{ I(i - 1, j), S(i - 1, j) + g } + h
+
+          S_.resize(m, 0);
+          std::fill(S_.begin(), S_.end(), 0);
+
+          I_.resize(m, 0);
+          std::fill(I_.begin(), I_.end(), 0);
+
+          track_.resize(n * m);
+          std::fill(track_.begin(), track_.end(), TOP);
+
+          for (int j = 1; j < m; ++j) {
+              // S_[j] not set to get free cost
+              I_[j] = g_ + j * h_;
+              track_[j] = LEFT;
+          }
+
+          // max val in the last column
+          int mi = 0;
+          int me = 0;
+
+          int pos = 0;
+          int Sij = 0;
+
+          for (int i = 1; i < n; ++i) {
+              int Si = 0;
+              int Di = g_ + i * h_;
+
+              pos = i * m;
+              track_[pos] = TOP;
+
+              for (int j = 1; j < m; ++j) {
+                  pos++;
+
+                  Di = std::max(Di, Si + g_) + h_;
+                  I_[j] = std::max(I_[j], S_[j] + g_) + h_;
+
+                  Si = Sij + sub_(s0[i - 1], s1[j - 1]);
+
+                  // default: max in Si
+                  track_[pos] = DIAG;
+
+                  if (Di < I_[j]) {
+                      if (Si < I_[j]) {
+                          // max in I_[j]
+                          Si = I_[j];
+                          track_[pos] = TOP;
+                      }
+                  } else {
+                      if (Si < Di) {
+                          // max in Di
+                          Si = Di;
+                          track_[pos] = LEFT;
+                      }
+                  } // if
+
+                  Sij = S_[j];
+                  S_[j] = Si;
+
+              } // for j
+
+              if (me < Sij) {
+                  me = Sij;
+                  mi = i;
+              }
+
+              Sij = 0;
+          } // for i
+
+          // backtrack
+          int i = mi - 1;
+          int j = std::max_element(S_.begin() + 1, S_.end()) - S_.begin();
+
+          int score = 0;
+
+          int match = 0;
+          int length = 0;
+
+          bool has_gap = true;
+          int sgap = 0;
+          int egap = 0;
+
+          has_path_ = false;
+          path_ = "";
+
+          if (me <= S_[j]) {
+              score = S_[j];
+              i = n - 1;
+              path_ = std::string((m - 1) - j, 'I');
+          } else {
+              score = me;
+              j = m - 1;
+              path_ = std::string((n - 1) - i, 'D');
+          }
+
+          while ((i > 0) || (j > 0)) {
+              switch (track_[i * m + j]) {
+                case TOP:
+                    --i;
+                    sgap++;
+                    path_.push_back('D');
+                    break;
+
+                case LEFT:
+                    --j;
+                    sgap++;
+                    path_.push_back('I');
+                    break;
+
+                case DIAG:
+                    --i;
+                    --j;
+
+                    if (s0[i] == s1[j]) match++;
+                    path_.push_back('M');
+
+                    if (!has_gap) {
+                        has_gap = true;
+                        egap = sgap;
+                    }
+
+                    sgap = 0;
+                    break;
+              } // switch
+
+              length++;
+          } // while
+
+          return boost::make_tuple(score, length - sgap - egap, match);
+      } // operator()
+
+      /** Function: path
+       *
+       *  Return the edit path of the last computed alignment.
+       *
+       *  Returns:
+       *  Edit path in the basic CIGAR format.
+       */
+      std::string path() {
+          if (!has_path_) {
+              std::reverse(path_.begin(), path_.end());
+              has_path_ = true;
+          }
+          return path_;
+      } // path
+
+  private:
+      enum Move { TOP = 0, LEFT = 1, DIAG = 2 };
+
+      bool has_path_;
+      std::string path_;
+      std::vector<Move> track_;
+
+      std::vector<int> S_;
+      std::vector<int> I_;
+
+      scoring_matrix sub_;
+
+      int g_;
+      int h_;
+
+  }; // class semi_global_alignment
+
+
   /** Class: free_global_alignment
    *
    *  Functor implementing memory-efficient global pairwise sequence alignment
-   *  with cost-free end gaps affine gap penalty. Cost-free end gaps are
+   *  with cost-free end-gaps and affine gap penalty. Cost-free end-gaps are
    *  allowed only in one sequence.
    */
   class free_global_alignment : public sequence_compare<free_global_alignment> {
@@ -868,30 +1282,28 @@ namespace bio {
           int egap = length;
 
           has_path_ = false;
-          path_ = std::string(length, 'i');
+          path_ = std::string(length, 'I');
 
           while ((i > 0) || (j > 0)) {
               switch (track_[i * m + j]) {
                 case TOP:
                     --i;
                     sgap++;
-                    path_.push_back('d');
+                    path_.push_back('D');
                     break;
 
                 case LEFT:
                     --j;
                     sgap++;
-                    path_.push_back('i');
+                    path_.push_back('I');
                     break;
 
                 case DIAG:
                     --i;
                     --j;
 
-                    if (s0[i] == s1[j]) {
-                        match++;
-                        path_.push_back('m');
-                    } else path_.push_back('s');
+                    if (s0[i] == s1[j]) match++;
+                    path_.push_back('M');
 
                     if (!has_gap) {
                         has_gap = true;
@@ -913,8 +1325,7 @@ namespace bio {
        *  Return the edit path of the last computed alignment.
        *
        *  Returns:
-       *  Edit path where 'i' means insert gap in s0, 'd' is deletion,
-       *  's' is substitution, and 'm' is match.
+       *  Edit path in the basic CIGAR format.
        */
       std::string path() {
           if (!has_path_) {
@@ -940,6 +1351,59 @@ namespace bio {
       int h_;
 
   }; // class free_global_alignment
+
+
+  inline std::ostream& print_alignment(std::ostream& os,
+                                       const std::string& s0,
+                                       const std::string& s1,
+                                       const std::string& path,
+                                       const std::pair<int, int>& pos = std::make_pair(0, 0)) {
+      int l = path.size();
+
+      int pos0 = pos.first;
+      int pos1 = pos.second;
+
+      for (int i = 0; i < l; ++i) {
+          if (path[i] == 'I') os << '-';
+          else os << s0[pos0++];
+      }
+
+      os << "\n";
+
+      pos0 = pos.first;
+      pos1 = pos.second;
+
+      for (int i = 0; i < l; ++i) {
+          switch (path[i]) {
+            case 'D':
+                pos0++;
+                os << ' ';
+                break;
+            case 'I':
+                pos1++;
+                os << ' ';
+                break;
+            case 'M':
+                if (s0[pos0] == s1[pos1]) os << '|';
+                else os << ' ';
+                pos0++;
+                pos1++;
+                break;
+          } // switch
+      } // for i
+
+      os << "\n";
+
+      pos1 = pos.second;
+
+      for (int i = 0; i < l; ++i) {
+          if (path[i] == 'D') os << '-';
+          else os << s1[pos1++];
+      }
+
+      return os;
+  } // print_alignment
+
 
 
   /** Class: d2
@@ -1145,38 +1609,6 @@ namespace bio {
       std::vector<std::string> index1_;
 
   }; // spaced_seeds_fraction
-
-
-
-  inline std::ostream& print_alignment(std::ostream& os,
-                                       const std::string& s0,
-                                       const std::string& s1,
-                                       const std::string& path) {
-      int l = path.size();
-      int pos = 0;
-
-      for (int i = 0; i < l; ++i) {
-          if (path[i] == 'i') os << '-';
-          else os << s0[pos++];
-      }
-
-      os << "\n";
-
-      for (int i = 0; i < l; ++i) {
-          if (path[i] == 'm') os << '|';
-          else os << ' ';
-      }
-
-      os << "\n";
-      pos = 0;
-
-      for (int i = 0; i < l; ++i) {
-          if (path[i] == 'd') os << '-';
-          else os << s1[pos++];
-      }
-
-      return os;
-  } // print_alignment
 
 } // namespace bio
 

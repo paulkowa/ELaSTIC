@@ -49,9 +49,8 @@ public:
                 cfe_align_ = bio::free_global_alignment(sm, g, h);
             } else if ((opt.method == 2) || (opt.method == 4)) {
                 align_ = bio::global_alignment(sm, g, h);
-            } else {
-                loc_align_ = bio::local_alignment(sm, g, h);
-            }
+            } else if (opt.method == 5) loc_align_ = bio::local_alignment(sm, g, h);
+            else balign_ = bio::banded_global_alignment(sm, g, h, 3 * opt.kmer);
         }
     } // compare_method
 
@@ -64,12 +63,13 @@ public:
         boost::tuple<int, int, int> res = boost::make_tuple(-1, -1, -1);
 
         if (method_ == 0) res = kf_(*sa, *sb);
-        else if (method_ == 5) res = loc_align_(*sa, *sb);
         else if ((method_ == 1) || (method_ == 3)) res = cfe_align_(*sa, *sb);
-        else res = align_(*sa, *sb);
+        else if ((method_ == 2) || (method_ == 4)) res = res = align_(*sa, *sb);
+        else if (method_ == 5) res = loc_align_(*sa, *sb);
+        else res = balign_(*sa, *sb);
 
         // correction to get score for CD-HIT identity score
-        if ((method_ == 1) || (method_ == 2)) boost::get<1>(res) = std::min(s0.size(), s1.size());
+        if ((method_ == 1) || (method_ == 2) || (method_ == 6)) boost::get<1>(res) = std::min(s0.size(), s1.size());
 
         return res;
     } // operator()
@@ -79,6 +79,7 @@ private:
     bio::global_alignment align_;
     bio::free_global_alignment cfe_align_;
     bio::local_alignment loc_align_;
+    bio::banded_global_alignment balign_;
 
     unsigned int method_;
 

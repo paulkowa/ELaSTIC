@@ -1,3 +1,9 @@
+# ELaSTIC
+
+Author: Jaroslaw Zola <jaroslaw.zola@hush.com>
+
+## About
+
 ELaSTIC is a software suite for a rapid identification and clustering of
 similar sequences from large-scale biological sequence collections
 without explicit all-pairs alignment.
