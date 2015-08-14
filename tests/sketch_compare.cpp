@@ -77,7 +77,6 @@ void process(AppConfig opt, const SequenceList& SL, Ostream& of) {
     //contains all hashed sketches
     //unsigned 64 bit ints
     std::vector<uint64_t> sketch0;
-
     std::vector<uint64_t> sketch1;
 
     //Kmer vectors
@@ -120,14 +119,14 @@ void process(AppConfig opt, const SequenceList& SL, Ostream& of) {
 	if ((s0.size() < opt.kmer) || (s1.size() < opt.kmer)) continue;
 
     //generate shingles for input sequences
-	shingles(opt, s0, h, shingles0);
-	shingles(opt, s1, h, shingles1);
-
-	//sketches(shingles0, NF, sketch0);
-	//sketches(shingles1, NF, sketch1);
+    shingles(opt, s0, h, shingles0);
+    shingles(opt, s1, h, shingles1);
+    
+    //sketches(shingles0, NF, sketch0);
+    //sketches(shingles1, NF, sketch1);
 	
     //sketches2(opt, shingles0, 0, sketch0);
-	//sketches2(opt, shingles1, 0, sketch1);
+    //sketches2(opt, shingles1, 0, sketch1);
 
     xorsketches(shingles0, NF, sketch0);
     xorsketches(shingles1, NF, sketch1);
@@ -144,7 +143,7 @@ void process(AppConfig opt, const SequenceList& SL, Ostream& of) {
 	for (int j = 0; j < sketch1.size(); ++j) sketch2seq[sketch1[j]].push_back(2 * i + 1);
 
     //calculate containment
-	int is = jaz::intersection_size(sketch0.begin(), sketch0.end(), sketch1.begin(), sketch1.end());
+    int is = jaz::intersection_size(sketch0.begin(), sketch0.end(), sketch1.begin(), sketch1.end());
     double contain = (1.0 * is) / std::min(sketch0.size(), sketch1.size());
 
     //calculate jaccard
@@ -152,19 +151,19 @@ void process(AppConfig opt, const SequenceList& SL, Ostream& of) {
     double  jacc = (1.0 * jc / ((sketch0.size() + sketch1.size())));
 
     //calculate actual shared kmer fraction
-	auto ki = comp(s0, s1);
+    auto ki = comp(s0, s1);
     double ksim = 1.0 * boost::get<0>(ki) / std::min(boost::get<1>(ki), boost::get<2>(ki));
 
     //calculate semi_global_alignment
-	auto sga = sgalign(s0, s1);
-
-	S0 += ksim;
-	S1 += contain;
+    auto sga = sgalign(s0, s1);
+    
+    S0 += ksim;
+    S1 += contain;
     S2 += jacc;
-	S01 += (ksim * contain);
+    S01 += (ksim * contain);
     S02 += (ksim * jacc);
-	S0_2 += (ksim * ksim);
-	S1_2 += (contain * contain);
+    S0_2 += (ksim * ksim);
+    S1_2 += (contain * contain);
     S2_2 += (jacc * jacc);
 
     of << contain << " " << jacc << " " << boost::get<0>(sga) << " " << boost::get<1>(sga) << " " << boost::get<2>(sga) << std::endl;
